@@ -27,8 +27,9 @@
 
             <div class="magic-link-group">
                 <label>Email Address</label>
-                <input type="email" placeholder="name@company.com" />
-                <button (click)="magicLinkComingSoon()">Send Magic Link</button>
+                <input type="email" placeholder="name@company.com" [(ngModel)]="email" [disabled]="isSending" />
+                <button (click)="sendMagicLink()" [disabled]="isSending">{{ isSending ? 'Sending Link...' : 'Send Magic
+                    Link' }}</button>
             </div>
         </div>
 
