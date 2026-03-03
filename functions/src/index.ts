@@ -396,3 +396,56 @@ export const generateStudentInsights = onCall(async (request) => {
         throw new HttpsError("internal", `Vertex AI failed: ${e.message}`);
     }
 });
+
+/**
+ * Cloud Function to directly query or summarize an uploaded student document on demand.
+ * This dynamically utilizes Gemini's native File API integrations simply by translating
+ * the existing Firebase Storage mapping into a vector-ready GS:// URI.
+ */
+export const queryStudentDocument = onCall(async (request) => {
+    const { studentUid, fileName, query } = request.data;
+    if (!studentUid || !fileName || !query) {
+        throw new HttpsError("invalid-argument", "Missing uid, fileName, or query");
+    }
+
+    try {
+        console.log(`[queryStudentDocument] Initiating Gemini File Parse for: ${fileName}`);
+        const filePath = `uploads/${studentUid}/${fileName}`;
+        const bucket = admin.storage().bucket();
+        const [metadata] = await bucket.file(filePath).getMetadata();
+        const mimeType = metadata.contentType || 'application/pdf';
+
+        // Native mapping to Vertex AI without requiring secondary Vector DB or local copies
+        const fileUri = `gs://${bucket.name}/${filePath}`;
+
+        const vertex_ai = new VertexAI({ project: process.env.GCLOUD_PROJECT || 'algoworks-dev', location: 'us-central1' });
+        const model = 'gemini-2.5-flash';
+
+        const generativeModel = vertex_ai.preview.getGenerativeModel({
+            model: model,
+            generationConfig: {
+                maxOutputTokens: 2048,
+                temperature: 0.2
+            }
+        });
+
+        // Pack the multimodal prompt with the direct GS URI and the user's natural language question
+        const reqPayload = {
+            contents: [{
+                role: 'user',
+                parts: [
+                    { fileData: { fileUri, mimeType } },
+                    { text: `You are an expert financial aid and academic document reviewer. Read the attached file and explicitly answer the following question or perform the summary requested. \n\nQuery: "${query}"\n\nOnly return the plain text answer.` }
+                ]
+            }]
+        };
+
+        const resp = await generativeModel.generateContent(reqPayload);
+        const responseText = resp.response.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+
+        return { success: true, answer: responseText.trim() };
+    } catch (e: any) {
+        console.error("[queryStudentDocument] Vertex AI Document Parsing Failed", e);
+        throw new HttpsError("internal", `Vertex AI Parsing Error: ${e.message}`);
+    }
+});

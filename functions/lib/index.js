@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateStudentInsights = exports.sendgridWebhook = exports.twilioWebhook = exports.sendOpportunitySms = exports.sendOpportunityEmail = void 0;
+exports.queryStudentDocument = exports.generateStudentInsights = exports.sendgridWebhook = exports.twilioWebhook = exports.sendOpportunitySms = exports.sendOpportunityEmail = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const https_2 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
@@ -387,6 +387,53 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
     catch (e) {
         console.error("[generateStudentInsights] Vertex AI Generation Failed", e);
         throw new https_1.HttpsError("internal", `Vertex AI failed: ${e.message}`);
+    }
+});
+/**
+ * Cloud Function to directly query or summarize an uploaded student document on demand.
+ * This dynamically utilizes Gemini's native File API integrations simply by translating
+ * the existing Firebase Storage mapping into a vector-ready GS:// URI.
+ */
+exports.queryStudentDocument = (0, https_1.onCall)(async (request) => {
+    var _a, _b, _c, _d, _e;
+    const { studentUid, fileName, query } = request.data;
+    if (!studentUid || !fileName || !query) {
+        throw new https_1.HttpsError("invalid-argument", "Missing uid, fileName, or query");
+    }
+    try {
+        console.log(`[queryStudentDocument] Initiating Gemini File Parse for: ${fileName}`);
+        const filePath = `uploads/${studentUid}/${fileName}`;
+        const bucket = admin.storage().bucket();
+        const [metadata] = await bucket.file(filePath).getMetadata();
+        const mimeType = metadata.contentType || 'application/pdf';
+        // Native mapping to Vertex AI without requiring secondary Vector DB or local copies
+        const fileUri = `gs://${bucket.name}/${filePath}`;
+        const vertex_ai = new vertexai_1.VertexAI({ project: process.env.GCLOUD_PROJECT || 'algoworks-dev', location: 'us-central1' });
+        const model = 'gemini-2.5-flash';
+        const generativeModel = vertex_ai.preview.getGenerativeModel({
+            model: model,
+            generationConfig: {
+                maxOutputTokens: 2048,
+                temperature: 0.2
+            }
+        });
+        // Pack the multimodal prompt with the direct GS URI and the user's natural language question
+        const reqPayload = {
+            contents: [{
+                    role: 'user',
+                    parts: [
+                        { fileData: { fileUri, mimeType } },
+                        { text: `You are an expert financial aid and academic document reviewer. Read the attached file and explicitly answer the following question or perform the summary requested. \n\nQuery: "${query}"\n\nOnly return the plain text answer.` }
+                    ]
+                }]
+        };
+        const resp = await generativeModel.generateContent(reqPayload);
+        const responseText = ((_e = (_d = (_c = (_b = (_a = resp.response.candidates) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c === void 0 ? void 0 : _c.parts) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.text) || "No response generated.";
+        return { success: true, answer: responseText.trim() };
+    }
+    catch (e) {
+        console.error("[queryStudentDocument] Vertex AI Document Parsing Failed", e);
+        throw new https_1.HttpsError("internal", `Vertex AI Parsing Error: ${e.message}`);
     }
 });
 //# sourceMappingURL=index.js.map

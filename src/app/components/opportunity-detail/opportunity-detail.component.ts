@@ -130,6 +130,43 @@ export class OpportunityDetailComponent {
   uploadedDocuments = signal<{ name: string, url: string, createdAt?: string }[]>([]);
   private storage = inject(Storage);
 
+  selectedDocForAi = signal<{ name: string, url: string } | null>(null);
+  docQuery = signal('');
+  docAiResponse = signal('');
+  isQueryingDoc = signal(false);
+
+  selectDocumentForAi(doc: { name: string, url: string }) {
+    if (this.selectedDocForAi()?.name === doc.name) {
+      this.selectedDocForAi.set(null); // toggle off
+    } else {
+      this.selectedDocForAi.set(doc);
+      this.docAiResponse.set('');
+      this.docQuery.set('');
+    }
+  }
+
+  async queryDocumentAI() {
+    const s = this.student();
+    const doc = this.selectedDocForAi();
+    const query = this.docQuery();
+    if (!s || !doc || !query) return;
+
+    this.isQueryingDoc.set(true);
+    this.docAiResponse.set('');
+    try {
+      const result = await this.studentService.queryDocumentInfo(s.uid, doc.name, query);
+      if (result && result.answer) {
+        this.docAiResponse.set(result.answer);
+      } else {
+        this.docAiResponse.set("No valid response gathered from document.");
+      }
+    } catch (e: any) {
+      this.docAiResponse.set("Error: " + e.message);
+    } finally {
+      this.isQueryingDoc.set(false);
+    }
+  }
+
   constructor() {
     effect(() => {
       const s = this.student();

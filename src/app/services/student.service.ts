@@ -71,6 +71,17 @@ export class StudentService {
     }
   }
 
+  async queryDocumentInfo(studentUid: string, fileName: string, query: string) {
+    const callable = httpsCallable<{ studentUid: string, fileName: string, query: string }, any>(this.functions, 'queryStudentDocument');
+    try {
+      const response = await callable({ studentUid, fileName, query });
+      return response.data;
+    } catch (e) {
+      console.error('Failed to intelligently query document', e);
+      throw e;
+    }
+  }
+
   async initializeDummyData() {
     const dummyStudents: Student[] = [
       {

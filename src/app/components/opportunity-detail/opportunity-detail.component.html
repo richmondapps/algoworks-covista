@@ -374,15 +374,49 @@
                     <ul style="list-style:none; padding:0; display:flex; gap:10px; flex-direction:column;">
                         @for (doc of uploadedDocuments(); track doc.name) {
                         <li style="display:flex; flex-direction:column; gap:4px; padding:10px; border:1px solid #eee; border-radius:4px; cursor:pointer; background: #fff;"
-                            (click)="false" onclick="window.open(this.getAttribute('data-url'), '_blank')"
-                            [attr.data-url]="doc.url">
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <span class="material-icons text-green" style="font-size:18px;">insert_drive_file</span>
-                                <span style="font-size:12px; font-weight:500;">{{ doc.name }}</span>
+                            (click)="selectDocumentForAi(doc)">
+                            <div style="display:flex; justify-content: space-between; align-items:flex-start;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span class="material-icons text-green"
+                                        style="font-size:18px;">insert_drive_file</span>
+                                    <span style="font-size:12px; font-weight:500;">{{ doc.name }}</span>
+                                </div>
+                                <a [href]="doc.url" target="_blank"
+                                    style="font-size: 10px; color: #0176d3; text-decoration: none; display: flex; align-items: center; gap: 2px;"
+                                    (click)="$event.stopPropagation()">View File <span class="material-icons"
+                                        style="font-size: 10px;">open_in_new</span></a>
                             </div>
                             @if (doc.createdAt) {
                             <div style="font-size: 10px; color: #747474; margin-left: 28px;">
                                 Uploaded on {{ doc.createdAt | date:'medium' }}
+                            </div>
+                            }
+
+                            @if (selectedDocForAi()?.name === doc.name) {
+                            <div style="margin-top: 10px; margin-left: 28px; padding-top: 10px; border-top: 1px dashed #ccc;"
+                                (click)="$event.stopPropagation()">
+                                <div
+                                    style="font-size: 10px; font-weight: 600; color: #1b1b1b; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                                    <span class="material-icons"
+                                        style="font-size: 12px; color: #0176d3;">auto_awesome</span>
+                                    Vertex AI Document Analysis
+                                </div>
+                                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                    <input type="text" [(ngModel)]="docQuery"
+                                        placeholder="Ask Gemini to summarize or extract values from this document..."
+                                        style="flex: 1; padding: 6px 8px; font-size: 11px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;">
+                                    <button class="sf-button-rounded" [disabled]="isQueryingDoc()"
+                                        (click)="queryDocumentAI()" style="padding: 4px 10px; font-size: 10px;">
+                                        {{ isQueryingDoc() ? 'Scanning...' : 'Ask AI' }}
+                                    </button>
+                                </div>
+                                @if (docAiResponse()) {
+                                <div
+                                    style="background: #f0f7fe; border: 1px solid #cce4f6; color: #1b1b1b; padding: 10px; border-radius: 4px; font-size: 11px; line-height: 1.5; margin-top: 8px;">
+                                    <strong>Response:</strong><br />
+                                    {{ docAiResponse() }}
+                                </div>
+                                }
                             </div>
                             }
                         </li>
