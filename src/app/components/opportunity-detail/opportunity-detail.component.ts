@@ -157,6 +157,8 @@ export class OpportunityDetailComponent {
         alert('Failed to send email. Check console.');
       }
     } else if (action.type === 'SMS') {
+      alert("A2P 10DLC Compliance Notice:\n\nIn accordance with new FCC regulations and carrier requirements, Twilio SMS campaigns are currently paused pending active brand and campaign registration approval. Expected resolution: 2-4 Days.");
+
       try {
         console.log('Invoking sendOpportunitySms Cloud Function...');
         const functions = getFunctions();

@@ -54,7 +54,7 @@
                     <div class="title-left">
                         <span class="material-icons spark-icon">auto_awesome</span>
                         <h3>AI Overview <span style="font-size: 11px; font-weight: normal; color: #747474;">(Vertex AI
-                                Gemini 3.1 Pro Preview)</span></h3>
+                                Gemini 2.5 Flash)</span></h3>
                     </div>
                     @if (!student.aiInsights) {
                     <button class="sf-outline-btn" style="border-color: #0176d3; color: #0176d3;"
@@ -297,8 +297,9 @@
                                 uploadedDocuments().length || 0 }})</span></span>
                     </div>
                     <div class="acc-right">
-                        <span class="material-icons progress-icon-circle text-green">data_usage</span>
-                        <span>Documents Complete</span>
+                        <span class="material-icons progress-icon-circle text-green"
+                            [ngClass]="uploadedDocuments().length > 0 ? 'text-green' : 'text-orange'">data_usage</span>
+                        <span>{{ uploadedDocuments().length > 0 ? 'Complete' : 'Missing' }}</span>
                     </div>
                 </div>
                 @if (accordions()['docs']) {
