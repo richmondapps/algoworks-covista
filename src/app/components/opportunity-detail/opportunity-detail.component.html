@@ -1,242 +1,290 @@
 @if (student(); as student) {
-<div class="detail-page">
-    <div class="header">
-        <div class="title-area">
-            <a routerLink="/dashboard" class="action-btn back-btn">
-                <span class="material-icons">arrow_back</span> Back
-            </a>
-            <h2>{{ student.name }}</h2>
-            <span class="status-badge" [ngClass]="student.riskIndicator.toLowerCase()">{{ student.riskIndicator }}
-                Risk</span>
+<div class="detail-page sf-theme">
+    <div class="top-nav-mock">
+        <button class="action-btn back-btn" routerLink="/dashboard">
+            <span class="material-icons">arrow_back</span>
+        </button>
+        <span class="nav-text">Previous &nbsp; &lt; &nbsp; &gt; &nbsp; Next</span>
+    </div>
+
+    <!-- Header Card -->
+    <div class="sf-panel header-card">
+        <div class="title-row">
+            <div class="icons-left">
+                <span class="material-icons star-icon">star_border</span>
+                <span class="material-icons copy-icon">content_copy</span>
+                <span class="material-icons people-icon">people</span>
+            </div>
+            <h2>{{ student.name }} - BS in Elementary Education (Licensure)</h2>
+        </div>
+
+        <div class="meta-row">
+            <span class="badge applicant">Applicant</span>
+            <span class="badge qualified">Qualified</span>
+            <span class="material-icons info-icon">info</span>
+
+            <div class="meta-item">
+                <span class="material-icons">schedule</span>
+                02:13 PM Central Standard Time
+            </div>
+            <div class="meta-item">
+                <span class="material-icons">location_on</span>
+                Georgia, U.S. | EST
+            </div>
+            <div class="meta-item mail-wrap">
+                <span class="material-icons icon-green">mail</span>
+                {{ student.email }}
+            </div>
+            <div class="meta-item phone-wrap">
+                <span class="material-icons icon-blue">call</span>
+                <span class="material-icons icon-dark">sms</span>
+                {{ student.phone }}
+            </div>
         </div>
     </div>
 
-    <div class="layout-grid">
+    <!-- Layout Grid -->
+    <div class="sf-layout-grid">
         <!-- Left Column -->
-        <div class="left-col stack-gap">
+        <div class="left-col sf-stack-gap">
 
-            <!-- Student Profile -->
-            <div class="glass-panel profile-card">
-                <div class="card-header-inline">
-                    <h3>Contact Profile</h3>
-                    @if (!isEditingContext()) {
-                    <button class="action-btn small-btn" (click)="startEdit(student)">
-                        <span class="material-icons">edit</span> Edit
-                    </button>
-                    }
-                </div>
-
-                @if (!isEditingContext()) {
-                <div>
-                    <p><span class="material-icons">email</span> {{ student.email }}</p>
-                    <p><span class="material-icons">phone</span> {{ student.phone }}</p>
-                </div>
-                }
-
-                @if (isEditingContext()) {
-                <div class="edit-form">
-                    <div class="form-group">
-                        <span class="material-icons">email</span>
-                        <input type="email" [ngModel]="editEmail()" (ngModelChange)="editEmail.set($event)"
-                            class="glass-input" placeholder="Email" />
+            <!-- AI Overview -->
+            <div class="sf-panel expandable-card has-border-accent">
+                <div class="card-title-row">
+                    <div class="title-left">
+                        <span class="material-icons spark-icon">auto_awesome</span>
+                        <h3>AI Overview</h3>
                     </div>
-                    <div class="form-group">
-                        <span class="material-icons">phone</span>
-                        <input type="tel" [ngModel]="editPhone()" (ngModelChange)="editPhone.set($event)"
-                            class="glass-input" placeholder="Phone" />
-                    </div>
-                    <div class="form-actions">
-                        <button class="action-btn small-btn cancel-btn" (click)="cancelEdit()">Cancel</button>
-                        <button class="primary-btn small-btn" (click)="saveEdit(student)">Save</button>
-                    </div>
+                    <span class="material-icons expand-icon">expand_less</span>
                 </div>
-                }
+                <div class="card-content">
+                    <p class="summary-text line-height-spaced">
+                        Narrative summary of the student's current status, including anything we know about recent
+                        contact and recent actions. Lorem ipsum dolor sit amet, consectetur adipiscing elit
+                        <span class="highlight-badge-pill">Missing official transcript</span> tempor incididunt ut
+                        labore et dolore magna aliqua.
+                    </p>
+                </div>
             </div>
 
-            <!-- Quick Communication & Insights Stack -->
-            <div class="glass-panel" style="padding: 20px;">
-                <h3 style="margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
-                    Email Engagement</h3>
-                <div class="engagement-stats">
-                    <div class="stat">
-                        <label>Emails Sent</label>
-                        <div class="value">{{ student.stats?.emailsSent || 0 }}</div>
+            <!-- Next Best Actions -->
+            <div class="sf-section-container">
+                <h3 class="sf-section-heading">Next Best Actions</h3>
+
+                <div class="sf-card light-blue-bg">
+                    <div class="nba-header">
+                        <h4>Official transcript needed</h4>
+                        <span class="urgent-badge">Urgent!</span>
                     </div>
-                    <div class="stat">
-                        <label>Email Opens</label>
-                        <div class="value">{{ student.stats?.emailOpens || 0 }}</div>
-                    </div>
+                    <ul class="nba-list">
+                        <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit</li>
+                        <li>Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua</li>
+                    </ul>
+                    <button class="sf-outline-btn">Capella University Official Transcript Request &gt;</button>
                 </div>
-                @if (!isEditingContext()) {
-                <button style="width: 100%; margin-top: 15px;" class="primary-btn small-btn"
-                    (click)="triggerCommunication(student, { type: 'Email' })">
-                    <span class="material-icons"
-                        style="font-size: 16px; margin-right: 5px; vertical-align: middle;">email</span> Send Manual
-                    Email
-                </button>
-                }
+
+                <div class="sf-card light-gray-bg">
+                    <div class="nba-header">
+                        <h4>WOWW - first module completed</h4>
+                    </div>
+                    <ul class="nba-list">
+                        <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit</li>
+                        <li>Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua</li>
+                    </ul>
+                    <button class="sf-outline-btn">WOWW Link &gt;</button>
+                </div>
             </div>
 
-            <div class="glass-panel" style="padding: 20px;">
-                <h3 style="margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
-                    SMS Engagement</h3>
-                <div class="engagement-stats">
-                    <div class="stat">
-                        <label>SMS Sent</label>
-                        <div class="value">{{ student.stats?.smsSent || 0 }}</div>
-                    </div>
-                    <div class="stat">
-                        <label>SMS Clicks</label>
-                        <div class="value">{{ student.stats?.smsClicks || 0 }}</div>
-                    </div>
-                </div>
-                @if (!isEditingContext()) {
-                <button style="width: 100%; margin-top: 15px;" class="primary-btn small-btn"
-                    (click)="triggerCommunication(student, { type: 'SMS' })">
-                    <span class="material-icons"
-                        style="font-size: 16px; margin-right: 5px; vertical-align: middle;">sms</span> Send Manual
-                    SMS
-                </button>
-                }
-            </div>
+            <!-- Generate Personalized Outreach -->
+            <div class="sf-section-container">
+                <h3 class="sf-section-heading">Generate Personalized Outreach</h3>
 
-            <!-- Signals & Context -->
-            <div class="glass-panel risk-card">
-                <h3>Risk and Context Signals</h3>
-                <ul class="signal-list">
-                    <li>
-                        <span class="material-icons">history</span>
-                        <div class="info">
-                            <label>Time since reserve</label>
-                            <span>{{ student.timeSinceReserveDays }} Days</span>
+                <div class="sf-card white-bg with-border">
+                    <div class="outreach-header">
+                        <h4>Create Email Message</h4>
+                        <p>Emails are personalized based on lorem ipsum dolor sit amet consectetur.</p>
+                    </div>
+                    <div class="email-box">
+                        <p>Hi {{ student.name.split(' ')[0] }},</p>
+                        <p>Lorem ipsum dolor sit amet consectetur adipiscing elit, sed do eiusmod tempor incididunt ut
+                            labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco
+                            laboris nisi ut aliquip ex ea commodo consequat.</p>
+                        <ul>
+                            <li>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat
+                                nulla pariatur.</li>
+                            <li>Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt
+                                mollit anim id est laborum.</li>
+                        </ul>
+                        <p>Best,<br />Jane Doe</p>
+                        <div class="btn-right">
+                            <button class="sf-button-rounded"
+                                (click)="triggerCommunication(student, { type: 'Email' })">Copy Email</button>
                         </div>
-                    </li>
-                    <li>
-                        <span class="material-icons">event</span>
-                        <div class="info">
-                            <label>Time until class start</label>
-                            <span [class.danger]="student.timeUntilClassStartDays < 15">{{
-                                student.timeUntilClassStartDays }} Days</span>
-                        </div>
-                    </li>
-                    <li>
-                        <span class="material-icons">trending_up</span>
-                        <div class="info">
-                            <label>Current Engagement</label>
-                            <span>{{ student.engagementLevel }}</span>
-                        </div>
-                    </li>
-                </ul>
+                    </div>
+                </div>
+
+                <div class="sf-card white-bg with-border row-layout">
+                    <div class="outreach-header no-margin">
+                        <h4>Create SMS Message</h4>
+                        <p>Messages are personalized based on lorem ipsum dolor sit amet consectetur.</p>
+                    </div>
+                    <button class="sf-button-outline-blue"
+                        (click)="triggerCommunication(student, { type: 'SMS' })">Generate SMS</button>
+                </div>
             </div>
+
         </div>
 
-        <div class="right-col stack-gap">
-            <!-- Personalized Readiness Checklist -->
-            <div class="glass-panel checklist-card">
-                <div class="card-header">
-                    <h3>Readiness Checklist</h3>
-                    <div class="progress-wrapper">
-                        <span>{{ getOverallProgress(student) }}% Complete</span>
-                        <div class="progress-bar">
-                            <div class="fill" [style.width.%]="getOverallProgress(student)"></div>
-                        </div>
+        <!-- Right Column -->
+        <div class="right-col sf-stack-gap">
+            <!-- Process Path -->
+            <div class="sf-panel process-path-container">
+                <div class="path-step active">
+                    <div class="step-label">New</div>
+                    <div class="step-date">12/21/24 06:32 PM EST</div>
+                </div>
+                <div class="path-step active">
+                    <div class="step-label">Contacted</div>
+                    <div class="step-date">12/21/24 06:32 PM EST</div>
+                </div>
+                <div class="path-step active completed">
+                    <div class="step-label">Qualified Interview <span
+                            class="material-icons small-icon text-green">check_circle</span></div>
+                    <div class="step-date">12/21/24 06:32 PM EST</div>
+                </div>
+                <div class="path-step current">
+                    <div class="step-label">Application Started <span class="material-icons small-icon">adjust</span>
+                    </div>
+                    <div class="step-date">12/21/24 06:32 PM EST</div>
+                </div>
+                <div class="path-step pending">Application Complete</div>
+                <div class="path-step pending">RA Case Submitted</div>
+                <div class="path-step pending">Admittance Offer</div>
+            </div>
+
+            <!-- Stats Table -->
+            <div class="sf-panel no-pad">
+                <table class="sf-stats-table">
+                    <thead>
+                        <tr>
+                            <th>Age</th>
+                            <th>Calls</th>
+                            <th>SMSs</th>
+                            <th>Chats</th>
+                            <th>Emails</th>
+                            <th>Total</th>
+                            <th>Last 2 Way Contact</th>
+                            <th>Last Outreach</th>
+                            <th>Next Task Due</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>4</td>
+                            <td>3</td>
+                            <td>1</td>
+                            <td></td>
+                            <td>1</td>
+                            <td>6</td>
+                            <td></td>
+                            <td>2/3/2026 10:33 AM</td>
+                            <td>2/5/2026</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Quick Notes -->
+            <div class="sf-panel">
+                <div class="sf-quick-notes">
+                    <h3 class="sf-notes-title">QUICK NOTES</h3>
+                    <textarea class="sf-notes-area" rows="2"></textarea>
+                    <div class="sf-text-right">
+                        <a href="#" class="sf-expand-link">Expand All</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Accordions -->
+            <div class="sf-accordions-list">
+                <div class="sf-accordion-item">
+                    <div class="acc-left">
+                        <span class="material-icons">chevron_right</span>
+                        <span class="acc-title">TASK NOTES HISTORY</span>
+                    </div>
+                </div>
+                <div class="sf-accordion-item">
+                    <div class="acc-left">
+                        <span class="material-icons">chevron_right</span>
+                        <span class="acc-title">CASES</span>
                     </div>
                 </div>
 
-                <ul class="check-items">
-                    @for (item of student.checklist; track item.id) {
-                    <li class="check-item">
-                        <div class="icon-stat">
-                            @if (item.status === 'Complete') {
-                            <span class="material-icons complete">check_circle</span>
-                            }
-                            @if (item.status === 'Pending') {
-                            <span class="material-icons pending">radio_button_unchecked</span>
-                            }
-                            @if (item.status === 'Missing') {
-                            <span class="material-icons missing">error</span>
-                            }
-                        </div>
-                        <div class="details">
-                            <h4>{{ item.name }}</h4>
-                            @if (item.status !== 'Complete') {
-                            <p>Due in {{ daysRemaining(item.dueDate) }} days</p>
-                            }
-                        </div>
-                        <span class="status-badge" [ngClass]="item.status.toLowerCase()">{{ item.status }}</span>
-                    </li>
-                    }
-                </ul>
-            </div>
-
-            <!-- Uploaded Documents Viewer -->
-            <div class="glass-panel checklist-card">
-                <div class="card-header">
-                    <h3>Uploaded Documents</h3>
+                <div class="sf-accordion-item with-stats">
+                    <div class="acc-left">
+                        <span class="material-icons">chevron_right</span>
+                        <span class="acc-title">DOCUMENTS</span>
+                    </div>
+                    <div class="acc-right">
+                        <span class="material-icons progress-icon-circle text-green">data_usage</span>
+                        <span>1/5 Documents Complete</span>
+                    </div>
                 </div>
 
+                <div class="sf-accordion-item with-stats">
+                    <div class="acc-left">
+                        <span class="material-icons">chevron_right</span>
+                        <span class="acc-title">APPLICATION PROGRESSION</span>
+                    </div>
+                    <div class="acc-right">
+                        <span class="material-icons progress-icon-circle text-green">data_usage</span>
+                        <span>50% Completed</span>
+                    </div>
+                </div>
+
+                <div class="sf-accordion-item with-stats">
+                    <div class="acc-left">
+                        <span class="material-icons">chevron_right</span>
+                        <span class="acc-title">RETENTION CHECKLIST</span>
+                    </div>
+                    <div class="acc-right">
+                        <span class="material-icons progress-icon-circle text-green">data_usage</span>
+                        <span>50% Completed</span>
+                    </div>
+                </div>
+
+                <div class="sf-accordion-item with-stats">
+                    <div class="acc-left">
+                        <span class="material-icons">chevron_right</span>
+                        <span class="acc-title">FUNDING & OFFERS</span>
+                    </div>
+                    <div class="acc-right error">
+                        <span class="material-icons warning-icon text-orange">warning</span>
+                        <span class="error-text">Incomplete FA Application</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Restored old components temporarily at the bottom to preserve hidden logic functionality like uploads viewer just in case -->
+            <div class="sf-panel" style="margin-top:20px;">
+                <h3 style="font-size:14px; font-weight:600; margin-bottom:10px; color:#333;">Raw Uploaded Documents
+                    (From Original)</h3>
                 @if (uploadedDocuments().length > 0) {
-                <ul class="check-items" style="margin-top: 15px;">
+                <ul style="list-style:none; padding:0; display:flex; gap:10px; flex-direction:column;">
                     @for (doc of uploadedDocuments(); track doc.name) {
-                    <li class="check-item" style="cursor: pointer;" (click)="false"
-                        onclick="window.open(this.getAttribute('data-url'), '_blank')" [attr.data-url]="doc.url">
-                        <div class="icon-stat">
-                            <span class="material-icons complete">insert_drive_file</span>
-                        </div>
-                        <div class="details">
-                            <h4>{{ doc.name }}</h4>
-                            <p style="color: var(--primary);">Click to view</p>
-                        </div>
-                        <span class="material-icons" style="color: var(--text-light); opacity: 0.6;">open_in_new</span>
+                    <li style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #eee; border-radius:5px; cursor:pointer;"
+                        (click)="false" onclick="window.open(this.getAttribute('data-url'), '_blank')"
+                        [attr.data-url]="doc.url">
+                        <span class="material-icons text-green">insert_drive_file</span>
+                        <span style="font-size:14px;">{{ doc.name }}</span>
                     </li>
                     }
                 </ul>
                 } @else {
-                <div style="padding: 20px 0; text-align: center; color: var(--text-light);">
-                    <span class="material-icons"
-                        style="font-size: 32px; opacity: 0.5; margin-bottom: 10px;">folder_off</span>
-                    <p>No documents uploaded yet.</p>
-                </div>
+                <p style="font-size:14px; color:#666;">No documents uploaded yet.</p>
                 }
             </div>
 
-            <!-- Recommended Next Best Actions -->
-            @if (student.recommendedActions.length > 0) {
-            <div class="glass-panel actions-card">
-                <h3>Next Best Actions (AI Generated)</h3>
-                <div class="action-items">
-                    @for (action of student.recommendedActions; track action.id) {
-                    <div class="action-item">
-                        <div class="icon-wrap" [ngClass]="action.type.toLowerCase()">
-                            @if (action.type === 'Email') {
-                            <span class="material-icons">email</span>
-                            }
-                            @if (action.type === 'SMS') {
-                            <span class="material-icons">sms</span>
-                            }
-                            @if (action.type === 'Call') {
-                            <span class="material-icons">call</span>
-                            }
-                        </div>
-                        <div class="content">
-                            <h4>{{ action.title }}</h4>
-                            <p>{{ action.description }}</p>
-                        </div>
-                        @if (action.type !== 'Call') {
-                        <button class="primary-btn" (click)="triggerCommunication(student, action)">
-                            Simulate {{ action.type }} Send
-                        </button>
-                        }
-                        @if (action.type === 'Call') {
-                        <button class="action-btn">
-                            Mark Done
-                        </button>
-                        }
-                    </div>
-                    }
-                </div>
-            </div>
-            }
         </div>
     </div>
 </div>
