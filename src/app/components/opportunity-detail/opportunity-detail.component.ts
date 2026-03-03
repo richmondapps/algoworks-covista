@@ -47,7 +47,7 @@ export class OpportunityDetailComponent {
 
     for (const log of sorted) {
       if (log.type === 'Email') {
-        if (log.status === 'Sent' || log.body) {
+        if (log.status === 'Sent') {
           currentEmailThread = {
             type: 'Email',
             body: log.body,
@@ -59,11 +59,11 @@ export class OpportunityDetailComponent {
           // Append Delivered/Opened/Clicked to the last email sent in the thread
           currentEmailThread.events.push({ status: log.status, timestamp: log.timestamp });
         } else {
-          currentEmailThread = { type: 'Email', events: [{ status: log.status, timestamp: log.timestamp }] };
+          currentEmailThread = { type: 'Email', body: log.body, agentName: log.agentName, events: [{ status: log.status, timestamp: log.timestamp }] };
           grouped.push(currentEmailThread);
         }
       } else if (log.type === 'SMS') {
-        if (log.status === 'Sent' || log.body) {
+        if (log.status === 'Sent') {
           currentSmsThread = {
             type: 'SMS',
             body: log.body,
@@ -74,7 +74,7 @@ export class OpportunityDetailComponent {
         } else if (currentSmsThread) {
           currentSmsThread.events.push({ status: log.status, timestamp: log.timestamp });
         } else {
-          currentSmsThread = { type: 'SMS', events: [{ status: log.status, timestamp: log.timestamp }] };
+          currentSmsThread = { type: 'SMS', body: log.body, agentName: log.agentName, events: [{ status: log.status, timestamp: log.timestamp }] };
           grouped.push(currentSmsThread);
         }
       } else {
