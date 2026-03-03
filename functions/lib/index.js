@@ -58,18 +58,27 @@ exports.sendOpportunityEmail = (0, https_1.onCall)({ secrets: [sendgridApiKey] }
     sgMail.setApiKey(sendgridApiKey.value());
     console.log("[sendOpportunityEmail] Cloud Function Invoked.");
     console.log("[sendOpportunityEmail] Request Data:", JSON.stringify(request.data));
-    const { studentUid, email, name, daysLeft, documentName, uploadLink } = request.data;
+    const { studentUid, email, name, daysLeft, documentName, uploadLink, customHtml } = request.data;
     if (!studentUid || !email) {
         console.error("[sendOpportunityEmail] Execution failed: Missing UID or Email");
         throw new https_1.HttpsError("invalid-argument", "Missing UID or Email");
     }
+    const emailBodyTxt = customHtml || `Hi ${name},\n\nYou have ${daysLeft} days left to provide your [${documentName}]. Please upload here: ${uploadLink}`;
+    const emailBodyHtml = customHtml ? `<p>${customHtml.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</p>` : `<p>Hi ${name},</p><p>You have <strong>${daysLeft} days</strong> left to provide your <strong>[${documentName}]</strong>.</p><p><a href="${uploadLink}">Secure Upload Link</a></p>`;
     try {
         console.log(`[sendOpportunityEmail] Appending Sent stat to Firestore for ${studentUid}`);
         await db.collection("students").doc(studentUid).set({
             stats: {
                 emailsSent: admin.firestore.FieldValue.increment(1),
                 lastSentAt: admin.firestore.FieldValue.serverTimestamp()
-            }
+            },
+            communications: admin.firestore.FieldValue.arrayUnion({
+                type: 'Email',
+                status: 'Sent',
+                timestamp: new Date().toISOString(),
+                body: emailBodyTxt,
+                agentName: 'System Triggered'
+            })
         }, { merge: true });
         console.log(`[sendOpportunityEmail] Successfully updated local stats for ${studentUid}`);
     }
@@ -80,8 +89,8 @@ exports.sendOpportunityEmail = (0, https_1.onCall)({ secrets: [sendgridApiKey] }
         to: email,
         from: "jgarland@richmondapps.com", // Should be verified in your SendGrid Account
         subject: "Urgent: Missing R2C Documents Required",
-        text: `Hi ${name},\n\nYou have ${daysLeft} days left to provide your [${documentName}]. Please upload here: ${uploadLink}`,
-        html: `<p>Hi ${name},</p><p>You have <strong>${daysLeft} days</strong> left to provide your <strong>[${documentName}]</strong>.</p><p><a href="${uploadLink}">Secure Upload Link</a></p>`,
+        text: emailBodyTxt,
+        html: emailBodyHtml,
         // CRITICAL for Webhooks: We append internal IDs to be returned to us later
         custom_args: {
             student_uid: studentUid,
@@ -108,18 +117,19 @@ exports.sendOpportunitySms = (0, https_1.onCall)({ secrets: [twilioSid, twilioTo
     // Initialize Twilio using the mounted secrets
     const client = twilio(twilioSid.value(), twilioToken.value());
     const fromPhone = twilioPhone.value();
-    const { studentUid, phone, name, daysLeft, documentName, uploadLink } = request.data;
+    const { studentUid, phone, name, daysLeft, documentName, uploadLink, customText } = request.data;
     if (!studentUid || !phone) {
         console.error("[sendOpportunitySms] Execution failed: Missing UID or Phone");
         throw new https_1.HttpsError("invalid-argument", "Missing UID or Phone");
     }
     // Twilio expects phone numbers in E.164 format (e.g. +17025559988). Strip dashes/spaces.
     const formattedPhone = phone.replace(/[^\d+]/g, '');
+    const smsBodyTxt = customText || `Hi ${name}, you have ${daysLeft} days left to provide your [${documentName}]. Please upload securely here: ${uploadLink}`;
     try {
         console.log(`[sendOpportunitySms] Sending Twilio SMS to ${formattedPhone} for ${name} (${studentUid}).`);
         // Dispatch to Twilio
         const message = await client.messages.create({
-            body: `Hi ${name}, you have ${daysLeft} days left to provide your [${documentName}]. Please upload securely here: ${uploadLink}`,
+            body: smsBodyTxt,
             from: fromPhone,
             to: formattedPhone,
             // Twilio allows passing custom data through the webhook endpoint URL using query parameters:
@@ -131,7 +141,14 @@ exports.sendOpportunitySms = (0, https_1.onCall)({ secrets: [twilioSid, twilioTo
             stats: {
                 smsSent: admin.firestore.FieldValue.increment(1),
                 lastSmsSentAt: admin.firestore.FieldValue.serverTimestamp()
-            }
+            },
+            communications: admin.firestore.FieldValue.arrayUnion({
+                type: 'SMS',
+                status: 'Sent',
+                timestamp: new Date().toISOString(),
+                body: smsBodyTxt,
+                agentName: 'System Triggered'
+            })
         }, { merge: true });
         return { success: true, messageSid: message.sid };
     }
@@ -169,12 +186,28 @@ exports.twilioWebhook = (0, https_2.onRequest)(async (req, res) => {
         await studentRef.set({
             stats: {
                 lastSmsDeliveredAt: timestamp
-            }
+            },
+            communications: admin.firestore.FieldValue.arrayUnion({
+                type: 'SMS',
+                status: 'Delivered',
+                timestamp: new Date().toISOString(),
+                body: `Twilio delivery status update: ${MessageStatus}`,
+                agentName: 'System Triggered'
+            })
         }, { merge: true });
         console.log(`[twilioWebhook] Documented successful SMS Delivery for UID: ${studentUid}`);
     }
     else if (MessageStatus === "failed" || MessageStatus === "undelivered") {
         console.error(`[twilioWebhook] SMS Failed/Undelivered for UID: ${studentUid}. Consider marking phone number invalid.`);
+        await studentRef.set({
+            communications: admin.firestore.FieldValue.arrayUnion({
+                type: 'SMS',
+                status: 'Failed',
+                timestamp: new Date().toISOString(),
+                body: `Twilio delivery failure: ${ErrorCode || 'Unknown error'}`,
+                agentName: 'System Triggered'
+            })
+        }, { merge: true });
     }
     res.status(200).send("Processed");
 });
@@ -208,7 +241,14 @@ exports.sendgridWebhook = (0, https_2.onRequest)(async (req, res) => {
             console.log(`[sendgridWebhook] Found 'Delivered' event for UID: ${studentUid}`);
             processedCount++;
             batch.set(studentRef, {
-                stats: { lastDeliveredAt: timestamp }
+                stats: { lastDeliveredAt: timestamp },
+                communications: admin.firestore.FieldValue.arrayUnion({
+                    type: 'Email',
+                    status: 'Delivered',
+                    timestamp: new Date().toISOString(),
+                    body: 'Email successfully delivered.',
+                    agentName: 'System Webhook'
+                })
             }, { merge: true });
         }
         if (event.event === "open") {
@@ -223,7 +263,14 @@ exports.sendgridWebhook = (0, https_2.onRequest)(async (req, res) => {
                     emailOpens: admin.firestore.FieldValue.increment(1),
                     lastOpenedAt: timestamp,
                     avgOpenDelayMinutes: openDelayMinutes // You could calculate a running average here
-                }
+                },
+                communications: admin.firestore.FieldValue.arrayUnion({
+                    type: 'Email',
+                    status: 'Opened',
+                    timestamp: new Date().toISOString(),
+                    body: 'Email opened by recipient.',
+                    agentName: 'System Webhook'
+                })
             }, { merge: true });
         }
         if (event.event === "click") {
@@ -233,7 +280,14 @@ exports.sendgridWebhook = (0, https_2.onRequest)(async (req, res) => {
                 stats: {
                     emailClicks: admin.firestore.FieldValue.increment(1),
                     lastClickedAt: timestamp
-                }
+                },
+                communications: admin.firestore.FieldValue.arrayUnion({
+                    type: 'Email',
+                    status: 'Clicked',
+                    timestamp: new Date().toISOString(),
+                    body: 'Link clicked inside email.',
+                    agentName: 'System Webhook'
+                })
             }, { merge: true });
         }
     }

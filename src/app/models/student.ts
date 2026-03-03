@@ -44,6 +44,20 @@ export interface AiInsights {
     smsDraft: string;
 }
 
+export interface StudentNote {
+    text: string;
+    timestamp: any;
+    author: string;
+}
+
+export interface CommunicationLog {
+    type: 'Email' | 'SMS';
+    status: 'Sent' | 'Delivered' | 'Opened' | 'Clicked' | 'Failed';
+    timestamp: any;
+    body: string;
+    agentName?: string;
+}
+
 export interface Student {
     id: string;
     uid: string; // Firebase UID format
@@ -59,4 +73,6 @@ export interface Student {
     stats: StudentStats;
     actionRequired: boolean; // For pub/sub filtering
     aiInsights?: AiInsights;
+    notes?: StudentNote[];
+    communications?: CommunicationLog[];
 }

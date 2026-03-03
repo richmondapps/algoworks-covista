@@ -110,11 +110,13 @@
                 <div class="sf-card white-bg with-border">
                     <div class="outreach-header">
                         <h4>Create Email Message</h4>
-                        <p>Draft generated instantly by Gemini 3.1 Pro based on student context.</p>
+                        <p>Draft generated instantly by Gemini 2.5 Flash based on student context.</p>
                     </div>
                     <div class="email-box">
                         <p>Hi {{ student.name.split(' ')[0] }},</p>
-                        <p>{{ student.aiInsights.emailDraft.bodyText }}</p>
+                        <textarea
+                            style="width: 100%; height: 80px; margin: 10px 0; font-family: inherit; font-size: inherit; border: 1px solid #ccc; border-radius: 4px; padding: 8px;"
+                            [(ngModel)]="student.aiInsights.emailDraft.bodyText"></textarea>
                         <ul>
                             @for (bullet of student.aiInsights.emailDraft.bullets; track bullet) {
                             <li>{{ bullet }}</li>
@@ -123,7 +125,8 @@
                         <p>Best,<br />Jane Doe</p>
                         <div class="btn-right">
                             <button class="sf-button-rounded"
-                                (click)="triggerCommunication(student, { type: 'Email' })">Copy Email</button>
+                                (click)="triggerCommunication(student, { type: 'Email' }, student.aiInsights.emailDraft.bodyText)">Send
+                                Email</button>
                         </div>
                     </div>
                 </div>
@@ -134,7 +137,8 @@
                         <p style="margin-top: 4px;">"{{ student.aiInsights.smsDraft }}"</p>
                     </div>
                     <button class="sf-button-outline-blue"
-                        (click)="triggerCommunication(student, { type: 'SMS' })">Generate SMS</button>
+                        (click)="triggerCommunication(student, { type: 'SMS' }, student.aiInsights.smsDraft)">Send
+                        SMS</button>
                 </div>
             </div>
             }
@@ -204,15 +208,61 @@
             <div class="sf-panel">
                 <div class="sf-quick-notes">
                     <h3 class="sf-notes-title">QUICK NOTES</h3>
-                    <textarea class="sf-notes-area" rows="2"></textarea>
-                    <div class="sf-text-right">
+                    <textarea class="sf-notes-area" rows="2" placeholder="Add a note..."
+                        [(ngModel)]="newNoteText"></textarea>
+                    <div class="sf-text-right"
+                        style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
                         <a href="#" class="sf-expand-link">Expand All</a>
+                        <button class="sf-outline-btn" style="padding: 4px 12px; font-size: 11px;"
+                            (click)="submitNote(student)">Save Note</button>
                     </div>
                 </div>
+
+                @if (student.notes && student.notes.length > 0) {
+                <div style="margin-top: 16px; border-top: 1px solid #dddbda; padding-top: 16px;">
+                    @for (note of student.notes; track note.timestamp) {
+                    <div style="margin-bottom: 12px; font-size: 12px;">
+                        <div style="color: #444; font-weight: 600; margin-bottom: 2px;">{{ note.author }} <span
+                                style="font-weight: normal; color: #747474; font-size: 10px; margin-left: 6px;">{{
+                                note.timestamp | date:'short' }}</span></div>
+                        <div style="color: #1b1b1b;">{{ note.text }}</div>
+                    </div>
+                    }
+                </div>
+                }
             </div>
 
             <!-- Accordions -->
             <div class="sf-accordions-list">
+                <div class="sf-accordion-item">
+                    <div class="acc-left" (click)="toggleAccordion('communications')" style="cursor: pointer;">
+                        <span class="material-icons">{{ accordions()['communications'] ? 'expand_more' : 'chevron_right'
+                            }}</span>
+                        <span class="acc-title">COMMUNICATIONS & EMAILS <span
+                                style="margin-left: 5px; color: #747474; font-weight: normal;">({{
+                                student.communications?.length || 0 }})</span></span>
+                    </div>
+                </div>
+                <!-- Dynamic Content for Communications -->
+                @if (accordions()['communications'] && student.communications) {
+                <div class="acc-content"
+                    style="padding: 12px 16px; border-bottom: 1px solid #dddbda; background: #fafaf9;">
+                    @for (log of student.communications; track log.timestamp) {
+                    <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #ccc;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <strong>{{ log.type }}</strong>
+                            <span class="badge"
+                                [ngClass]="{'applicant': log.status === 'Sent' || log.status === 'Delivered', 'qualified': log.status === 'Opened' || log.status === 'Clicked'}"
+                                style="font-size: 10px; padding: 2px 6px; border-radius: 8px; background: #cce4f6;">{{
+                                log.status }}</span>
+                        </div>
+                        <div style="font-size: 10px; color: #747474; margin-bottom: 6px;">{{ log.timestamp |
+                            date:'short' }}</div>
+                        <div style="font-size: 11px; color: #444; line-height: 1.4;" [innerHTML]="log.body"></div>
+                    </div>
+                    }
+                </div>
+                }
                 <div class="sf-accordion-item">
                     <div class="acc-left">
                         <span class="material-icons">chevron_right</span>

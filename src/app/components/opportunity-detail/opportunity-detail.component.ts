@@ -95,7 +95,38 @@ export class OpportunityDetailComponent {
     }
   }
 
-  async triggerCommunication(student: Student, action: Partial<RecommendedAction>) {
+  newNoteText = signal('');
+
+  accordions = signal<{ [key: string]: boolean }>({
+    notes: true,
+    cases: false,
+    docs: false,
+    progress: false,
+    checklist: false,
+    communications: true
+  });
+
+  toggleAccordion(key: string) {
+    const current = this.accordions();
+    this.accordions.set({ ...current, [key]: !current[key] });
+  }
+
+  async submitNote(student: Student) {
+    if (!this.newNoteText().trim()) return;
+
+    const newNote = {
+      text: this.newNoteText().trim(),
+      timestamp: new Date().toISOString(),
+      author: 'Admissions Specialist'
+    };
+
+    const notes = student.notes ? [...student.notes, newNote] : [newNote];
+
+    await this.studentService.updateStudent(student.id, { notes });
+    this.newNoteText.set(''); // clear input
+  }
+
+  async triggerCommunication(student: Student, action: Partial<RecommendedAction>, customBody?: string) {
     // Generate simulated communication logic
     let missingItem = student.checklist.find(c => c.status !== 'Complete');
     let documentName = missingItem ? missingItem.name : 'your missing documents';
@@ -116,7 +147,8 @@ export class OpportunityDetailComponent {
           name: student.name,
           daysLeft: days,
           documentName: documentName,
-          uploadLink: uploadLink
+          uploadLink: uploadLink,
+          customHtml: customBody
         });
 
         alert(`Success: Urgent Email generated and sent to ${student.email} via SendGrid.`);
@@ -136,7 +168,8 @@ export class OpportunityDetailComponent {
           name: student.name,
           daysLeft: days,
           documentName: documentName,
-          uploadLink: uploadLink
+          uploadLink: uploadLink,
+          customText: customBody
         });
         alert(`Success: Urgent SMS simulated execution sent to ${student.phone}.`);
       } catch (error) {
