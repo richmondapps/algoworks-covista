@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "algoworks-dev"
-  }
+  },
+  "targets": {
+    "algoworks-dev": {
+      "hosting": {
+        "covista": [
+          "algoworks-covista"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
