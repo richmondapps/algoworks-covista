@@ -116,4 +116,56 @@
         padding: 48px;
         color: var(--text-secondary);
     }
+
+    .edit-mode {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 4px;
+
+        .inline-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            outline: none;
+
+            &:focus {
+                border-color: var(--primary);
+            }
+        }
+
+        .edit-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 2px;
+
+            .small-btn {
+                padding: 4px 8px;
+                font-size: 11px;
+            }
+        }
+    }
+
+    .edit-text-btn {
+        background: transparent;
+        border: none;
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        padding: 4px 0 0 0;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        opacity: 0.8;
+
+        &:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+    }
 }

@@ -55,7 +55,24 @@
             <tr [routerLink]="['/opportunity', s.id]" class="clickable-row">
                 <td>
                     <div class="student-name">{{ s.name }}</div>
+                    @if (editingId() === s.id) {
+                    <div class="edit-mode" (click)="$event.stopPropagation()">
+                        <input type="email" [ngModel]="editEmail()" (ngModelChange)="editEmail.set($event)"
+                            class="inline-input" placeholder="Email" />
+                        <input type="tel" [ngModel]="editPhone()" (ngModelChange)="editPhone.set($event)"
+                            class="inline-input" placeholder="Phone" />
+                        <div class="edit-actions">
+                            <button class="action-btn small-btn cancel-btn" (click)="cancelEdit($event)">Cancel</button>
+                            <button class="primary-btn small-btn save-btn" (click)="saveEdit($event, s)">Save</button>
+                        </div>
+                    </div>
+                    } @else {
                     <div class="student-email">{{ s.email }}</div>
+                    <div class="student-phone">{{ s.phone }}</div>
+                    <button class="edit-text-btn" (click)="startEdit($event, s)">
+                        <span class="material-icons" style="font-size: 14px;">edit</span> Edit Contact Info
+                    </button>
+                    }
                 </td>
                 <td>
                     <span class="status-badge" [ngClass]="s.riskIndicator.toLowerCase()">{{ s.riskIndicator }}</span>

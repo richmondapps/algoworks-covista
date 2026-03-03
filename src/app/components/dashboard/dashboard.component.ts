@@ -1,13 +1,15 @@
 import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { StudentService } from '../../services/student.service';
 import { FilterRiskPipe } from '../../pipes/filter-risk.pipe';
+import { Student } from '../../models/student';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, FilterRiskPipe],
+  imports: [CommonModule, RouterLink, FormsModule, FilterRiskPipe],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
@@ -19,6 +21,11 @@ export class DashboardComponent {
 
   // The active UI filter state
   filterMode = signal<'All' | 'High Risk' | 'Action Required'>('All');
+
+  // Inline edit state
+  editingId = signal<string | null>(null);
+  editEmail = signal<string>('');
+  editPhone = signal<string>('');
 
   // Computed projection based on active filter
   students = computed(() => {
@@ -47,5 +54,29 @@ export class DashboardComponent {
 
   setFilter(mode: 'All' | 'High Risk' | 'Action Required') {
     this.filterMode.set(mode);
+  }
+
+  startEdit(event: Event, student: Student) {
+    event.stopPropagation();
+    event.preventDefault();
+    this.editingId.set(student.id);
+    this.editEmail.set(student.email);
+    this.editPhone.set(student.phone);
+  }
+
+  cancelEdit(event: Event) {
+    event.stopPropagation();
+    event.preventDefault();
+    this.editingId.set(null);
+  }
+
+  async saveEdit(event: Event, student: Student) {
+    event.stopPropagation();
+    event.preventDefault();
+    await this.studentService.updateStudent(student.id, {
+      email: this.editEmail(),
+      phone: this.editPhone()
+    });
+    this.editingId.set(null);
   }
 }
