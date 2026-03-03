@@ -124,7 +124,7 @@
 
             @if (student.aiInsights) {
             <!-- Next Best Actions (Vertex AI Generated) -->
-            <div class="sf-section-container">
+            <div class="sf-section-container" style="margin-left: 20px;">
                 <h3 class="sf-section-heading">Next Best Actions</h3>
 
                 @for (action of student.aiInsights.nextBestActions; track action.title) {
@@ -146,8 +146,8 @@
             </div>
 
             <!-- Generate Personalized Outreach (Vertex AI Generated) -->
-            <div class="sf-section-container">
-                <h3 class="sf-section-heading">Generate Personalized Outreach</h3>
+            <div class="sf-section-container" style="margin-left: 20px;">
+                <h3 class="sf-section-heading">Generated Personalized Outreach</h3>
 
                 <div class="sf-card white-bg with-border">
                     <div class="outreach-header">
@@ -373,11 +373,18 @@
                     @if (uploadedDocuments().length > 0) {
                     <ul style="list-style:none; padding:0; display:flex; gap:10px; flex-direction:column;">
                         @for (doc of uploadedDocuments(); track doc.name) {
-                        <li style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #eee; border-radius:4px; cursor:pointer; background: #fff;"
+                        <li style="display:flex; flex-direction:column; gap:4px; padding:10px; border:1px solid #eee; border-radius:4px; cursor:pointer; background: #fff;"
                             (click)="false" onclick="window.open(this.getAttribute('data-url'), '_blank')"
                             [attr.data-url]="doc.url">
-                            <span class="material-icons text-green" style="font-size:18px;">insert_drive_file</span>
-                            <span style="font-size:12px; font-weight:500;">{{ doc.name }}</span>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span class="material-icons text-green" style="font-size:18px;">insert_drive_file</span>
+                                <span style="font-size:12px; font-weight:500;">{{ doc.name }}</span>
+                            </div>
+                            @if (doc.createdAt) {
+                            <div style="font-size: 10px; color: #747474; margin-left: 28px;">
+                                Uploaded on {{ doc.createdAt | date:'medium' }}
+                            </div>
+                            }
                         </li>
                         }
                     </ul>

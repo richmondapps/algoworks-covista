@@ -7,7 +7,7 @@ import { Student, RecommendedAction } from '../../models/student';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { computed, signal } from '@angular/core';
 import { getFunctions, httpsCallable } from '@angular/fire/functions';
-import { Storage, ref, listAll, getDownloadURL } from '@angular/fire/storage';
+import { Storage, ref, listAll, getDownloadURL, getMetadata } from '@angular/fire/storage';
 import { effect } from '@angular/core';
 
 @Component({
@@ -127,7 +127,7 @@ export class OpportunityDetailComponent {
   editEmail = signal('');
   editPhone = signal('');
 
-  uploadedDocuments = signal<{ name: string, url: string }[]>([]);
+  uploadedDocuments = signal<{ name: string, url: string, createdAt?: string }[]>([]);
   private storage = inject(Storage);
 
   constructor() {
@@ -145,9 +145,16 @@ export class OpportunityDetailComponent {
       const res = await listAll(listRef);
       const docs = await Promise.all(res.items.map(async (itemRef) => {
         const url = await getDownloadURL(itemRef);
-        return { name: itemRef.name, url };
+        let createdAt = '';
+        try {
+          const meta = await getMetadata(itemRef);
+          createdAt = meta.timeCreated;
+        } catch (e) {
+          // Ignore
+        }
+        return { name: itemRef.name, url, createdAt };
       }));
-      this.uploadedDocuments.set(docs);
+      this.uploadedDocuments.set(docs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
     } catch (error) {
       console.error('Error loading documents from storage', error);
     }
