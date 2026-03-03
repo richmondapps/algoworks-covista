@@ -333,7 +333,7 @@ export const generateStudentInsights = onCall(async (request) => {
         const generativeModel = vertex_ai.preview.getGenerativeModel({
             model: model,
             generationConfig: {
-                maxOutputTokens: 2048,
+                maxOutputTokens: 8192,
                 temperature: 0.2, // Keep responses highly factual and deterministic
                 responseMimeType: "application/json"
             }
