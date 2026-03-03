@@ -87,6 +87,30 @@ export class OpportunityDetailComponent {
       }
     }
 
+    const statusOrder: { [key: string]: number } = {
+      'Sent': 1,
+      'Delivered': 2,
+      'Opened': 3,
+      'Clicked': 4,
+      'Failed': 5,
+      'Bounced': 6
+    };
+
+    grouped.forEach(group => {
+      const uniqueEvents = new Map<string, { status: string; timestamp: string }>();
+      for (const evt of group.events) {
+        // Overwrites duplicate statuses chronologically, keeping only the latest occurrence
+        uniqueEvents.set(evt.status, evt);
+      }
+
+      // Sort logically based on email flow instead of just timestamp
+      group.events = Array.from(uniqueEvents.values()).sort((a, b) => {
+        const orderA = statusOrder[a.status] || 99;
+        const orderB = statusOrder[b.status] || 99;
+        return orderA - orderB;
+      });
+    });
+
     // Return descending so newest is at top
     return grouped.reverse();
   });

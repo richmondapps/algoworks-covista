@@ -239,7 +239,7 @@
                             style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
                             <strong>{{ thread.type }}</strong>
                             <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
-                                @for (evt of thread.events.slice().reverse(); track evt.timestamp) {
+                                @for (evt of thread.events; track evt.timestamp) {
                                 <span class="badge" [title]="evt.timestamp | date:'medium'"
                                     [ngClass]="{'applicant': evt.status === 'Sent' || evt.status === 'Delivered', 'qualified': evt.status === 'Opened' || evt.status === 'Clicked'}"
                                     style="font-size: 10px; padding: 3px 8px; border-radius: 12px; background: #cce4f6; display: flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
