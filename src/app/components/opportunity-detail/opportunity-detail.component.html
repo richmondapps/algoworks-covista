@@ -56,12 +56,11 @@
                         <h3>AI Overview <span style="font-size: 11px; font-weight: normal; color: #747474;">(Vertex AI
                                 Gemini 2.5 Flash)</span></h3>
                     </div>
-                    @if (!student.aiInsights) {
                     <button class="sf-outline-btn" style="border-color: #0176d3; color: #0176d3;"
                         (click)="generateAi(student)" [disabled]="isGeneratingAi()">
-                        {{ isGeneratingAi() ? 'Generating...' : 'Run Vertex AI Insights' }}
+                        {{ isGeneratingAi() ? 'Generating...' : (student.aiInsights ? 'Regenerate AI Insights' : 'Run
+                        Vertex AI Insights') }}
                     </button>
-                    }
                 </div>
                 <div class="card-content">
                     @if (student.aiInsights) {
