@@ -27,6 +27,70 @@ export class OpportunityDetailComponent {
     return p ? this.studentService.getStudent(p.get('id')!) : undefined;
   });
 
+  groupedCommunications = computed(() => {
+    const s = this.student();
+    if (!s || !s.communications) return [];
+
+    const sorted = [...s.communications].sort((a, b) =>
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+    const grouped: {
+      type: string;
+      body?: string;
+      agentName?: string;
+      events: { status: string; timestamp: string }[];
+    }[] = [];
+
+    let currentEmailThread: any = null;
+    let currentSmsThread: any = null;
+
+    for (const log of sorted) {
+      if (log.type === 'Email') {
+        if (log.status === 'Sent' || log.body) {
+          currentEmailThread = {
+            type: 'Email',
+            body: log.body,
+            agentName: log.agentName,
+            events: [{ status: log.status, timestamp: log.timestamp }]
+          };
+          grouped.push(currentEmailThread);
+        } else if (currentEmailThread) {
+          // Append Delivered/Opened/Clicked to the last email sent in the thread
+          currentEmailThread.events.push({ status: log.status, timestamp: log.timestamp });
+        } else {
+          currentEmailThread = { type: 'Email', events: [{ status: log.status, timestamp: log.timestamp }] };
+          grouped.push(currentEmailThread);
+        }
+      } else if (log.type === 'SMS') {
+        if (log.status === 'Sent' || log.body) {
+          currentSmsThread = {
+            type: 'SMS',
+            body: log.body,
+            agentName: log.agentName,
+            events: [{ status: log.status, timestamp: log.timestamp }]
+          };
+          grouped.push(currentSmsThread);
+        } else if (currentSmsThread) {
+          currentSmsThread.events.push({ status: log.status, timestamp: log.timestamp });
+        } else {
+          currentSmsThread = { type: 'SMS', events: [{ status: log.status, timestamp: log.timestamp }] };
+          grouped.push(currentSmsThread);
+        }
+      } else {
+        grouped.push({
+          type: log.type,
+          body: log.body,
+          agentName: log.agentName,
+          events: [{ status: log.status, timestamp: log.timestamp }]
+        });
+      }
+    }
+
+    // Return descending so newest is at top
+    return grouped.reverse();
+  });
+
   isEditingContext = signal(false);
   editEmail = signal('');
   editPhone = signal('');
