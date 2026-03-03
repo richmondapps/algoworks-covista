@@ -346,18 +346,19 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
                 "highlight": "A 2-4 word urgently missing item (e.g., 'Missing transcript').",
                 "outro": "A 1 sentence firm conclusion on immediate next steps required."
             },
+            "riskSignals": {
+                "timeSinceReserve": "Formatted string, e.g., '14 Days'",
+                "timeUntilClassStart": "Formatted string, e.g., '30 Days' or 'Past Due'",
+                "engagementLevel": "Engagement level based on data (e.g., 'High', 'Medium', 'Low').",
+                "checklistProgress": "Calculated percentage string e.g., '50% Complete'",
+                "riskIndicator": "Rule-based risk or urgency indicator (e.g., 'High Risk', 'On Track')"
+            },
             "nextBestActions": [
                 {
-                    "title": "Short action title",
+                    "title": "Identify 1-3 prioritized actions",
                     "urgent": true,
-                    "points": ["Academic reasoning 1", "Benefit reasoning 2"],
+                    "points": ["Must be grounded in readiness gaps, timing, and engagement", "Must be explainable and traceable to inputs"],
                     "buttonText": "Complete Task >"
-                },
-                {
-                    "title": "Longer-term action",
-                    "urgent": false,
-                    "points": ["Reasoning 1", "Reasoning 2"],
-                    "buttonText": "View Info >"
                 }
             ],
             "emailDraft": {

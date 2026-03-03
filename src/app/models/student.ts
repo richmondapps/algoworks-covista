@@ -31,6 +31,13 @@ export interface AiInsights {
         highlight: string;
         outro: string;
     };
+    riskSignals?: {
+        timeSinceReserve: string;
+        timeUntilClassStart: string;
+        engagementLevel: string;
+        checklistProgress: string;
+        riskIndicator: string;
+    };
     nextBestActions: {
         title: string;
         urgent: boolean;
