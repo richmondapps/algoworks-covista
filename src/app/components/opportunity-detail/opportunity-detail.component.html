@@ -217,19 +217,6 @@
                             (click)="submitNote(student)">Save Note</button>
                     </div>
                 </div>
-
-                @if (student.notes && student.notes.length > 0) {
-                <div style="margin-top: 16px; border-top: 1px solid #dddbda; padding-top: 16px;">
-                    @for (note of student.notes; track note.timestamp) {
-                    <div style="margin-bottom: 12px; font-size: 12px;">
-                        <div style="color: #444; font-weight: 600; margin-bottom: 2px;">{{ note.author }} <span
-                                style="font-weight: normal; color: #747474; font-size: 10px; margin-left: 6px;">{{
-                                note.timestamp | date:'short' }}</span></div>
-                        <div style="color: #1b1b1b;">{{ note.text }}</div>
-                    </div>
-                    }
-                </div>
-                }
             </div>
 
             <!-- Accordions -->
@@ -263,33 +250,81 @@
                     }
                 </div>
                 }
+                <!-- Task Notes History -->
                 <div class="sf-accordion-item">
-                    <div class="acc-left">
-                        <span class="material-icons">chevron_right</span>
-                        <span class="acc-title">TASK NOTES HISTORY</span>
+                    <div class="acc-left" (click)="toggleAccordion('notes')" style="cursor: pointer;">
+                        <span class="material-icons">{{ accordions()['notes'] ? 'expand_more' : 'chevron_right'
+                            }}</span>
+                        <span class="acc-title">TASK NOTES HISTORY <span
+                                style="margin-left: 5px; color: #747474; font-weight: normal;">({{ student.notes?.length
+                                || 0 }})</span></span>
                     </div>
                 </div>
+                @if (accordions()['notes'] && student.notes) {
+                <div class="acc-content"
+                    style="padding: 12px 16px; border-bottom: 1px solid #dddbda; background: #fafaf9;">
+                    @for (note of student.notes; track note.timestamp) {
+                    <div
+                        style="margin-bottom: 12px; font-size: 12px; padding-bottom: 12px; border-bottom: 1px dashed #ccc;">
+                        <div style="color: #444; font-weight: 600; margin-bottom: 4px;">{{ note.author }} <span
+                                style="font-weight: normal; color: #747474; font-size: 10px; margin-left: 6px;">{{
+                                note.timestamp | date:'short' }}</span></div>
+                        <div style="color: #1b1b1b; line-height: 1.4;">{{ note.text }}</div>
+                    </div>
+                    }
+                </div>
+                }
+
                 <div class="sf-accordion-item">
-                    <div class="acc-left">
-                        <span class="material-icons">chevron_right</span>
+                    <div class="acc-left" (click)="toggleAccordion('cases')" style="cursor: pointer;">
+                        <span class="material-icons">{{ accordions()['cases'] ? 'expand_more' : 'chevron_right'
+                            }}</span>
                         <span class="acc-title">CASES</span>
                     </div>
                 </div>
+                @if (accordions()['cases']) {
+                <div class="acc-content"
+                    style="padding: 12px 16px; border-bottom: 1px solid #dddbda; background: #fafaf9;">
+                    <p style="font-size:12px; color:#666;">No cases found.</p>
+                </div>
+                }
 
                 <div class="sf-accordion-item with-stats">
-                    <div class="acc-left">
-                        <span class="material-icons">chevron_right</span>
-                        <span class="acc-title">DOCUMENTS</span>
+                    <div class="acc-left" (click)="toggleAccordion('docs')" style="cursor: pointer;">
+                        <span class="material-icons">{{ accordions()['docs'] ? 'expand_more' : 'chevron_right' }}</span>
+                        <span class="acc-title">UPLOADED DOCUMENTS <span
+                                style="margin-left: 5px; color: #747474; font-weight: normal;">({{
+                                uploadedDocuments().length || 0 }})</span></span>
                     </div>
                     <div class="acc-right">
                         <span class="material-icons progress-icon-circle text-green">data_usage</span>
-                        <span>1/5 Documents Complete</span>
+                        <span>Documents Complete</span>
                     </div>
                 </div>
+                @if (accordions()['docs']) {
+                <div class="acc-content"
+                    style="padding: 12px 16px; border-bottom: 1px solid #dddbda; background: #fafaf9;">
+                    @if (uploadedDocuments().length > 0) {
+                    <ul style="list-style:none; padding:0; display:flex; gap:10px; flex-direction:column;">
+                        @for (doc of uploadedDocuments(); track doc.name) {
+                        <li style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #eee; border-radius:4px; cursor:pointer; background: #fff;"
+                            (click)="false" onclick="window.open(this.getAttribute('data-url'), '_blank')"
+                            [attr.data-url]="doc.url">
+                            <span class="material-icons text-green" style="font-size:18px;">insert_drive_file</span>
+                            <span style="font-size:12px; font-weight:500;">{{ doc.name }}</span>
+                        </li>
+                        }
+                    </ul>
+                    } @else {
+                    <p style="font-size:12px; color:#666;">No documents uploaded yet.</p>
+                    }
+                </div>
+                }
 
                 <div class="sf-accordion-item with-stats">
-                    <div class="acc-left">
-                        <span class="material-icons">chevron_right</span>
+                    <div class="acc-left" (click)="toggleAccordion('progress')" style="cursor: pointer;">
+                        <span class="material-icons">{{ accordions()['progress'] ? 'expand_more' : 'chevron_right'
+                            }}</span>
                         <span class="acc-title">APPLICATION PROGRESSION</span>
                     </div>
                     <div class="acc-right">
@@ -297,10 +332,17 @@
                         <span>50% Completed</span>
                     </div>
                 </div>
+                @if (accordions()['progress']) {
+                <div class="acc-content"
+                    style="padding: 12px 16px; border-bottom: 1px solid #dddbda; background: #fafaf9;">
+                    <p style="font-size:12px; color:#666;">Application partially active.</p>
+                </div>
+                }
 
                 <div class="sf-accordion-item with-stats">
-                    <div class="acc-left">
-                        <span class="material-icons">chevron_right</span>
+                    <div class="acc-left" (click)="toggleAccordion('checklist')" style="cursor: pointer;">
+                        <span class="material-icons">{{ accordions()['checklist'] ? 'expand_more' : 'chevron_right'
+                            }}</span>
                         <span class="acc-title">RETENTION CHECKLIST</span>
                     </div>
                     <div class="acc-right">
@@ -308,8 +350,20 @@
                         <span>50% Completed</span>
                     </div>
                 </div>
+                @if (accordions()['checklist']) {
+                <div class="acc-content"
+                    style="padding: 12px 16px; border-bottom: 1px solid #dddbda; background: #fafaf9;">
+                    <ul style="padding-left: 20px; font-size: 12px;">
+                        @for (item of student.checklist; track item.id) {
+                        <li>{{ item.name }} - <strong
+                                [ngClass]="item.status === 'Complete' ? 'text-green' : 'text-orange'">{{ item.status
+                                }}</strong></li>
+                        }
+                    </ul>
+                </div>
+                }
 
-                <div class="sf-accordion-item with-stats">
+                <div class="sf-accordion-item with-stats" style="border-bottom: none;">
                     <div class="acc-left">
                         <span class="material-icons">chevron_right</span>
                         <span class="acc-title">FUNDING & OFFERS</span>
@@ -319,26 +373,6 @@
                         <span class="error-text">Incomplete FA Application</span>
                     </div>
                 </div>
-            </div>
-
-            <!-- Restored old components temporarily at the bottom to preserve hidden logic functionality like uploads viewer just in case -->
-            <div class="sf-panel" style="margin-top:20px;">
-                <h3 style="font-size:14px; font-weight:600; margin-bottom:10px; color:#333;">Raw Uploaded Documents
-                    (From Original)</h3>
-                @if (uploadedDocuments().length > 0) {
-                <ul style="list-style:none; padding:0; display:flex; gap:10px; flex-direction:column;">
-                    @for (doc of uploadedDocuments(); track doc.name) {
-                    <li style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #eee; border-radius:5px; cursor:pointer;"
-                        (click)="false" onclick="window.open(this.getAttribute('data-url'), '_blank')"
-                        [attr.data-url]="doc.url">
-                        <span class="material-icons text-green">insert_drive_file</span>
-                        <span style="font-size:14px;">{{ doc.name }}</span>
-                    </li>
-                    }
-                </ul>
-                } @else {
-                <p style="font-size:14px; color:#666;">No documents uploaded yet.</p>
-                }
             </div>
 
         </div>
