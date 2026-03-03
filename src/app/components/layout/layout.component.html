@@ -20,13 +20,22 @@
         </ul>
 
         <div class="bottom-nav">
-            <div class="user-profile">
-                <div class="avatar">AS</div>
-                <div class="info">
-                    <span class="name">Admissions Spec</span>
-                    <span class="role">Specialist</span>
+            @if (currentUser(); as user) {
+            <div class="user-profile" style="padding-bottom: 20px;">
+                <div class="avatar">{{ (user.displayName?.charAt(0) || user.email?.charAt(0) || 'U').toUpperCase() }}
+                </div>
+                <div class="info" style="overflow: hidden; display: flex; flex-direction: column; width: 100%;">
+                    <span class="name"
+                        style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                        [title]="user.email">{{ user.displayName || user.email }}</span>
+                    <span class="role"
+                        style="font-size: 10px; color: #0176d3; font-weight: 500; cursor: pointer; margin-top: 4px; display: flex; align-items: center; gap: 4px;"
+                        (click)="logout()">
+                        <span class="material-icons" style="font-size: 12px;">logout</span> Sign Out
+                    </span>
                 </div>
             </div>
+            }
         </div>
     </nav>
 
