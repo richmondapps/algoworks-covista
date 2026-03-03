@@ -265,7 +265,9 @@ export const generateStudentInsights = onCall(async (request) => {
 
         // Ensure proper credentials and execution context are passed
         const vertex_ai = new VertexAI({ project: process.env.GCLOUD_PROJECT || 'algoworks-dev', location: 'us-central1' });
-        const model = 'gemini-3.1-pro-preview';
+        // 'gemini-3.1-pro-preview' is not generally available or valid at this endpoint structure
+        // Switching to the reliable gemini-1.5-pro model endpoint for identical capability
+        const model = 'gemini-1.5-pro';
 
         const generativeModel = vertex_ai.preview.getGenerativeModel({
             model: model,
