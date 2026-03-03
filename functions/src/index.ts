@@ -34,8 +34,13 @@ export const sendOpportunityEmail = onCall({ secrets: [sendgridApiKey] }, async 
         throw new HttpsError("invalid-argument", "Missing UID or Email");
     }
 
-    const emailBodyTxt = customHtml || `Hi ${name},\n\nYou have ${daysLeft} days left to provide your [${documentName}]. Please upload here: ${uploadLink}`;
-    const emailBodyHtml = customHtml ? `<p>${customHtml.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</p>` : `<p>Hi ${name},</p><p>You have <strong>${daysLeft} days</strong> left to provide your <strong>[${documentName}]</strong>.</p><p><a href="${uploadLink}">Secure Upload Link</a></p>`;
+    const emailBodyTxt = customHtml
+        ? `${customHtml}\n\nPlease upload your documents here: ${uploadLink}`
+        : `Hi ${name},\n\nYou have ${daysLeft} days left to provide your [${documentName}]. Please upload here: ${uploadLink}`;
+
+    const emailBodyHtml = customHtml
+        ? `<p>${customHtml.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</p><br><br><p><a href="${uploadLink}" style="display:inline-block;padding:12px 24px;background-color:#0176d3;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;font-family:sans-serif;">Secure Document Upload Link</a></p>`
+        : `<p>Hi ${name},</p><p>You have <strong>${daysLeft} days</strong> left to provide your <strong>[${documentName}]</strong>.</p><p><a href="${uploadLink}" style="display:inline-block;padding:12px 24px;background-color:#0176d3;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;font-family:sans-serif;">Secure Document Upload Link</a></p>`;
 
     try {
         console.log(`[sendOpportunityEmail] Appending Sent stat to Firestore for ${studentUid}`);
@@ -100,7 +105,9 @@ export const sendOpportunitySms = onCall({ secrets: [twilioSid, twilioToken, twi
 
     // Twilio expects phone numbers in E.164 format (e.g. +17025559988). Strip dashes/spaces.
     const formattedPhone = phone.replace(/[^\d+]/g, '');
-    const smsBodyTxt = customText || `Hi ${name}, you have ${daysLeft} days left to provide your [${documentName}]. Please upload securely here: ${uploadLink}`;
+    const smsBodyTxt = customText
+        ? `${customText}\n\nUpload securely here: ${uploadLink}`
+        : `Hi ${name}, you have ${daysLeft} days left to provide your [${documentName}]. Please upload securely here: ${uploadLink}`;
 
     try {
         console.log(`[sendOpportunitySms] Sending Twilio SMS to ${formattedPhone} for ${name} (${studentUid}).`);
