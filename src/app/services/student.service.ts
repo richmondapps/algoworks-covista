@@ -1,5 +1,5 @@
-import { Injectable, inject, signal } from '@angular/core';
-import { Firestore, collection, collectionData, doc, setDoc, query, orderBy, where, getDocs, writeBatch } from '@angular/fire/firestore';
+import { Injectable, inject, signal, NgZone } from '@angular/core';
+import { Firestore, collection, collectionData, doc, setDoc, query, orderBy, where, getDocs, writeBatch, onSnapshot } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Student } from '../models/student';
 
@@ -11,6 +11,8 @@ const COLLECTION_NAME = 'students';
 export class StudentService {
   private firestore: Firestore = inject(Firestore);
   private functions: Functions = inject(Functions);
+  private zone: NgZone = inject(NgZone);
+
   public students = signal<Student[]>([]);
 
   constructor() {
@@ -19,14 +21,19 @@ export class StudentService {
 
   loadStudents() {
     const studentsRef = collection(this.firestore, COLLECTION_NAME);
-    const q = query(studentsRef);
-    // Realtime listener
-    collectionData(q, { idField: 'id' }).subscribe((data: any[]) => {
-      if (data.length === 0) {
-        this.initializeDummyData();
-      } else {
-        this.students.set(data as Student[]);
-      }
+
+    // Realtime listener using native onSnapshot to bypass rxfire bugs with new firebase SDKs
+    onSnapshot(studentsRef, (snapshot) => {
+      this.zone.run(() => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Student);
+        if (data.length === 0) {
+          this.initializeDummyData();
+        } else {
+          this.students.set(data);
+        }
+      });
+    }, (error) => {
+      console.error('Error in onSnapshot students listener:', error);
     });
   }
 
@@ -43,6 +50,7 @@ export class StudentService {
   getStudent(id: string): Student | undefined {
     return this.students().find(s => s.id === id);
   }
+
 
   async updateStudent(id: string, data: Partial<Student>) {
     const studentDoc = doc(this.firestore, `${COLLECTION_NAME}/${id}`);
