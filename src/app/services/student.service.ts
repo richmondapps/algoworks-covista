@@ -19,8 +19,9 @@ export class StudentService {
 
   loadStudents() {
     const studentsRef = collection(this.firestore, COLLECTION_NAME);
+    const q = query(studentsRef);
     // Realtime listener
-    collectionData(studentsRef, { idField: 'id' }).subscribe((data: any[]) => {
+    collectionData(q, { idField: 'id' }).subscribe((data: any[]) => {
       if (data.length === 0) {
         this.initializeDummyData();
       } else {

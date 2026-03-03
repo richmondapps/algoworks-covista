@@ -13,4 +13,8 @@ export class LoginComponent {
   loginWithGoogle() {
     this.authService.loginWithGoogle();
   }
+
+  magicLinkComingSoon() {
+    alert("Magic Link authentication is coming soon! Please use Google login for now.");
+  }
 }
