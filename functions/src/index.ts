@@ -2,7 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onRequest } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { defineSecret } from "firebase-functions/params";
-import * as sgMail from "@sendgrid/mail";
+import sgMail = require("@sendgrid/mail");
 import twilio = require("twilio");
 import { VertexAI } from '@google-cloud/vertexai';
 

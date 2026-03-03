@@ -38,7 +38,7 @@ const https_1 = require("firebase-functions/v2/https");
 const https_2 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const params_1 = require("firebase-functions/params");
-const sgMail = __importStar(require("@sendgrid/mail"));
+const sgMail = require("@sendgrid/mail");
 const twilio = require("twilio");
 const vertexai_1 = require("@google-cloud/vertexai");
 // Initialize Firebase Admin
