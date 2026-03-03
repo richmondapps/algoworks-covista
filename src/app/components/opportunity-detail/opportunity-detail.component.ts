@@ -115,7 +115,15 @@ export class OpportunityDetailComponent {
     return grouped.reverse();
   });
 
+  checklistProgress = computed(() => {
+    const s = this.student();
+    if (!s || !s.checklist || s.checklist.length === 0) return 0;
+    const completed = s.checklist.filter(c => c.status === 'Complete').length;
+    return Math.round((completed / s.checklist.length) * 100);
+  });
+
   isEditingContext = signal(false);
+  isEditingEmail = signal(false);
   editEmail = signal('');
   editPhone = signal('');
 

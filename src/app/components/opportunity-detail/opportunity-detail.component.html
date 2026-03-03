@@ -112,10 +112,23 @@
                         <p>Draft generated instantly by Gemini 2.5 Flash based on student context.</p>
                     </div>
                     <div class="email-box">
+                        <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 4px;">
+                            <button class="sf-button-rounded"
+                                style="padding: 2px 10px; font-size: 10px; min-width: 60px;"
+                                (click)="isEditingEmail.set(!isEditingEmail())">
+                                {{ isEditingEmail() ? 'Cancel' : 'Edit' }}
+                            </button>
+                        </div>
                         <p>Hi {{ student.name.split(' ')[0] }},</p>
+                        @if (isEditingEmail()) {
                         <textarea
                             style="width: 100%; height: 80px; margin: 10px 0; font-family: inherit; font-size: inherit; border: 1px solid #ccc; border-radius: 4px; padding: 8px;"
                             [(ngModel)]="student.aiInsights.emailDraft.bodyText"></textarea>
+                        } @else {
+                        <p
+                            style="margin: 10px 0; padding: 8px; background: #fff; border-radius: 4px; border: 1px solid #eee;">
+                            {{ student.aiInsights.emailDraft.bodyText }}</p>
+                        }
                         <ul>
                             @for (bullet of student.aiInsights.emailDraft.bullets; track bullet) {
                             <li>{{ bullet }}</li>
@@ -356,8 +369,10 @@
                         <span class="acc-title">RETENTION CHECKLIST</span>
                     </div>
                     <div class="acc-right">
-                        <span class="material-icons progress-icon-circle text-green">data_usage</span>
-                        <span>50% Completed</span>
+                        <span class="material-icons progress-icon-circle"
+                            [ngClass]="checklistProgress() === 100 ? 'text-green' : 'text-orange'">data_usage</span>
+                        <span [ngClass]="checklistProgress() === 100 ? 'text-green' : ''" style="font-weight: 500;">{{
+                            checklistProgress() }}% Completed</span>
                     </div>
                 </div>
                 @if (accordions()['checklist']) {
@@ -374,8 +389,9 @@
                 }
 
                 <div class="sf-accordion-item with-stats" style="border-bottom: none;">
-                    <div class="acc-left">
-                        <span class="material-icons">chevron_right</span>
+                    <div class="acc-left" (click)="toggleAccordion('funding')" style="cursor: pointer;">
+                        <span class="material-icons">{{ accordions()['funding'] ? 'expand_more' : 'chevron_right'
+                            }}</span>
                         <span class="acc-title">FUNDING & OFFERS</span>
                     </div>
                     <div class="acc-right error">
@@ -383,6 +399,14 @@
                         <span class="error-text">Incomplete FA Application</span>
                     </div>
                 </div>
+                @if (accordions()['funding']) {
+                <div class="acc-content"
+                    style="padding: 12px 16px; border-bottom: 1px solid #dddbda; background: #fafaf9;">
+                    <p style="font-size:12px; color:#666;"><strong>Action Required:</strong> The FA application is
+                        currently incomplete. Please contact the student and advise them to prioritize completing the
+                        missing sections to secure offer packaging.</p>
+                </div>
+                }
             </div>
 
         </div>
