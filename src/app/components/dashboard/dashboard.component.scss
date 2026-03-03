@@ -1,0 +1,119 @@
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+
+    h2 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    p {
+        color: var(--text-secondary);
+    }
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    padding: 24px;
+    gap: 20px;
+
+    .material-icons {
+        font-size: 32px;
+        padding: 16px;
+        border-radius: 12px;
+
+        &.info-icon {
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent-primary);
+        }
+
+        &.warning-icon {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+    }
+
+    .stat-info {
+        h3 {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .number {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: white;
+        }
+    }
+}
+
+.table-container {
+    overflow: auto;
+    padding: 12px 0;
+}
+
+.students-table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th {
+        text-align: left;
+        padding: 16px 24px;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        font-weight: 600;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    td {
+        padding: 16px 24px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        vertical-align: middle;
+    }
+
+    .clickable-row {
+        cursor: pointer;
+        transition: background 0.2s;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
+    }
+
+    .student-name {
+        font-weight: 600;
+        color: white;
+        margin-bottom: 4px;
+    }
+
+    .student-email {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+    }
+
+    .missing-items {
+        font-size: 0.85rem;
+        color: var(--warning);
+        font-weight: 500;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 48px;
+        color: var(--text-secondary);
+    }
+}

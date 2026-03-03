@@ -1,0 +1,55 @@
+<div class="upload-container">
+    <div class="glass-panel upload-card">
+        @if (student(); as st) {
+        <div class="header">
+            <span class="material-icons prompt-icon">cloud_upload</span>
+            <h2>Upload Missing Document</h2>
+            <p>Hi {{ st.name.split(' ')[0] }}, let's get you ready for class.</p>
+        </div>
+
+        @if (uploadSuccess()) {
+        <div class="success-box">
+            <span class="material-icons success-icon">check_circle</span>
+            <h3>Upload Successful!</h3>
+            <p>Your documents have been securely processed, and your advisor has been instantly notified.</p>
+        </div>
+        } @else {
+        <div class="upload-area" [class.uploading]="isUploading()">
+            <input type="file" (change)="onFileSelected($event)" [disabled]="isUploading()"
+                accept="image/*,.pdf,.doc,.docx" id="fileInput" class="hidden-input" />
+
+            <label for="fileInput" class="upload-label">
+                <span class="material-icons prompt-icon" *ngIf="!isUploading()">upload_file</span>
+                @if (isUploading()) {
+                <p>Securely processing... {{ uploadProgress() }}%</p>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" [style.width.%]="uploadProgress()"></div>
+                </div>
+                } @else {
+                <span class="primary-btn">Select File</span>
+                <p class="file-hint">Accepts PDF, JPG, PNG or DOCX</p>
+                }
+            </label>
+        </div>
+
+        @if (uploadError()) {
+        <div class="error-text">
+            <span class="material-icons">error</span> {{ uploadError() }}
+        </div>
+        }
+        }
+        } @else if (uid()) {
+        <div class="loading-state">
+            <span class="material-icons spinning">refresh</span>
+            <p>Loading your secure profile...</p>
+        </div>
+        } @else {
+        <div class="error-state">
+            <span class="material-icons" style="font-size: 48px; color: #ff5252;">warning</span>
+            <h2>Invalid Upload Access</h2>
+            <p style="color: #666; margin-top: 10px;">Please ensure you copied the exact link generated in your email or
+                SMS, we require the authentication ID.</p>
+        </div>
+        }
+    </div>
+</div>

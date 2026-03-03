@@ -1,0 +1,91 @@
+<div class="header">
+    <div>
+        <h2>Opportunities Dashboard</h2>
+        <p>Monitor readiness checklists and identify students needing action before census.</p>
+    </div>
+    <button class="primary-btn" (click)="triggerAction()" [disabled]="isLoading()">
+        <span class="material-icons">bolt</span>
+        {{ isLoading() ? 'Checking...' : 'Check Action Required' }}
+    </button>
+</div>
+
+<div class="stats-row">
+    <div class="stat-card glass-panel">
+        <span class="material-icons info-icon">people</span>
+        <div class="stat-info">
+            <h3>Total Opportunities</h3>
+            <div class="number">{{ students().length || 0 }}</div>
+        </div>
+    </div>
+    <div class="stat-card glass-panel">
+        <span class="material-icons warning-icon">warning</span>
+        <div class="stat-info">
+            <h3>High Risk</h3>
+            <div class="number">
+                {{ (students() | filterRisk:'High').length }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="glass-panel table-container">
+    <div
+        style="padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; gap: 10px; align-items: center;">
+        <span style="font-weight: 500; color: var(--text-light); margin-right: 15px;">Filter View:</span>
+        <button class="action-btn small-btn" [class.active]="filterMode() === 'All'" (click)="setFilter('All')">All
+            Students</button>
+        <button class="action-btn small-btn" [class.active]="filterMode() === 'High Risk'"
+            (click)="setFilter('High Risk')">High Risk</button>
+        <button class="action-btn small-btn" [class.active]="filterMode() === 'Action Required'"
+            (click)="setFilter('Action Required')">Action Required</button>
+    </div>
+    <table class="students-table">
+        <thead>
+            <tr>
+                <th>Student Name</th>
+                <th>Risk Level</th>
+                <th>Engagement</th>
+                <th>Time to Start</th>
+                <th>Missing Details</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (s of students(); track s.id) {
+            <tr [routerLink]="['/opportunity', s.id]" class="clickable-row">
+                <td>
+                    <div class="student-name">{{ s.name }}</div>
+                    <div class="student-email">{{ s.email }}</div>
+                </td>
+                <td>
+                    <span class="status-badge" [ngClass]="s.riskIndicator.toLowerCase()">{{ s.riskIndicator }}</span>
+                </td>
+                <td>{{ s.engagementLevel }}</td>
+                <td>{{ s.timeUntilClassStartDays }} Days</td>
+                <td>
+                    <div class="missing-items">
+                        @if (s.checklist.length > 0) {
+                        @if (s.checklist[0].status === 'Missing') {
+                        {{ s.checklist[0].name }}
+                        } @else if (s.checklist.length > 1 && s.checklist[1].status === 'Missing') {
+                        {{ s.checklist[1].name }}
+                        } @else {
+                        None
+                        }
+                        }
+                    </div>
+                </td>
+                <td>
+                    <button class="action-btn">
+                        View Details <span class="material-icons">arrow_forward</span>
+                    </button>
+                </td>
+            </tr>
+            } @empty {
+            <tr>
+                <td colspan="6" class="empty-state">No student opportunities found.</td>
+            </tr>
+            }
+        </tbody>
+    </table>
+</div>

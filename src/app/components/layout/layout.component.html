@@ -1,0 +1,54 @@
+<div class="app-layout">
+    <nav class="sidebar">
+        <div class="logo">
+            <div class="logo-icon">C</div>
+            <h1>Covista R2C</h1>
+        </div>
+        <ul class="nav-links">
+            <li>
+                <a routerLink="/dashboard" routerLinkActive="active">
+                    <span class="icon material-icons">dashboard</span>
+                    Dashboard
+                </a>
+            </li>
+            <li>
+                <a href="javascript:void(0)" class="disabled">
+                    <span class="icon material-icons">people</span>
+                    Students
+                </a>
+            </li>
+            <li>
+                <a href="javascript:void(0)" class="disabled">
+                    <span class="icon material-icons">bolt</span>
+                    Actions
+                </a>
+            </li>
+        </ul>
+
+        <div class="bottom-nav">
+            <div class="user-profile">
+                <div class="avatar">AS</div>
+                <div class="info">
+                    <span class="name">Admissions Spec</span>
+                    <span class="role">Specialist</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="search-bar">
+                <span class="material-icons">search</span>
+                <input type="text" placeholder="Search students, actions...">
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn"><span class="material-icons">notifications</span></button>
+                <button class="icon-btn"><span class="material-icons">settings</span></button>
+            </div>
+        </header>
+        <div class="page-container">
+            <router-outlet></router-outlet>
+        </div>
+    </main>
+</div>

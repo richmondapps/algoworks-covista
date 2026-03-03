@@ -1,0 +1,243 @@
+@if (student(); as student) {
+<div class="detail-page">
+    <div class="header">
+        <div class="title-area">
+            <a routerLink="/dashboard" class="action-btn back-btn">
+                <span class="material-icons">arrow_back</span> Back
+            </a>
+            <h2>{{ student.name }}</h2>
+            <span class="status-badge" [ngClass]="student.riskIndicator.toLowerCase()">{{ student.riskIndicator }}
+                Risk</span>
+        </div>
+    </div>
+
+    <div class="layout-grid">
+        <!-- Left Column -->
+        <div class="left-col stack-gap">
+
+            <!-- Student Profile -->
+            <div class="glass-panel profile-card">
+                <div class="card-header-inline">
+                    <h3>Contact Profile</h3>
+                    @if (!isEditingContext()) {
+                    <button class="action-btn small-btn" (click)="startEdit(student)">
+                        <span class="material-icons">edit</span> Edit
+                    </button>
+                    }
+                </div>
+
+                @if (!isEditingContext()) {
+                <div>
+                    <p><span class="material-icons">email</span> {{ student.email }}</p>
+                    <p><span class="material-icons">phone</span> {{ student.phone }}</p>
+                </div>
+                }
+
+                @if (isEditingContext()) {
+                <div class="edit-form">
+                    <div class="form-group">
+                        <span class="material-icons">email</span>
+                        <input type="email" [ngModel]="editEmail()" (ngModelChange)="editEmail.set($event)"
+                            class="glass-input" placeholder="Email" />
+                    </div>
+                    <div class="form-group">
+                        <span class="material-icons">phone</span>
+                        <input type="tel" [ngModel]="editPhone()" (ngModelChange)="editPhone.set($event)"
+                            class="glass-input" placeholder="Phone" />
+                    </div>
+                    <div class="form-actions">
+                        <button class="action-btn small-btn cancel-btn" (click)="cancelEdit()">Cancel</button>
+                        <button class="primary-btn small-btn" (click)="saveEdit(student)">Save</button>
+                    </div>
+                </div>
+                }
+            </div>
+
+            <!-- Quick Communication & Insights Stack -->
+            <div class="glass-panel" style="padding: 20px;">
+                <h3 style="margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                    Email Engagement</h3>
+                <div class="engagement-stats">
+                    <div class="stat">
+                        <label>Emails Sent</label>
+                        <div class="value">{{ student.stats?.emailsSent || 0 }}</div>
+                    </div>
+                    <div class="stat">
+                        <label>Email Opens</label>
+                        <div class="value">{{ student.stats?.emailOpens || 0 }}</div>
+                    </div>
+                </div>
+                @if (!isEditingContext()) {
+                <button style="width: 100%; margin-top: 15px;" class="primary-btn small-btn"
+                    (click)="triggerCommunication(student, { type: 'Email' })">
+                    <span class="material-icons"
+                        style="font-size: 16px; margin-right: 5px; vertical-align: middle;">email</span> Send Manual
+                    Email
+                </button>
+                }
+            </div>
+
+            <div class="glass-panel" style="padding: 20px;">
+                <h3 style="margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                    SMS Engagement</h3>
+                <div class="engagement-stats">
+                    <div class="stat">
+                        <label>SMS Sent</label>
+                        <div class="value">{{ student.stats?.smsSent || 0 }}</div>
+                    </div>
+                    <div class="stat">
+                        <label>SMS Clicks</label>
+                        <div class="value">{{ student.stats?.smsClicks || 0 }}</div>
+                    </div>
+                </div>
+                @if (!isEditingContext()) {
+                <button style="width: 100%; margin-top: 15px;" class="primary-btn small-btn"
+                    (click)="triggerCommunication(student, { type: 'SMS' })">
+                    <span class="material-icons"
+                        style="font-size: 16px; margin-right: 5px; vertical-align: middle;">sms</span> Send Manual
+                    SMS
+                </button>
+                }
+            </div>
+
+            <!-- Signals & Context -->
+            <div class="glass-panel risk-card">
+                <h3>Risk and Context Signals</h3>
+                <ul class="signal-list">
+                    <li>
+                        <span class="material-icons">history</span>
+                        <div class="info">
+                            <label>Time since reserve</label>
+                            <span>{{ student.timeSinceReserveDays }} Days</span>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="material-icons">event</span>
+                        <div class="info">
+                            <label>Time until class start</label>
+                            <span [class.danger]="student.timeUntilClassStartDays < 15">{{
+                                student.timeUntilClassStartDays }} Days</span>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="material-icons">trending_up</span>
+                        <div class="info">
+                            <label>Current Engagement</label>
+                            <span>{{ student.engagementLevel }}</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="right-col stack-gap">
+            <!-- Personalized Readiness Checklist -->
+            <div class="glass-panel checklist-card">
+                <div class="card-header">
+                    <h3>Readiness Checklist</h3>
+                    <div class="progress-wrapper">
+                        <span>{{ getOverallProgress(student) }}% Complete</span>
+                        <div class="progress-bar">
+                            <div class="fill" [style.width.%]="getOverallProgress(student)"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <ul class="check-items">
+                    @for (item of student.checklist; track item.id) {
+                    <li class="check-item">
+                        <div class="icon-stat">
+                            @if (item.status === 'Complete') {
+                            <span class="material-icons complete">check_circle</span>
+                            }
+                            @if (item.status === 'Pending') {
+                            <span class="material-icons pending">radio_button_unchecked</span>
+                            }
+                            @if (item.status === 'Missing') {
+                            <span class="material-icons missing">error</span>
+                            }
+                        </div>
+                        <div class="details">
+                            <h4>{{ item.name }}</h4>
+                            @if (item.status !== 'Complete') {
+                            <p>Due in {{ daysRemaining(item.dueDate) }} days</p>
+                            }
+                        </div>
+                        <span class="status-badge" [ngClass]="item.status.toLowerCase()">{{ item.status }}</span>
+                    </li>
+                    }
+                </ul>
+            </div>
+
+            <!-- Uploaded Documents Viewer -->
+            <div class="glass-panel checklist-card">
+                <div class="card-header">
+                    <h3>Uploaded Documents</h3>
+                </div>
+
+                @if (uploadedDocuments().length > 0) {
+                <ul class="check-items" style="margin-top: 15px;">
+                    @for (doc of uploadedDocuments(); track doc.name) {
+                    <li class="check-item" style="cursor: pointer;" (click)="false"
+                        onclick="window.open(this.getAttribute('data-url'), '_blank')" [attr.data-url]="doc.url">
+                        <div class="icon-stat">
+                            <span class="material-icons complete">insert_drive_file</span>
+                        </div>
+                        <div class="details">
+                            <h4>{{ doc.name }}</h4>
+                            <p style="color: var(--primary);">Click to view</p>
+                        </div>
+                        <span class="material-icons" style="color: var(--text-light); opacity: 0.6;">open_in_new</span>
+                    </li>
+                    }
+                </ul>
+                } @else {
+                <div style="padding: 20px 0; text-align: center; color: var(--text-light);">
+                    <span class="material-icons"
+                        style="font-size: 32px; opacity: 0.5; margin-bottom: 10px;">folder_off</span>
+                    <p>No documents uploaded yet.</p>
+                </div>
+                }
+            </div>
+
+            <!-- Recommended Next Best Actions -->
+            @if (student.recommendedActions.length > 0) {
+            <div class="glass-panel actions-card">
+                <h3>Next Best Actions (AI Generated)</h3>
+                <div class="action-items">
+                    @for (action of student.recommendedActions; track action.id) {
+                    <div class="action-item">
+                        <div class="icon-wrap" [ngClass]="action.type.toLowerCase()">
+                            @if (action.type === 'Email') {
+                            <span class="material-icons">email</span>
+                            }
+                            @if (action.type === 'SMS') {
+                            <span class="material-icons">sms</span>
+                            }
+                            @if (action.type === 'Call') {
+                            <span class="material-icons">call</span>
+                            }
+                        </div>
+                        <div class="content">
+                            <h4>{{ action.title }}</h4>
+                            <p>{{ action.description }}</p>
+                        </div>
+                        @if (action.type !== 'Call') {
+                        <button class="primary-btn" (click)="triggerCommunication(student, action)">
+                            Simulate {{ action.type }} Send
+                        </button>
+                        }
+                        @if (action.type === 'Call') {
+                        <button class="action-btn">
+                            Mark Done
+                        </button>
+                        }
+                    </div>
+                    }
+                </div>
+            </div>
+            }
+        </div>
+    </div>
+</div>
+}
