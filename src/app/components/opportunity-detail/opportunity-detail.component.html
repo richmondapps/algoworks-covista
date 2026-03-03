@@ -53,67 +53,72 @@
                 <div class="card-title-row">
                     <div class="title-left">
                         <span class="material-icons spark-icon">auto_awesome</span>
-                        <h3>AI Overview</h3>
+                        <h3>AI Overview <span style="font-size: 11px; font-weight: normal; color: #747474;">(Vertex AI
+                                Gemini 3.1 Pro Preview)</span></h3>
                     </div>
-                    <span class="material-icons expand-icon">expand_less</span>
+                    @if (!student.aiInsights) {
+                    <button class="sf-outline-btn" style="border-color: #0176d3; color: #0176d3;"
+                        (click)="generateAi(student)" [disabled]="isGeneratingAi()">
+                        {{ isGeneratingAi() ? 'Generating...' : 'Run Vertex AI Insights' }}
+                    </button>
+                    }
                 </div>
                 <div class="card-content">
+                    @if (student.aiInsights) {
                     <p class="summary-text line-height-spaced">
-                        Narrative summary of the student's current status, including anything we know about recent
-                        contact and recent actions. Lorem ipsum dolor sit amet, consectetur adipiscing elit
-                        <span class="highlight-badge-pill">Missing official transcript</span> tempor incididunt ut
-                        labore et dolore magna aliqua.
+                        {{ student.aiInsights.overview.intro }}
+                        <span class="highlight-badge-pill">{{ student.aiInsights.overview.highlight }}</span>
+                        {{ student.aiInsights.overview.outro }}
                     </p>
+                    } @else {
+                    <p class="summary-text line-height-spaced" style="color: #747474; font-style: italic;">
+                        Click "Run Vertex AI Insights" to generate a personalized behavioral overview, prioritized Next
+                        Best Actions, and custom text/email drafts based on this student's exact engagement history and
+                        checklist requirements.
+                    </p>
+                    }
                 </div>
             </div>
 
-            <!-- Next Best Actions -->
+            @if (student.aiInsights) {
+            <!-- Next Best Actions (Vertex AI Generated) -->
             <div class="sf-section-container">
                 <h3 class="sf-section-heading">Next Best Actions</h3>
 
-                <div class="sf-card light-blue-bg">
+                @for (action of student.aiInsights.nextBestActions; track action.title) {
+                <div class="sf-card" [ngClass]="action.urgent ? 'light-blue-bg' : 'light-gray-bg'">
                     <div class="nba-header">
-                        <h4>Official transcript needed</h4>
+                        <h4>{{ action.title }}</h4>
+                        @if (action.urgent) {
                         <span class="urgent-badge">Urgent!</span>
+                        }
                     </div>
                     <ul class="nba-list">
-                        <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit</li>
-                        <li>Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua</li>
+                        @for (point of action.points; track point) {
+                        <li>{{ point }}</li>
+                        }
                     </ul>
-                    <button class="sf-outline-btn">Capella University Official Transcript Request &gt;</button>
+                    <button class="sf-outline-btn">{{ action.buttonText }}</button>
                 </div>
-
-                <div class="sf-card light-gray-bg">
-                    <div class="nba-header">
-                        <h4>WOWW - first module completed</h4>
-                    </div>
-                    <ul class="nba-list">
-                        <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit</li>
-                        <li>Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua</li>
-                    </ul>
-                    <button class="sf-outline-btn">WOWW Link &gt;</button>
-                </div>
+                }
             </div>
 
-            <!-- Generate Personalized Outreach -->
+            <!-- Generate Personalized Outreach (Vertex AI Generated) -->
             <div class="sf-section-container">
                 <h3 class="sf-section-heading">Generate Personalized Outreach</h3>
 
                 <div class="sf-card white-bg with-border">
                     <div class="outreach-header">
                         <h4>Create Email Message</h4>
-                        <p>Emails are personalized based on lorem ipsum dolor sit amet consectetur.</p>
+                        <p>Draft generated instantly by Gemini 3.1 Pro based on student context.</p>
                     </div>
                     <div class="email-box">
                         <p>Hi {{ student.name.split(' ')[0] }},</p>
-                        <p>Lorem ipsum dolor sit amet consectetur adipiscing elit, sed do eiusmod tempor incididunt ut
-                            labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco
-                            laboris nisi ut aliquip ex ea commodo consequat.</p>
+                        <p>{{ student.aiInsights.emailDraft.bodyText }}</p>
                         <ul>
-                            <li>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat
-                                nulla pariatur.</li>
-                            <li>Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt
-                                mollit anim id est laborum.</li>
+                            @for (bullet of student.aiInsights.emailDraft.bullets; track bullet) {
+                            <li>{{ bullet }}</li>
+                            }
                         </ul>
                         <p>Best,<br />Jane Doe</p>
                         <div class="btn-right">
@@ -124,16 +129,17 @@
                 </div>
 
                 <div class="sf-card white-bg with-border row-layout">
-                    <div class="outreach-header no-margin">
+                    <div class="outreach-header no-margin" style="max-width: 70%;">
                         <h4>Create SMS Message</h4>
-                        <p>Messages are personalized based on lorem ipsum dolor sit amet consectetur.</p>
+                        <p style="margin-top: 4px;">"{{ student.aiInsights.smsDraft }}"</p>
                     </div>
                     <button class="sf-button-outline-blue"
                         (click)="triggerCommunication(student, { type: 'SMS' })">Generate SMS</button>
                 </div>
             </div>
-
+            }
         </div>
+
 
         <!-- Right Column -->
         <div class="right-col sf-stack-gap">

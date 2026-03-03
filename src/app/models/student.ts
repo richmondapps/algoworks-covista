@@ -25,6 +25,25 @@ export interface StudentStats {
     avgOpenDelayMinutes?: number;
 }
 
+export interface AiInsights {
+    overview: {
+        intro: string;
+        highlight: string;
+        outro: string;
+    };
+    nextBestActions: {
+        title: string;
+        urgent: boolean;
+        points: string[];
+        buttonText: string;
+    }[];
+    emailDraft: {
+        bodyText: string;
+        bullets: string[];
+    };
+    smsDraft: string;
+}
+
 export interface Student {
     id: string;
     uid: string; // Firebase UID format
@@ -39,4 +58,5 @@ export interface Student {
     recommendedActions: RecommendedAction[];
     stats: StudentStats;
     actionRequired: boolean; // For pub/sub filtering
+    aiInsights?: AiInsights;
 }

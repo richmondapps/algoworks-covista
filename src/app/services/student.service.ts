@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Firestore, collection, collectionData, doc, setDoc, query, orderBy, where, getDocs, writeBatch } from '@angular/fire/firestore';
+import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Student } from '../models/student';
 
 const COLLECTION_NAME = 'students';
@@ -9,6 +10,7 @@ const COLLECTION_NAME = 'students';
 })
 export class StudentService {
   private firestore: Firestore = inject(Firestore);
+  private functions: Functions = inject(Functions);
   public students = signal<Student[]>([]);
 
   constructor() {
@@ -44,6 +46,20 @@ export class StudentService {
   async updateStudent(id: string, data: Partial<Student>) {
     const studentDoc = doc(this.firestore, `${COLLECTION_NAME}/${id}`);
     await setDoc(studentDoc, data, { merge: true });
+  }
+
+  async generateAiInsights(student: Student) {
+    const callable = httpsCallable(this.functions, 'generateStudentInsights');
+    try {
+      const response = await callable({
+        studentUid: student.id,
+        dataContext: student
+      });
+      return response.data;
+    } catch (e) {
+      console.error('Failed to generate insights', e);
+      throw e;
+    }
   }
 
   async initializeDummyData() {

@@ -4,6 +4,7 @@ import * as admin from "firebase-admin";
 import { defineSecret } from "firebase-functions/params";
 import * as sgMail from "@sendgrid/mail";
 import twilio = require("twilio");
+import { VertexAI } from '@google-cloud/vertexai';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -247,5 +248,87 @@ export const sendgridWebhook = onRequest(async (req: any, res: any) => {
     } catch (err) {
         console.error("[sendgridWebhook] Firestore batch update failed", err);
         res.status(500).send("Internal Server Error");
+    }
+});
+
+/**
+ * Cloud Function to generate Next Best Action insights via Vertex AI gemini-3.1-pro-preview
+ */
+export const generateStudentInsights = onCall(async (request) => {
+    const { studentUid, dataContext } = request.data;
+    if (!studentUid) {
+        throw new HttpsError("invalid-argument", "Missing student UID");
+    }
+
+    try {
+        console.log(`[generateStudentInsights] Invoking Vertex AI Gemini 3.1 Pro Preview for UID: ${studentUid}`);
+
+        // Ensure proper credentials and execution context are passed
+        const vertex_ai = new VertexAI({ project: process.env.GCLOUD_PROJECT || 'algoworks-dev', location: 'us-central1' });
+        const model = 'gemini-3.1-pro-preview';
+
+        const generativeModel = vertex_ai.preview.getGenerativeModel({
+            model: model,
+            generationConfig: {
+                maxOutputTokens: 2048,
+                temperature: 0.2, // Keep responses highly factual and deterministic
+                responseMimeType: "application/json"
+            }
+        });
+
+        const prompt = `
+          You are an expert academic advisor AI. 
+          Given the following raw student data context, generate a personalized plan and outreach drafts.
+          Reply ONLY in strictly valid JSON formatted exactly like this:
+          {
+            "overview": {
+                "intro": "Narrative intro summarizing their status in 1-2 accurate sentences based on data.",
+                "highlight": "A 2-4 word urgently missing item (e.g., 'Missing transcript').",
+                "outro": "A 1 sentence firm conclusion on immediate next steps required."
+            },
+            "nextBestActions": [
+                {
+                    "title": "Short action title",
+                    "urgent": true,
+                    "points": ["Academic reasoning 1", "Benefit reasoning 2"],
+                    "buttonText": "Complete Task >"
+                },
+                {
+                    "title": "Longer-term action",
+                    "urgent": false,
+                    "points": ["Reasoning 1", "Reasoning 2"],
+                    "buttonText": "View Info >"
+                }
+            ],
+            "emailDraft": {
+                "bodyText": "1-2 paragraphs of friendly, customized body text explaining what they need to do without dummy placeholder text.",
+                "bullets": ["Specific actionable task 1", "Specific actionable task 2"]
+            },
+            "smsDraft": "Short, friendly text strictly under 140 chars with a clear call to action."
+          }
+
+          STUDENT DATA:
+          ${JSON.stringify(dataContext)}
+        `;
+
+        const reqPayload = {
+            contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        };
+
+        const resp = await generativeModel.generateContent(reqPayload);
+        const responseText = resp.response.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        const aiPayload = JSON.parse(responseText);
+
+        console.log(`[generateStudentInsights] Valid JSON successfully generated.`);
+
+        // Append generated AI payload directly to the student record in Firestore
+        await db.collection("students").doc(studentUid).set({
+            aiInsights: aiPayload
+        }, { merge: true });
+
+        return { success: true, aiInsights: aiPayload };
+    } catch (e: any) {
+        console.error("[generateStudentInsights] Vertex AI Generation Failed", e);
+        throw new HttpsError("internal", `Vertex AI failed: ${e.message}`);
     }
 });

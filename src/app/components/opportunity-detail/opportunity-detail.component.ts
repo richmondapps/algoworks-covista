@@ -57,9 +57,22 @@ export class OpportunityDetailComponent {
     }
   }
 
+  isGeneratingAi = signal(false);
+
   daysRemaining(dueDate: string): number {
     const diff = new Date(dueDate).getTime() - new Date().getTime();
     return Math.ceil(diff / (1000 * 3600 * 24));
+  }
+
+  async generateAi(student: Student) {
+    this.isGeneratingAi.set(true);
+    try {
+      await this.studentService.generateAiInsights(student);
+    } catch (e) {
+      alert("Failed to generate AI insights.");
+    } finally {
+      this.isGeneratingAi.set(false);
+    }
   }
 
   startEdit(student: Student) {

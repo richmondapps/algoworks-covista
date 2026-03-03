@@ -33,13 +33,14 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendgridWebhook = exports.twilioWebhook = exports.sendOpportunitySms = exports.sendOpportunityEmail = void 0;
+exports.generateStudentInsights = exports.sendgridWebhook = exports.twilioWebhook = exports.sendOpportunitySms = exports.sendOpportunityEmail = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const https_2 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const params_1 = require("firebase-functions/params");
 const sgMail = __importStar(require("@sendgrid/mail"));
 const twilio = require("twilio");
+const vertexai_1 = require("@google-cloud/vertexai");
 // Initialize Firebase Admin
 admin.initializeApp();
 const db = admin.firestore();
@@ -250,6 +251,80 @@ exports.sendgridWebhook = (0, https_2.onRequest)(async (req, res) => {
     catch (err) {
         console.error("[sendgridWebhook] Firestore batch update failed", err);
         res.status(500).send("Internal Server Error");
+    }
+});
+/**
+ * Cloud Function to generate Next Best Action insights via Vertex AI gemini-3.1-pro-preview
+ */
+exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
+    var _a, _b, _c, _d, _e;
+    const { studentUid, dataContext } = request.data;
+    if (!studentUid) {
+        throw new https_1.HttpsError("invalid-argument", "Missing student UID");
+    }
+    try {
+        console.log(`[generateStudentInsights] Invoking Vertex AI Gemini 3.1 Pro Preview for UID: ${studentUid}`);
+        // Ensure proper credentials and execution context are passed
+        const vertex_ai = new vertexai_1.VertexAI({ project: process.env.GCLOUD_PROJECT || 'algoworks-dev', location: 'us-central1' });
+        const model = 'gemini-3.1-pro-preview';
+        const generativeModel = vertex_ai.preview.getGenerativeModel({
+            model: model,
+            generationConfig: {
+                maxOutputTokens: 2048,
+                temperature: 0.2, // Keep responses highly factual and deterministic
+                responseMimeType: "application/json"
+            }
+        });
+        const prompt = `
+          You are an expert academic advisor AI. 
+          Given the following raw student data context, generate a personalized plan and outreach drafts.
+          Reply ONLY in strictly valid JSON formatted exactly like this:
+          {
+            "overview": {
+                "intro": "Narrative intro summarizing their status in 1-2 accurate sentences based on data.",
+                "highlight": "A 2-4 word urgently missing item (e.g., 'Missing transcript').",
+                "outro": "A 1 sentence firm conclusion on immediate next steps required."
+            },
+            "nextBestActions": [
+                {
+                    "title": "Short action title",
+                    "urgent": true,
+                    "points": ["Academic reasoning 1", "Benefit reasoning 2"],
+                    "buttonText": "Complete Task >"
+                },
+                {
+                    "title": "Longer-term action",
+                    "urgent": false,
+                    "points": ["Reasoning 1", "Reasoning 2"],
+                    "buttonText": "View Info >"
+                }
+            ],
+            "emailDraft": {
+                "bodyText": "1-2 paragraphs of friendly, customized body text explaining what they need to do without dummy placeholder text.",
+                "bullets": ["Specific actionable task 1", "Specific actionable task 2"]
+            },
+            "smsDraft": "Short, friendly text strictly under 140 chars with a clear call to action."
+          }
+
+          STUDENT DATA:
+          ${JSON.stringify(dataContext)}
+        `;
+        const reqPayload = {
+            contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        };
+        const resp = await generativeModel.generateContent(reqPayload);
+        const responseText = ((_e = (_d = (_c = (_b = (_a = resp.response.candidates) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c === void 0 ? void 0 : _c.parts) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.text) || "{}";
+        const aiPayload = JSON.parse(responseText);
+        console.log(`[generateStudentInsights] Valid JSON successfully generated.`);
+        // Append generated AI payload directly to the student record in Firestore
+        await db.collection("students").doc(studentUid).set({
+            aiInsights: aiPayload
+        }, { merge: true });
+        return { success: true, aiInsights: aiPayload };
+    }
+    catch (e) {
+        console.error("[generateStudentInsights] Vertex AI Generation Failed", e);
+        throw new https_1.HttpsError("internal", `Vertex AI failed: ${e.message}`);
     }
 });
 //# sourceMappingURL=index.js.map
