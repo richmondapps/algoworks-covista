@@ -224,9 +224,10 @@ export class OpportunityDetailComponent {
     });
   }
 
-  getMailtoLink(student: Student, text: string, bullets: string[] = []) {
+  openMailClient(student: Student, text: string, bullets: string[] = []) {
     const fullText = text + (bullets && bullets.length > 0 ? '\n\n' + bullets.map(b => '• ' + b).join('\n') : '');
-    return `mailto:${student.email}?subject=Your Enrollment Update&body=${encodeURIComponent(fullText)}`;
+    const mailtoLink = `mailto:${student.email}?subject=Your Enrollment Update&body=${encodeURIComponent(fullText)}`;
+    window.location.href = mailtoLink;
   }
 
   startEdit(student: Student) {
