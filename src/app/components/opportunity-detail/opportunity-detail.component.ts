@@ -215,6 +215,20 @@ export class OpportunityDetailComponent {
     }
   }
 
+  copyToClipboard(text: string, bullets: string[] = []) {
+    const fullText = text + (bullets && bullets.length > 0 ? '\n\n' + bullets.map(b => '• ' + b).join('\n') : '');
+    navigator.clipboard.writeText(fullText).then(() => {
+      alert('Draft copied to clipboard!');
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+    });
+  }
+
+  getMailtoLink(student: Student, text: string, bullets: string[] = []) {
+    const fullText = text + (bullets && bullets.length > 0 ? '\n\n' + bullets.map(b => '• ' + b).join('\n') : '');
+    return `mailto:${student.email}?subject=Your Enrollment Update&body=${encodeURIComponent(fullText)}`;
+  }
+
   startEdit(student: Student) {
     this.isEditingContext.set(true);
     this.editEmail.set(student.email);

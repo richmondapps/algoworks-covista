@@ -50,12 +50,13 @@
 
             <!-- AI Overview -->
             <div class="sf-panel expandable-card has-border-accent">
-                <div class="card-title-row">
+                <div class="card-title-row" style="margin-bottom: 8px;">
                     <div class="title-left">
                         <span class="material-icons spark-icon">auto_awesome</span>
-                        <h3>AI Overview <span style="font-size: 11px; font-weight: normal; color: #747474;">(Vertex AI
-                                Gemini 2.5 Flash)</span></h3>
+                        <h3>AI Overview</h3>
                     </div>
+                </div>
+                <div style="margin-bottom: 16px;">
                     <button class="sf-outline-btn" style="border-color: #0176d3; color: #0176d3;"
                         (click)="generateAi(student)" [disabled]="isGeneratingAi()">
                         {{ isGeneratingAi() ? 'Generating...' : (student.aiInsights ? 'Regenerate AI Insights' : 'Run
@@ -70,7 +71,7 @@
                         {{ student.aiInsights.overview.outro }}
                     </p>
 
-                    @if (student.aiInsights.riskSignals) {
+                    @if (false && student.aiInsights.riskSignals) {
                     <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ebebeb;">
                         <h4
                             style="font-size: 13px; color: #1b1b1b; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
@@ -177,11 +178,19 @@
                             <li>{{ bullet }}</li>
                             }
                         </ul>
-                        <p>Best,<br />Jane Doe</p>
-                        <div class="btn-right">
+                        <div class="btn-right" style="display: flex; gap: 8px;">
+                            <button class="sf-outline-btn" style="border-color: #ddd;"
+                                (click)="copyToClipboard(student.aiInsights.emailDraft.bodyText, student.aiInsights.emailDraft.bullets)">
+                                Copy to Clipboard
+                            </button>
+                            <!-- 
                             <button class="sf-button-rounded"
-                                (click)="triggerCommunication(student, { type: 'Email' }, student.aiInsights.emailDraft.bodyText)">Send
-                                Email</button>
+                                (click)="triggerCommunication(student, { type: 'Email' }, student.aiInsights.emailDraft.bodyText)">Send Native Email</button> 
+                            -->
+                            <a class="sf-button-rounded"
+                                style="text-decoration: none; display: inline-block; padding: 6px 14px;"
+                                [href]="getMailtoLink(student, student.aiInsights.emailDraft.bodyText, student.aiInsights.emailDraft.bullets)">Open
+                                in Outlook</a>
                         </div>
                     </div>
                 </div>
@@ -282,7 +291,9 @@
                             }}</span>
                         <span class="acc-title">COMMUNICATIONS & EMAILS <span
                                 style="margin-left: 5px; color: #747474; font-weight: normal;">({{
-                                student.communications?.length || 0 }})</span></span>
+                                student.communications?.length || 0 }})</span> <span class="badge"
+                                style="background: #fff3e0; color: #ea4335; border: 1px solid #ea4335; font-size: 9px; padding: 2px 6px; margin-left: 6px;">To
+                                Be Removed</span></span>
                     </div>
                 </div>
                 <!-- Dynamic Content for Communications -->

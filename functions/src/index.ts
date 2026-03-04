@@ -345,9 +345,9 @@ export const generateStudentInsights = onCall(async (request) => {
           Reply ONLY in strictly valid JSON formatted exactly like this:
           {
             "overview": {
-                "intro": "Narrative intro summarizing their status in 1-2 accurate sentences based on data.",
+                "intro": "Narrative intro summarizing their status in 1-2 accurate sentences based on data. Address the Enrollment Specialist directly in third-person regarding the student (e.g. 'Peter\\'s enrollment is missing...'). Do NOT address the student directly.",
                 "highlight": "A 2-4 word urgently missing item (e.g., 'Missing transcript').",
-                "outro": "A 1 sentence firm conclusion on immediate next steps required."
+                "outro": "A 1 sentence firm conclusion on immediate next steps required by the ES."
             },
             "riskSignals": {
                 "timeSinceReserve": "Formatted string, e.g., '14 Days'",
@@ -358,14 +358,14 @@ export const generateStudentInsights = onCall(async (request) => {
             },
             "nextBestActions": [
                 {
-                    "title": "Identify 1-3 prioritized actions",
+                    "title": "Identify 1-3 prioritized actions for the ES",
                     "urgent": true,
-                    "points": ["Must be grounded in readiness gaps, timing, and engagement", "Must be explainable and traceable to inputs"],
+                    "points": ["Must be grounded in readiness gaps, timing, and engagement", "Should be specific tasks the ES needs to perform"],
                     "buttonText": "Complete Task >"
                 }
             ],
             "emailDraft": {
-                "bodyText": "1-2 paragraphs of friendly, customized body text explaining what they need to do without dummy placeholder text.",
+                "bodyText": "1-2 paragraphs of friendly, customized body text explaining what they need to do without dummy placeholder text. Do not include sign-offs like 'Best, Jane Doe'.",
                 "bullets": ["Specific actionable task 1", "Specific actionable task 2"]
             },
             "smsDraft": "Short, friendly text strictly under 140 chars with a clear call to action."
