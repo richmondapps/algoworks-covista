@@ -340,12 +340,14 @@ export const generateStudentInsights = onCall(async (request) => {
         });
 
         const prompt = `
-          You are an expert academic advisor AI. 
+          You are an expert academic advisor AI acting as an assistant FOR THE ENROLLMENT SPECIALIST (ES). 
           Given the following raw student data context, generate a personalized plan and outreach drafts.
+          CRITICAL INSTRUCTION: You are talking to the ES. You must NEVER address the student directly in the 'overview' or 'nextBestActions' sections. NEVER use words like "Your", "You", or "Register for your courses". Identify tasks the ES needs to perform (e.g. "Remind student to register").
+          
           Reply ONLY in strictly valid JSON formatted exactly like this:
           {
             "overview": {
-                "intro": "Narrative intro summarizing their status in 1-2 accurate sentences based on data. Address the Enrollment Specialist directly in third-person regarding the student (e.g. 'Peter\\'s enrollment is missing...'). Do NOT address the student directly.",
+                "intro": "Narrative intro summarizing their status in 1-2 accurate sentences based on data. Address the Enrollment Specialist directly in third-person regarding the student (e.g. 'Peter\\'s enrollment is missing...').",
                 "highlight": "A 2-4 word urgently missing item (e.g., 'Missing transcript').",
                 "outro": "A 1 sentence firm conclusion on immediate next steps required by the ES."
             },
@@ -358,14 +360,14 @@ export const generateStudentInsights = onCall(async (request) => {
             },
             "nextBestActions": [
                 {
-                    "title": "Identify 1-3 prioritized actions for the ES",
+                    "title": "Action title explicitly commanding the ES (e.g., 'Remind student to register', NEVER 'Register for your courses').",
                     "urgent": true,
-                    "points": ["Must be grounded in readiness gaps, timing, and engagement", "Should be specific tasks the ES needs to perform"],
+                    "points": ["Instructions for the ES, NOT the student. NEVER say 'you' or 'your'. e.g., 'Send enrollment link', NOT 'Secure your spot'."],
                     "buttonText": "Complete Task >"
                 }
             ],
             "emailDraft": {
-                "bodyText": "1-2 paragraphs of friendly, customized body text explaining what they need to do without dummy placeholder text. Do not include sign-offs like 'Best, Jane Doe'.",
+                "bodyText": "1-2 paragraphs of friendly, customized body text explaining what they need to do without dummy placeholder text. DO NOT include any greeting or salutation (e.g. no 'Hi Student'). Start directly with the first sentence.",
                 "bullets": ["Specific actionable task 1", "Specific actionable task 2"]
             },
             "smsDraft": "Short, friendly text strictly under 140 chars with a clear call to action."
