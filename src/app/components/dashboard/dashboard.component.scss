@@ -55,7 +55,7 @@
         .number {
             font-size: 1.8rem;
             font-weight: 700;
-            color: white;
+            color: var(--text-primary);
         }
     }
 }
@@ -76,12 +76,12 @@
         text-transform: uppercase;
         color: var(--text-secondary);
         font-weight: 600;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: var(--border-light);
     }
 
     td {
         padding: 16px 24px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: var(--border-light);
         vertical-align: middle;
     }
 
@@ -90,13 +90,13 @@
         transition: background 0.2s;
 
         &:hover {
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(0, 0, 0, 0.04);
         }
     }
 
     .student-name {
         font-weight: 600;
-        color: white;
+        color: var(--text-primary);
         margin-bottom: 4px;
     }
 
@@ -125,9 +125,9 @@
 
         .inline-input {
             width: 100%;
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: var(--text-primary);
             padding: 4px 8px;
             border-radius: 4px;
             font-size: 13px;

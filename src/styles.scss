@@ -1,17 +1,17 @@
 :root {
-  --bg-primary: #0F172A;
-  --bg-secondary: #1E293B;
-  --bg-surface: rgba(30, 41, 59, 0.7);
-  --text-primary: #F8FAFC;
-  --text-secondary: #94A3B8;
-  --accent-primary: #3B82F6;
-  --accent-secondary: #8B5CF6;
-  --success: #10B981;
-  --warning: #F59E0B;
-  --danger: #EF4444;
-  --border-light: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
-  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+  --bg-primary: #F8FAFC;
+  --bg-secondary: #FFFFFF;
+  --bg-surface: rgba(255, 255, 255, 0.85);
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --accent-primary: #2563EB;
+  --accent-secondary: #4F46E5;
+  --success: #059669;
+  --warning: #D97706;
+  --danger: #DC2626;
+  --border-light: rgba(0, 0, 0, 0.1);
+  --glass-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  --glass-border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 body {
@@ -19,7 +19,7 @@ body {
   font-family: 'Inter', sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  background-image: 
+  background-image:
     radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
   background-attachment: fixed;
@@ -41,7 +41,11 @@ body {
 }
 
 /* Layout reset */
-h1, h2, h3, h4, p {
+h1,
+h2,
+h3,
+h4,
+p {
   margin: 0;
 }
 
@@ -79,9 +83,24 @@ button {
   align-items: center;
   gap: 4px;
 }
-.status-badge.complete, .status-badge.low { background: rgba(16, 185, 129, 0.2); color: var(--success); }
-.status-badge.pending, .status-badge.medium { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
-.status-badge.missing, .status-badge.high { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+.status-badge.complete,
+.status-badge.low {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--success);
+}
+
+.status-badge.pending,
+.status-badge.medium {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--warning);
+}
+
+.status-badge.missing,
+.status-badge.high {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--danger);
+}
 
 .primary-btn {
   background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
@@ -94,14 +113,15 @@ button {
   align-items: center;
   gap: 8px;
 }
+
 .primary-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 .action-btn {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   color: var(--text-primary);
   padding: 8px 16px;
   border-radius: 8px;
@@ -111,6 +131,7 @@ button {
   align-items: center;
   gap: 6px;
 }
+
 .action-btn:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(0, 0, 0, 0.08);
 }

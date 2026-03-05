@@ -42,6 +42,15 @@ export class DashboardComponent {
     return list;
   });
 
+  countAll = computed(() => this.allStudents().length);
+  countHighRisk = computed(() => this.allStudents().filter(s => s.riskIndicator === 'High').length);
+  countActionReq = computed(() => this.allStudents().filter(s => s.actionRequired).length);
+
+  getMissingItems(checklist: any[]) {
+    if (!checklist) return [];
+    return checklist.filter(c => c.status === 'Missing');
+  }
+
   isLoading = signal(false);
 
   async triggerAction() {
