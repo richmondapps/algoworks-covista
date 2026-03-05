@@ -97,9 +97,13 @@ export class StudentService {
         actionRequired: false,
         stats: { emailOpens: 5, smsClicks: 2, bestMethod: 'Email' },
         checklist: [
-          { id: 'c1', name: 'College Transcripts', status: 'Complete', dueDate: new Date().toISOString() },
-          { id: 'c2', name: 'Financial Aid Documents', status: 'Complete', dueDate: new Date().toISOString() },
-          { id: 'c3', name: 'Course Registration', status: 'Complete', dueDate: new Date().toISOString() }
+          { id: 'c1', name: 'Initial Portal Login', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c2', name: 'FAFSA Submission', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c3', name: 'Course Registration', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c4', name: 'WWOW (Log in)', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c5', name: 'Official Transcripts', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c6', name: 'Course Login', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c7', name: 'Class Participation', status: 'Complete', dueDate: new Date().toISOString() }
         ],
         recommendedActions: []
       },
@@ -116,9 +120,13 @@ export class StudentService {
         actionRequired: true,
         stats: { emailOpens: 0, smsClicks: 0, bestMethod: 'SMS' },
         checklist: [
-          { id: 'c1', name: 'College Transcripts', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 2).toISOString() },
-          { id: 'c2', name: 'Financial Aid Documents', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 2).toISOString() },
-          { id: 'c3', name: 'Course Registration', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 2).toISOString() }
+          { id: 'c1', name: 'Initial Portal Login', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 2).toISOString() },
+          { id: 'c2', name: 'FAFSA Submission', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 2).toISOString() },
+          { id: 'c3', name: 'Course Registration', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 2).toISOString() },
+          { id: 'c4', name: 'WWOW (Log in)', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 2).toISOString() },
+          { id: 'c5', name: 'Official Transcripts', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 2).toISOString() },
+          { id: 'c6', name: 'Course Login', status: 'Pending', dueDate: new Date(Date.now() + 86400000 * 9).toISOString() },
+          { id: 'c7', name: 'Class Participation', status: 'Pending', dueDate: new Date(Date.now() + 86400000 * 17).toISOString() }
         ],
         recommendedActions: [
           { id: 'r1', title: 'Call immediately', description: 'Student is missing all requirements days before start.', priority: 'High', type: 'Call' }
@@ -137,9 +145,13 @@ export class StudentService {
         actionRequired: true,
         stats: { emailOpens: 1, smsClicks: 0, bestMethod: 'Email' },
         checklist: [
-          { id: 'c1', name: 'College Transcripts', status: 'Complete', dueDate: new Date().toISOString() },
-          { id: 'c2', name: 'Financial Aid Documents', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 5).toISOString() },
-          { id: 'c3', name: 'Course Registration', status: 'Complete', dueDate: new Date().toISOString() }
+          { id: 'c1', name: 'Initial Portal Login', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c2', name: 'FAFSA Submission', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 5).toISOString() },
+          { id: 'c3', name: 'Course Registration', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c4', name: 'WWOW (Log in)', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c5', name: 'Official Transcripts', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 5).toISOString() },
+          { id: 'c6', name: 'Course Login', status: 'Pending', dueDate: new Date(Date.now() + 86400000 * 22).toISOString() },
+          { id: 'c7', name: 'Class Participation', status: 'Pending', dueDate: new Date(Date.now() + 86400000 * 30).toISOString() }
         ],
         recommendedActions: [
           { id: 'r1', title: 'Send Urgent SMS', description: 'Urgent reminder needed for missing financial aid.', priority: 'Medium', type: 'SMS' }
@@ -158,9 +170,13 @@ export class StudentService {
         actionRequired: true,
         stats: { emailOpens: 2, smsClicks: 1, bestMethod: 'Email' },
         checklist: [
-          { id: 'c1', name: 'College Transcripts', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 4).toISOString() },
-          { id: 'c2', name: 'Financial Aid Documents', status: 'Complete', dueDate: new Date().toISOString() },
-          { id: 'c3', name: 'Course Registration', status: 'Complete', dueDate: new Date().toISOString() }
+          { id: 'c1', name: 'Initial Portal Login', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c2', name: 'FAFSA Submission', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c3', name: 'Course Registration', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 4).toISOString() },
+          { id: 'c4', name: 'WWOW (Log in)', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 4).toISOString() },
+          { id: 'c5', name: 'Official Transcripts', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c6', name: 'Course Login', status: 'Pending', dueDate: new Date(Date.now() + 86400000 * 27).toISOString() },
+          { id: 'c7', name: 'Class Participation', status: 'Pending', dueDate: new Date(Date.now() + 86400000 * 35).toISOString() }
         ],
         recommendedActions: [
           { id: 'r1', title: 'Email Transcripts Form', description: 'Student needs transcripts released.', priority: 'Medium', type: 'Email' }
@@ -179,9 +195,13 @@ export class StudentService {
         actionRequired: true,
         stats: { emailOpens: 3, smsClicks: 3, bestMethod: 'SMS' },
         checklist: [
-          { id: 'c1', name: 'College Transcripts', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 7).toISOString() },
-          { id: 'c2', name: 'Financial Aid Documents', status: 'Complete', dueDate: new Date().toISOString() },
-          { id: 'c3', name: 'Course Registration', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 7).toISOString() }
+          { id: 'c1', name: 'Initial Portal Login', status: 'Complete', dueDate: new Date().toISOString() },
+          { id: 'c2', name: 'FAFSA Submission', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 7).toISOString() },
+          { id: 'c3', name: 'Course Registration', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 7).toISOString() },
+          { id: 'c4', name: 'WWOW (Log in)', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 7).toISOString() },
+          { id: 'c5', name: 'Official Transcripts', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 7).toISOString() },
+          { id: 'c6', name: 'Course Login', status: 'Pending', dueDate: new Date(Date.now() + 86400000 * 16).toISOString() },
+          { id: 'c7', name: 'Class Participation', status: 'Pending', dueDate: new Date(Date.now() + 86400000 * 24).toISOString() }
         ],
         recommendedActions: [
           { id: 'r1', title: 'Send Registration Reminder', description: 'Registration open but missing.', priority: 'High', type: 'SMS' }
