@@ -384,8 +384,8 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
             const inTokens = usage.promptTokenCount || 0;
             const outTokens = usage.candidatesTokenCount || 0;
             // Exact Math for Gemini 2.5 Flash Pricing
-            const inCost = (inTokens / 1000000) * 0.15;
-            const outCost = (outTokens / 1000000) * 0.60;
+            const inCost = (inTokens / 1000000) * 0.30;
+            const outCost = (outTokens / 1000000) * 2.50;
             const totalCost = inCost + outCost;
             console.info(`[TOKEN_METRICS] Feature: AI Profile Generation | Input: ${inTokens} tokens ($${inCost.toFixed(6)}) | Output: ${outTokens} tokens ($${outCost.toFixed(6)}) | Total Exec Cost: $${totalCost.toFixed(7)}`);
         }
@@ -448,8 +448,8 @@ exports.queryStudentDocument = (0, https_1.onCall)(async (request) => {
             const inTokens = usage.promptTokenCount || 0;
             const outTokens = usage.candidatesTokenCount || 0;
             // Exact Math for Gemini 2.5 Flash Pricing
-            const inCost = (inTokens / 1000000) * 0.15;
-            const outCost = (outTokens / 1000000) * 0.60;
+            const inCost = (inTokens / 1000000) * 0.30;
+            const outCost = (outTokens / 1000000) * 2.50;
             const totalCost = inCost + outCost;
             console.info(`[TOKEN_METRICS] Feature: Document Scanning | Input: ${inTokens} tokens ($${inCost.toFixed(6)}) | Output: ${outTokens} tokens ($${outCost.toFixed(6)}) | Total Exec Cost: $${totalCost.toFixed(7)}`);
         }
