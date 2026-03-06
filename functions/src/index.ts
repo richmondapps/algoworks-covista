@@ -383,6 +383,21 @@ export const generateStudentInsights = onCall(async (request) => {
 
         const resp = await generativeModel.generateContent(reqPayload);
         const responseText = resp.response.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+
+        // --- Custom Token Reporting for CIO Demo ---
+        const usage = resp.response.usageMetadata;
+        if (usage) {
+            const inTokens = usage.promptTokenCount || 0;
+            const outTokens = usage.candidatesTokenCount || 0;
+
+            // Exact Math for Gemini 2.5 Flash Pricing
+            const inCost = (inTokens / 1000000) * 0.15;
+            const outCost = (outTokens / 1000000) * 0.60;
+            const totalCost = inCost + outCost;
+
+            console.info(`[TOKEN_METRICS] Feature: AI Profile Generation | Input: ${inTokens} tokens ($${inCost.toFixed(6)}) | Output: ${outTokens} tokens ($${outCost.toFixed(6)}) | Total Exec Cost: $${totalCost.toFixed(7)}`);
+        }
+
         const aiPayload = JSON.parse(responseText);
 
         console.log(`[generateStudentInsights] Valid JSON successfully generated.`);
@@ -444,6 +459,20 @@ export const queryStudentDocument = onCall(async (request) => {
 
         const resp = await generativeModel.generateContent(reqPayload);
         const responseText = resp.response.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+
+        // --- Custom Token Reporting for CIO Demo ---
+        const usage = resp.response.usageMetadata;
+        if (usage) {
+            const inTokens = usage.promptTokenCount || 0;
+            const outTokens = usage.candidatesTokenCount || 0;
+
+            // Exact Math for Gemini 2.5 Flash Pricing
+            const inCost = (inTokens / 1000000) * 0.15;
+            const outCost = (outTokens / 1000000) * 0.60;
+            const totalCost = inCost + outCost;
+
+            console.info(`[TOKEN_METRICS] Feature: Document Scanning | Input: ${inTokens} tokens ($${inCost.toFixed(6)}) | Output: ${outTokens} tokens ($${outCost.toFixed(6)}) | Total Exec Cost: $${totalCost.toFixed(7)}`);
+        }
 
         return { success: true, answer: responseText.trim() };
     } catch (e: any) {

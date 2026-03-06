@@ -378,6 +378,17 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
         };
         const resp = await generativeModel.generateContent(reqPayload);
         const responseText = ((_e = (_d = (_c = (_b = (_a = resp.response.candidates) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c === void 0 ? void 0 : _c.parts) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.text) || "{}";
+        // --- Custom Token Reporting for CIO Demo ---
+        const usage = resp.response.usageMetadata;
+        if (usage) {
+            const inTokens = usage.promptTokenCount || 0;
+            const outTokens = usage.candidatesTokenCount || 0;
+            // Exact Math for Gemini 2.5 Flash Pricing
+            const inCost = (inTokens / 1000000) * 0.15;
+            const outCost = (outTokens / 1000000) * 0.60;
+            const totalCost = inCost + outCost;
+            console.info(`[TOKEN_METRICS] Feature: AI Profile Generation | Input: ${inTokens} tokens ($${inCost.toFixed(6)}) | Output: ${outTokens} tokens ($${outCost.toFixed(6)}) | Total Exec Cost: $${totalCost.toFixed(7)}`);
+        }
         const aiPayload = JSON.parse(responseText);
         console.log(`[generateStudentInsights] Valid JSON successfully generated.`);
         // Append generated AI payload directly to the student record in Firestore
@@ -431,6 +442,17 @@ exports.queryStudentDocument = (0, https_1.onCall)(async (request) => {
         };
         const resp = await generativeModel.generateContent(reqPayload);
         const responseText = ((_e = (_d = (_c = (_b = (_a = resp.response.candidates) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c === void 0 ? void 0 : _c.parts) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.text) || "No response generated.";
+        // --- Custom Token Reporting for CIO Demo ---
+        const usage = resp.response.usageMetadata;
+        if (usage) {
+            const inTokens = usage.promptTokenCount || 0;
+            const outTokens = usage.candidatesTokenCount || 0;
+            // Exact Math for Gemini 2.5 Flash Pricing
+            const inCost = (inTokens / 1000000) * 0.15;
+            const outCost = (outTokens / 1000000) * 0.60;
+            const totalCost = inCost + outCost;
+            console.info(`[TOKEN_METRICS] Feature: Document Scanning | Input: ${inTokens} tokens ($${inCost.toFixed(6)}) | Output: ${outTokens} tokens ($${outCost.toFixed(6)}) | Total Exec Cost: $${totalCost.toFixed(7)}`);
+        }
         return { success: true, answer: responseText.trim() };
     }
     catch (e) {
