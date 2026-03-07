@@ -367,10 +367,10 @@ export const generateStudentInsights = onCall(async (request) => {
                 }
             ],
             "emailDraft": {
-                "bodyText": "1-2 paragraphs of friendly, customized body text explaining what they need to do without dummy placeholder text. DO NOT include any greeting or salutation (e.g. no 'Hi Student'). Start directly with the first sentence.",
+                "bodyText": "At least 3 distinct paragraphs of friendly, customized body text. DO NOT include any greeting or salutation (e.g. no 'Hi Student'). Start directly with the first sentence. CRITICAL: Review the student's 'notes' array (if any exist). Use recent notes (like weekend plans, birthdays, life events) to build extreme rapport in the first paragraph as an ice-breaker. In the second paragraph, transition to what they need to do without dummy placeholder text. Format paragraphs using explicit '\\n\\n' strings for line breaks.",
                 "bullets": ["Specific actionable task 1", "Specific actionable task 2"]
             },
-            "smsDraft": "Short, friendly text strictly under 140 chars with a clear call to action."
+            "smsDraft": "Short, friendly text strictly under 140 chars with a clear call to action. Use note context if appropriate."
           }
 
           STUDENT DATA:

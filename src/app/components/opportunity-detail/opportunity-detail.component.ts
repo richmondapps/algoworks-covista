@@ -198,6 +198,7 @@ export class OpportunityDetailComponent {
   }
 
   isGeneratingAi = signal(false);
+  selectedOutreachTab = signal<'actions' | 'email' | 'sms'>('actions');
 
   daysRemaining(dueDate: string): number {
     const diff = new Date(dueDate).getTime() - new Date().getTime();

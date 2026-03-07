@@ -124,12 +124,93 @@
             </div>
 
             @if (student.aiInsights) {
-            <!-- Next Best Actions (Vertex AI Generated) -->
+            <!-- Tabbed Outreach Options -->
             <div class="sf-section-container" style="margin-left: 20px;">
-                <h3 class="sf-section-heading">Next Best Actions</h3>
+                <h3 class="sf-section-heading">Outreach & Actions</h3>
 
+                <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+                    <button class="sf-button-rounded" (click)="selectedOutreachTab.set('email')"
+                        [style.background]="selectedOutreachTab() === 'email' ? '#f1f8fd' : '#fff'"
+                        [style.color]="selectedOutreachTab() === 'email' ? '#0176d3' : '#444'"
+                        style="display: flex; align-items: center; gap: 6px; padding: 6px 16px; border: 1px solid #cce4f6; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                        <span class="material-icons" style="font-size: 16px;">email</span> Email Draft
+                    </button>
+                    <button class="sf-button-rounded" (click)="selectedOutreachTab.set('sms')"
+                        [style.background]="selectedOutreachTab() === 'sms' ? '#f1f8fd' : '#fff'"
+                        [style.color]="selectedOutreachTab() === 'sms' ? '#0176d3' : '#444'"
+                        style="display: flex; align-items: center; gap: 6px; padding: 6px 16px; border: 1px solid #cce4f6; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                        <span class="material-icons" style="font-size: 16px;">sms</span> SMS Draft
+                    </button>
+                    <button class="sf-button-rounded" (click)="selectedOutreachTab.set('actions')"
+                        [style.background]="selectedOutreachTab() === 'actions' ? '#f1f8fd' : '#fff'"
+                        [style.color]="selectedOutreachTab() === 'actions' ? '#0176d3' : '#444'"
+                        style="display: flex; align-items: center; gap: 6px; padding: 6px 16px; border: 1px solid #cce4f6; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                        <span class="material-icons" style="font-size: 16px;">call</span> Call / Next Actions
+                    </button>
+                </div>
+
+                <!-- EMAIL VIEW -->
+                @if (selectedOutreachTab() === 'email') {
+                <div class="sf-card white-bg with-border">
+                    <div class="outreach-header">
+                        <h4>Create Email Message</h4>
+                        <p>Draft generated instantly by Gemini 2.5 Flash, hyper-personalized using student context and
+                            task notes.</p>
+                    </div>
+                    <div class="email-box">
+                        <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 4px;">
+                            <button class="sf-button-rounded"
+                                style="padding: 2px 10px; font-size: 10px; min-width: 60px;"
+                                (click)="isEditingEmail.set(!isEditingEmail())">
+                                {{ isEditingEmail() ? 'Cancel' : 'Edit' }}
+                            </button>
+                        </div>
+                        @if (isEditingEmail()) {
+                        <textarea
+                            style="width: 100%; height: 180px; margin: 10px 0; font-family: inherit; font-size: inherit; border: 1px solid #ccc; border-radius: 4px; padding: 8px; white-space: pre-wrap;"
+                            [(ngModel)]="student.aiInsights.emailDraft.bodyText"></textarea>
+                        } @else {
+                        <p style="margin: 10px 0; padding: 0; line-height: 1.6; color: #1b1b1b; white-space: pre-wrap;">
+                            {{ student.aiInsights.emailDraft.bodyText }}</p>
+                        }
+                        <ul>
+                            @for (bullet of student.aiInsights.emailDraft.bullets; track bullet) {
+                            <li>{{ bullet }}</li>
+                            }
+                        </ul>
+                        <div class="btn-right" style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button class="sf-outline-btn" style="border-color: #ddd;"
+                                (click)="copyToClipboard(student.aiInsights.emailDraft.bodyText, student.aiInsights.emailDraft.bullets)">
+                                Copy Draft
+                            </button>
+                            <button class="sf-button-rounded"
+                                style="background: #0176d3; color: white; border: none; padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 20px; cursor: pointer; display: flex; align-items: center; gap: 6px;"
+                                (click)="openMailClient(student, student.aiInsights.emailDraft.bodyText, student.aiInsights.emailDraft.bullets)">
+                                Open in Outlook Client
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                }
+
+                <!-- SMS VIEW -->
+                @if (selectedOutreachTab() === 'sms') {
+                <div class="sf-card white-bg with-border row-layout">
+                    <div class="outreach-header no-margin" style="max-width: 70%;">
+                        <h4>Create SMS Message</h4>
+                        <p style="margin-top: 4px; white-space: pre-wrap;">"{{ student.aiInsights.smsDraft }}"</p>
+                    </div>
+                    <button class="sf-button-outline-blue"
+                        (click)="triggerCommunication(student, { type: 'SMS' }, student.aiInsights.smsDraft)">Send
+                        SMS</button>
+                </div>
+                }
+
+                <!-- ACTIONS VIEW -->
+                @if (selectedOutreachTab() === 'actions') {
                 @for (action of student.aiInsights.nextBestActions; track action.title) {
-                <div class="sf-card" [ngClass]="action.urgent ? 'light-blue-bg' : 'light-gray-bg'">
+                <div class="sf-card" [ngClass]="action.urgent ? 'light-blue-bg' : 'light-gray-bg'"
+                    style="margin-top: 0; margin-bottom: 12px;">
                     <div class="nba-header">
                         <h4>{{ action.title }}</h4>
                         @if (action.urgent) {
@@ -144,60 +225,7 @@
                     <button class="sf-outline-btn">{{ action.buttonText }}</button>
                 </div>
                 }
-            </div>
-
-            <!-- Generate Personalized Outreach (Vertex AI Generated) -->
-            <div class="sf-section-container" style="margin-left: 20px;">
-                <h3 class="sf-section-heading">Generated Personalized Outreach</h3>
-
-                <div class="sf-card white-bg with-border">
-                    <div class="outreach-header">
-                        <h4>Create Email Message</h4>
-                        <p>Draft generated instantly by Gemini 2.5 Flash based on student context.</p>
-                    </div>
-                    <div class="email-box">
-                        <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 4px;">
-                            <button class="sf-button-rounded"
-                                style="padding: 2px 10px; font-size: 10px; min-width: 60px;"
-                                (click)="isEditingEmail.set(!isEditingEmail())">
-                                {{ isEditingEmail() ? 'Cancel' : 'Edit' }}
-                            </button>
-                        </div>
-                        @if (isEditingEmail()) {
-                        <textarea
-                            style="width: 100%; height: 80px; margin: 10px 0; font-family: inherit; font-size: inherit; border: 1px solid #ccc; border-radius: 4px; padding: 8px;"
-                            [(ngModel)]="student.aiInsights.emailDraft.bodyText"></textarea>
-                        } @else {
-                        <p style="margin: 10px 0; padding: 0; line-height: 1.5; color: #1b1b1b;">
-                            {{ student.aiInsights.emailDraft.bodyText }}</p>
-                        }
-                        <ul>
-                            @for (bullet of student.aiInsights.emailDraft.bullets; track bullet) {
-                            <li>{{ bullet }}</li>
-                            }
-                        </ul>
-                        <div class="btn-right" style="display: flex; gap: 8px; margin-top: 12px;">
-                            <button class="sf-outline-btn" style="border-color: #ddd;"
-                                (click)="copyToClipboard(student.aiInsights.emailDraft.bodyText, student.aiInsights.emailDraft.bullets)">
-                                Copy to Clipboard
-                            </button>
-                            <!-- 
-                            <button class="sf-button-rounded"
-                                (click)="triggerCommunication(student, { type: 'Email' }, student.aiInsights.emailDraft.bodyText)">Send Native Email</button> 
-                            -->
-                        </div>
-                    </div>
-                </div>
-
-                <div class="sf-card white-bg with-border row-layout">
-                    <div class="outreach-header no-margin" style="max-width: 70%;">
-                        <h4>Create SMS Message</h4>
-                        <p style="margin-top: 4px;">"{{ student.aiInsights.smsDraft }}"</p>
-                    </div>
-                    <button class="sf-button-outline-blue"
-                        (click)="triggerCommunication(student, { type: 'SMS' }, student.aiInsights.smsDraft)">Send
-                        SMS</button>
-                </div>
+                }
             </div>
             }
         </div>
