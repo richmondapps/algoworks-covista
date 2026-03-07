@@ -342,7 +342,8 @@ export const generateStudentInsights = onCall(async (request) => {
         const prompt = `
           You are an expert academic advisor AI acting as an assistant FOR THE ENROLLMENT SPECIALIST (ES). 
           Given the following raw student data context, generate a personalized plan and outreach drafts.
-          CRITICAL INSTRUCTION: You are talking to the ES. You must NEVER address the student directly in the 'overview' or 'nextBestActions' sections. NEVER use words like "Your", "You", or "Register for your courses". Identify tasks the ES needs to perform (e.g. "Remind student to register").
+          CRITICAL INSTRUCTION: You are an assistant talking to the ES. Therefore, in the 'overview' and 'nextBestActions' sections, you must NEVER address the student directly. Identify tasks the ES needs to perform (e.g. "Remind Peter to register").
+          HOWEVER, the 'emailDraft' and 'smsDraft' sections are exact templates the ES will send TO THE STUDENT. Therefore, those specific drafts MUST address the student directly using "you" and "your".
           
           Reply ONLY in strictly valid JSON formatted exactly like this:
           {
@@ -367,10 +368,10 @@ export const generateStudentInsights = onCall(async (request) => {
                 }
             ],
             "emailDraft": {
-                "bodyText": "At least 3 distinct paragraphs of friendly, customized body text. DO NOT include any greeting or salutation (e.g. no 'Hi Student'). Start directly with the first sentence. CRITICAL: Review the student's 'notes' array (if any exist). Use recent notes (like weekend plans, birthdays, life events) to build extreme rapport in the first paragraph as an ice-breaker. In the second paragraph, transition to what they need to do without dummy placeholder text. Format paragraphs using explicit '\\n\\n' strings for line breaks.",
+                "bodyText": "At least 3 distinct paragraphs of friendly, customized body text. DO NOT include any greeting or salutation (e.g. no 'Hi Student'). Start directly with the first sentence. CRITICAL: This email is written DIRECTLY TO THE STUDENT. You MUST address the student directly as 'you'. Review the student's 'notes' array (if any exist). Use recent notes (like weekend plans, birthdays, life events) to build extreme rapport in the first paragraph as an ice-breaker (e.g. 'I hope you had a fantastic time at your sister's wedding!'). In the second paragraph, transition to what they need to do without dummy placeholder text. Format paragraphs using explicit '\\n\\n' strings for line breaks.",
                 "bullets": ["Specific actionable task 1", "Specific actionable task 2"]
             },
-            "smsDraft": "Short, friendly text strictly under 140 chars with a clear call to action. Use note context if appropriate."
+            "smsDraft": "Short, friendly text STRICTLY addressed directly TO THE STUDENT (e.g., 'Hi Peter, you have...'). Under 140 chars with a clear call to action. Use note context if appropriate."
           }
 
           STUDENT DATA:
