@@ -227,8 +227,13 @@ export class OpportunityDetailComponent {
 
   openMailClient(student: Student, text: string, bullets: string[] = []) {
     const fullText = text + (bullets && bullets.length > 0 ? '\n\n' + bullets.map(b => '• ' + b).join('\n') : '');
-    const mailtoLink = `mailto:${student.email}?subject=Your Enrollment Update&body=${encodeURIComponent(fullText)}`;
-    window.location.href = mailtoLink;
+
+    // mailto: fails silently when the string is over 2000 chars (common for AI drafts)
+    // Connecting to the Office 365 Outlook Web Deeplink API bypasses this limitation.
+    const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(student.email)}&subject=${encodeURIComponent('Your Enrollment Update')}&body=${encodeURIComponent(fullText)}`;
+
+    // Open in a new tab so Covista state is not lost
+    window.open(outlookUrl, '_blank');
   }
 
   startEdit(student: Student) {
