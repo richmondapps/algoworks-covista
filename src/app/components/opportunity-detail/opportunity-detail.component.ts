@@ -198,6 +198,7 @@ export class OpportunityDetailComponent {
   }
 
   isGeneratingAi = signal(false);
+  transientAgentTrace = signal<any[] | null>(null);
   selectedOutreachTab = signal<'actions' | 'email' | 'sms'>('actions');
 
   daysRemaining(dueDate: string): number {
@@ -212,8 +213,12 @@ export class OpportunityDetailComponent {
 
   async generateAi(student: Student) {
     this.isGeneratingAi.set(true);
+    this.transientAgentTrace.set(null);
     try {
-      await this.studentService.generateAiInsights(student);
+      const response: any = await this.studentService.generateAiInsights(student);
+      if (response && response.aiInsights && response.aiInsights.agentTrace) {
+        this.transientAgentTrace.set(response.aiInsights.agentTrace);
+      }
     } catch (e) {
       alert("Failed to generate AI insights.");
     } finally {

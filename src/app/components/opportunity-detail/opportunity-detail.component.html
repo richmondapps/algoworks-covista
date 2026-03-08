@@ -125,13 +125,13 @@
 
             @if (student.aiInsights) {
             
-            @if(student.aiInsights.agentTrace && student.aiInsights.agentTrace.length > 0) {
+            @if(transientAgentTrace() && transientAgentTrace()!.length > 0) {
             <!-- Multi-Agent Trace Log -->
             <div class="sf-section-container" style="margin-left: 20px;">
                 <h3 class="sf-section-heading" style="display: flex; align-items: center; gap: 6px;"><span class="material-icons" style="font-size: 16px; color: #0176d3;">account_tree</span> Orchestrator Agent Trace</h3>
                 <div class="sf-card white-bg with-border" style="padding: 12px; margin-bottom: 20px;">
                     <div style="font-size: 11px; font-family: monospace; color: #555;">
-                        @for (trace of student.aiInsights.agentTrace; track $index) {
+                        @for (trace of transientAgentTrace(); track $index) {
                             <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
                                 <div>
                                     <strong style="color: #0176d3;">[{{ trace.agentName }}]</strong> 
@@ -157,19 +157,19 @@
                         [style.background]="selectedOutreachTab() === 'actions' ? '#f1f8fd' : '#fff'"
                         [style.color]="selectedOutreachTab() === 'actions' ? '#0176d3' : '#444'"
                         style="display: flex; align-items: center; gap: 6px; padding: 6px 16px; border: 1px solid #cce4f6; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer;">
-                        Next Actions
+                        Actions
                     </button>
                     <button class="sf-button-rounded" (click)="selectedOutreachTab.set('email')"
                         [style.background]="selectedOutreachTab() === 'email' ? '#f1f8fd' : '#fff'"
                         [style.color]="selectedOutreachTab() === 'email' ? '#0176d3' : '#444'"
                         style="display: flex; align-items: center; gap: 6px; padding: 6px 16px; border: 1px solid #cce4f6; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer;">
-                        <span class="material-icons" style="font-size: 16px;">email</span> Email Draft
+                        <span class="material-icons" style="font-size: 16px;">email</span> Email
                     </button>
                     <button class="sf-button-rounded" (click)="selectedOutreachTab.set('sms')"
                         [style.background]="selectedOutreachTab() === 'sms' ? '#f1f8fd' : '#fff'"
                         [style.color]="selectedOutreachTab() === 'sms' ? '#0176d3' : '#444'"
                         style="display: flex; align-items: center; gap: 6px; padding: 6px 16px; border: 1px solid #cce4f6; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer;">
-                        <span class="material-icons" style="font-size: 16px;">sms</span> SMS Draft
+                        <span class="material-icons" style="font-size: 16px;">sms</span> SMS
                     </button>
                 </div>
 
