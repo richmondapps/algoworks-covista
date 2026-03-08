@@ -338,7 +338,32 @@ export const generateStudentInsights = onCall(async (request) => {
                 responseMimeType: "application/json"
             }
         });
+        
+        // ----------------------------------------------------------------------------------
+        // AGENT ORCHESTRATION: Step 1 - Query the specialized Python Data Retrieval Agent
+        // ----------------------------------------------------------------------------------
+        console.log(`[generateStudentInsights] Waking up Python Data Agent on Cloud Run...`);
+        let externalRules = {};
+        try {
+            const checklistComplete = dataContext.checklist && dataContext.checklist.length > 0 && dataContext.checklist.every((i: any) => i.status === 'Completed');
+            
+            const agentResponse = await fetch('https://python-data-agent-668256868217.us-central1.run.app/query-engagement-rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    studentUid: studentUid,
+                    isChecklistComplete: checklistComplete
+                })
+            });
+            externalRules = await agentResponse.json();
+            console.log(`[generateStudentInsights] Python Data Agent returned context:`, externalRules);
+        } catch (e) {
+            console.error(`[generateStudentInsights] Python Data Agent Failed, proceeding with default synthesis.`, e);
+        }
 
+        // ----------------------------------------------------------------------------------
+        // AGENT ORCHESTRATION: Step 2 - Pass raw data + Python rules to Synthesis Agent
+        // ----------------------------------------------------------------------------------
         const prompt = `
           You are an expert academic advisor AI acting as an assistant FOR THE ENROLLMENT SPECIALIST (ES). 
           Given the following raw student data context, generate a personalized plan and outreach drafts.
@@ -377,6 +402,9 @@ export const generateStudentInsights = onCall(async (request) => {
 
           STUDENT DATA:
           ${JSON.stringify(dataContext)}
+          
+          ORCHESTRATED DATA WAREHOUSE ENGAGEMENT RULES:
+          ${JSON.stringify(externalRules)}
         `;
 
         const reqPayload = {
