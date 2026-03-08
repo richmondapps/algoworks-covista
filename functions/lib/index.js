@@ -336,11 +336,13 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
                 responseMimeType: "application/json"
             }
         });
+        const agentTrace = [];
         // ----------------------------------------------------------------------------------
         // AGENT ORCHESTRATION: Step 1 - Query the specialized Python Data Retrieval Agent
         // ----------------------------------------------------------------------------------
         console.log(`[generateStudentInsights] Waking up Python Data Agent on Cloud Run...`);
         let externalRules = {};
+        const step1Start = Date.now();
         try {
             const checklistComplete = dataContext.checklist && dataContext.checklist.length > 0 && dataContext.checklist.every((i) => i.status === 'Completed');
             const agentResponse = await fetch('https://python-data-agent-668256868217.us-central1.run.app/query-engagement-rules', {
@@ -352,9 +354,25 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
                 })
             });
             externalRules = await agentResponse.json();
+            const step1End = Date.now();
+            agentTrace.push({
+                agentName: 'BigQuery Data Agent',
+                action: 'Retrieve Rules',
+                status: 'Success',
+                duration: `${step1End - step1Start}ms`,
+                timestamp: new Date().toISOString()
+            });
             console.log(`[generateStudentInsights] Python Data Agent returned context:`, externalRules);
         }
         catch (e) {
+            const step1End = Date.now();
+            agentTrace.push({
+                agentName: 'BigQuery Data Agent',
+                action: 'Retrieve Rules',
+                status: 'Failed',
+                duration: `${step1End - step1Start}ms`,
+                timestamp: new Date().toISOString()
+            });
             console.error(`[generateStudentInsights] Python Data Agent Failed, proceeding with default synthesis.`, e);
         }
         // ----------------------------------------------------------------------------------
@@ -405,7 +423,16 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
         const reqPayload = {
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         };
+        const step2Start = Date.now();
         const resp = await generativeModel.generateContent(reqPayload);
+        const step2End = Date.now();
+        agentTrace.push({
+            agentName: 'Synthesis & Communication Agent',
+            action: 'Generate Profile & Drafts',
+            status: 'Success',
+            duration: `${step2End - step2Start}ms`,
+            timestamp: new Date().toISOString()
+        });
         const responseText = ((_e = (_d = (_c = (_b = (_a = resp.response.candidates) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c === void 0 ? void 0 : _c.parts) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.text) || "{}";
         // --- Custom Token Reporting for CIO Demo ---
         const usage = resp.response.usageMetadata;
@@ -419,6 +446,8 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
             console.info(`[TOKEN_METRICS] Feature: AI Profile Generation | Input: ${inTokens} tokens ($${inCost.toFixed(6)}) | Output: ${outTokens} tokens ($${outCost.toFixed(6)}) | Total Exec Cost: $${totalCost.toFixed(7)}`);
         }
         const aiPayload = JSON.parse(responseText);
+        // Inject the orchestration trace
+        aiPayload.agentTrace = agentTrace;
         console.log(`[generateStudentInsights] Valid JSON successfully generated.`);
         // Append generated AI payload directly to the student record in Firestore
         await db.collection("students").doc(studentUid).set({

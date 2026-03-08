@@ -205,6 +205,11 @@ export class OpportunityDetailComponent {
     return Math.ceil(diff / (1000 * 3600 * 24));
   }
 
+  isFundingComplete(student: Student): boolean {
+    if (!student || !student.checklist || student.checklist.length === 0) return false;
+    return student.checklist.every(item => item.status === 'Complete');
+  }
+
   async generateAi(student: Student) {
     this.isGeneratingAi.set(true);
     try {

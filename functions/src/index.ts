@@ -339,11 +339,14 @@ export const generateStudentInsights = onCall(async (request) => {
             }
         });
         
+        const agentTrace: any[] = [];
+        
         // ----------------------------------------------------------------------------------
         // AGENT ORCHESTRATION: Step 1 - Query the specialized Python Data Retrieval Agent
         // ----------------------------------------------------------------------------------
         console.log(`[generateStudentInsights] Waking up Python Data Agent on Cloud Run...`);
         let externalRules = {};
+        const step1Start = Date.now();
         try {
             const checklistComplete = dataContext.checklist && dataContext.checklist.length > 0 && dataContext.checklist.every((i: any) => i.status === 'Completed');
             
@@ -356,8 +359,24 @@ export const generateStudentInsights = onCall(async (request) => {
                 })
             });
             externalRules = await agentResponse.json();
+            const step1End = Date.now();
+            agentTrace.push({
+                agentName: 'BigQuery Data Agent',
+                action: 'Retrieve Rules',
+                status: 'Success',
+                duration: `${step1End - step1Start}ms`,
+                timestamp: new Date().toISOString()
+            });
             console.log(`[generateStudentInsights] Python Data Agent returned context:`, externalRules);
         } catch (e) {
+            const step1End = Date.now();
+            agentTrace.push({
+                agentName: 'BigQuery Data Agent',
+                action: 'Retrieve Rules',
+                status: 'Failed',
+                duration: `${step1End - step1Start}ms`,
+                timestamp: new Date().toISOString()
+            });
             console.error(`[generateStudentInsights] Python Data Agent Failed, proceeding with default synthesis.`, e);
         }
 
@@ -411,7 +430,18 @@ export const generateStudentInsights = onCall(async (request) => {
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         };
 
+        const step2Start = Date.now();
         const resp = await generativeModel.generateContent(reqPayload);
+        const step2End = Date.now();
+        
+        agentTrace.push({
+            agentName: 'Synthesis & Communication Agent',
+            action: 'Generate Profile & Drafts',
+            status: 'Success',
+            duration: `${step2End - step2Start}ms`,
+            timestamp: new Date().toISOString()
+        });
+        
         const responseText = resp.response.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
 
         // --- Custom Token Reporting for CIO Demo ---
@@ -429,6 +459,8 @@ export const generateStudentInsights = onCall(async (request) => {
         }
 
         const aiPayload = JSON.parse(responseText);
+        // Inject the orchestration trace
+        aiPayload.agentTrace = agentTrace;
 
         console.log(`[generateStudentInsights] Valid JSON successfully generated.`);
 

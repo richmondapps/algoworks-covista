@@ -49,6 +49,13 @@ export interface AiInsights {
         bullets: string[];
     };
     smsDraft: string;
+    agentTrace?: {
+        agentName: string;
+        action: string;
+        status: string;
+        duration: string;
+        timestamp: string;
+    }[];
 }
 
 export interface StudentNote {
