@@ -342,8 +342,9 @@ export const generateStudentInsights = onCall(async (request) => {
         const prompt = `
           You are an expert academic advisor AI acting as an assistant FOR THE ENROLLMENT SPECIALIST (ES). 
           Given the following raw student data context, generate a personalized plan and outreach drafts.
-          CRITICAL INSTRUCTION: You are an assistant talking to the ES. Therefore, in the 'overview' and 'nextBestActions' sections, you must NEVER address the student directly. Identify tasks the ES needs to perform (e.g. "Remind Peter to register").
-          HOWEVER, the 'emailDraft' and 'smsDraft' sections are exact templates the ES will send TO THE STUDENT. Therefore, those specific drafts MUST address the student directly using "you" and "your".
+          CRITICAL INSTRUCTION 1: You are an assistant talking to the ES. Therefore, in the 'overview' and 'nextBestActions' sections, you must NEVER address the student directly. Identify tasks the ES needs to perform (e.g. "Remind Peter to register").
+          CRITICAL INSTRUCTION 2: The 'emailDraft' and 'smsDraft' sections are exact templates the ES will send TO THE STUDENT. Therefore, those specific drafts MUST address the student directly using "you" and "your".
+          CRITICAL INSTRUCTION 3: ENGAGEMENT CAMPAIGN. Review the student's checklist. IF the student has explicitly completed 100% of their checklist items with NO missing requirements, DO NOT invent fake missing tasks. You must pivot your entire strategy to keeping them engaged before their start date. In this scenario, recommend activities like "Set up a Student Grammarly Account", "Explore Library Resources", or "Review New Student Orientation materials". Validate their success and build excitement.
           
           Reply ONLY in strictly valid JSON formatted exactly like this:
           {
