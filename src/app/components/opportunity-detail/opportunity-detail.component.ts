@@ -228,12 +228,22 @@ export class OpportunityDetailComponent {
   openMailClient(student: Student, text: string, bullets: string[] = []) {
     const fullText = text + (bullets && bullets.length > 0 ? '\n\n' + bullets.map(b => '• ' + b).join('\n') : '');
 
-    // mailto: fails silently when the string is over 2000 chars (common for AI drafts)
-    // Connecting to the Office 365 Outlook Web Deeplink API bypasses this limitation.
-    const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(student.email)}&subject=${encodeURIComponent('Your Enrollment Update')}&body=${encodeURIComponent(fullText)}`;
+    // 1. Copy the massive AI payload to the user's clipboard automatically
+    navigator.clipboard.writeText(fullText).then(() => {
+      // 2. Fire a standard mailto link with ONLY the 'To' and 'Subject' fields.
+      // This completely bypasses the browser 2000-character limit AND the Azure O365 licensing error,
+      // and launches whichever native app (Desktop Outlook, Apple Mail) the user prefers!
+      const mailtoLink = `mailto:${student.email}?subject=${encodeURIComponent('Your Enrollment Update')}`;
+      window.location.href = mailtoLink;
 
-    // Open in a new tab so Covista state is not lost
-    window.open(outlookUrl, '_blank');
+      // 3. Briefly alert the user so they know all they have to do is hit Paste.
+      // We use a small timeout so the mail app has time to launch first.
+      setTimeout(() => {
+        alert("Draft copied to clipboard! Simply hit Paste (Cmd+V/Ctrl+V) when your email app opens.");
+      }, 500);
+    }).catch(err => {
+      console.error('Failed to copy text before opening mail: ', err);
+    });
   }
 
   startEdit(student: Student) {
