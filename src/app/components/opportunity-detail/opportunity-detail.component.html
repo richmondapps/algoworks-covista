@@ -150,9 +150,15 @@
 
             <!-- Tabbed Outreach Options -->
             <div class="sf-section-container" style="margin-left: 20px;">
-                <h3 class="sf-section-heading">Outreach & Actions</h3>
+                <h3 class="sf-section-heading">Next Best Actions</h3>
 
                 <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+                    <button class="sf-button-rounded" (click)="selectedOutreachTab.set('actions')"
+                        [style.background]="selectedOutreachTab() === 'actions' ? '#f1f8fd' : '#fff'"
+                        [style.color]="selectedOutreachTab() === 'actions' ? '#0176d3' : '#444'"
+                        style="display: flex; align-items: center; gap: 6px; padding: 6px 16px; border: 1px solid #cce4f6; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                        Next Actions
+                    </button>
                     <button class="sf-button-rounded" (click)="selectedOutreachTab.set('email')"
                         [style.background]="selectedOutreachTab() === 'email' ? '#f1f8fd' : '#fff'"
                         [style.color]="selectedOutreachTab() === 'email' ? '#0176d3' : '#444'"
@@ -164,12 +170,6 @@
                         [style.color]="selectedOutreachTab() === 'sms' ? '#0176d3' : '#444'"
                         style="display: flex; align-items: center; gap: 6px; padding: 6px 16px; border: 1px solid #cce4f6; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer;">
                         <span class="material-icons" style="font-size: 16px;">sms</span> SMS Draft
-                    </button>
-                    <button class="sf-button-rounded" (click)="selectedOutreachTab.set('actions')"
-                        [style.background]="selectedOutreachTab() === 'actions' ? '#f1f8fd' : '#fff'"
-                        [style.color]="selectedOutreachTab() === 'actions' ? '#0176d3' : '#444'"
-                        style="display: flex; align-items: center; gap: 6px; padding: 6px 16px; border: 1px solid #cce4f6; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer;">
-                        <span class="material-icons" style="font-size: 16px;">call</span> Call / Next Actions
                     </button>
                 </div>
 
