@@ -106,8 +106,8 @@ export class StudentService {
       {
         id: 'C3hndlrBingUID1234567890123',
         uid: 'C3hndlrBingUID1234567890123',
-        name: 'Chandler Bing',
-        email: 'purpletoothtigers@gmail.com',
+        name: 'Peter Griffin',
+        email: 'peter.griffin@quahog.net',
         phone: '+1-555-0103',
         timeSinceReserveDays: 2,
         timeUntilClassStartDays: 7,
