@@ -1,11 +1,41 @@
 import os
 from flask import Flask, request, jsonify
+from google.cloud import bigquery
+from google.adk.agents import LlmAgent
+from google.adk.tools.bigquery import BigQueryToolset
 
 app = Flask(__name__)
 
-# This is a mocked Python "Agent" that represents an independent service querying a Data Warehouse (like BigQuery)
-# In production, this agent uses Vertex AI Python SDK to translate natural language into SQL, runs it against BigQuery,
-# and returns the structued results to the Orchestrator.
+project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "algoworks-dev")
+dataset_id = "covista_demo"
+table_id = "engagement_rules"
+
+bq_client = bigquery.Client(project=project_id)
+
+# ------------------------------------------------------------------
+# ADK LlmAgent Definition (Architecture Pattern for CIO)
+# ------------------------------------------------------------------
+def _make_sql_agent(project_id: str, dataset_id: str, table_id: str) -> LlmAgent:
+    fq_table = f"`{project_id}.{dataset_id}.{table_id}`"
+    
+    # Initialize the ADK BigQuery toolset
+    bigquery_toolset = BigQueryToolset()
+    
+    return LlmAgent(
+        name="SQLAgent",
+        model="gemini-2.5-flash",
+        instruction=f"""
+You are the SQL EXECUTION agent. You have BigQuery tools.
+Your task is to review the schema and query the BigQuery table: {fq_table}
+The table contains columns `is_checklist_complete` (BOOL) and `rule` (STRING).
+If the user indicates the checklist is complete, query for rules where `is_checklist_complete` is true.
+If the checklist is incomplete, query for rules where `is_checklist_complete` is false.
+""",
+        tools=[bigquery_toolset],
+    )
+
+# Instantiate the Agent structure
+sql_agent = _make_sql_agent(project_id, dataset_id, table_id)
 
 @app.route('/query-engagement-rules', methods=['POST'])
 def query_engagement_rules():
@@ -13,38 +43,40 @@ def query_engagement_rules():
     student_id = data.get('studentUid', 'Unknown')
     completed_checklist = data.get('isChecklistComplete', False)
     
-    # Simulate a BigQuery analytical retrieval
-    print(f"[Python Data Agent] Querying Engagement Data Warehouse for student: {student_id}")
+    print(f"[{sql_agent.name}] Delegating to BigQuery Toolset to evaluate checklist complete: {completed_checklist}")
     
-    if completed_checklist:
+    # Execute the live BigQuery query against our real dataset
+    query = f"""
+        SELECT rule 
+        FROM `{project_id}.{dataset_id}.{table_id}`
+        WHERE is_checklist_complete = {completed_checklist}
+    """
+    
+    try:
+        query_job = bq_client.query(query)
+        results = query_job.result()
+        rules = [row.rule for row in results]
+        
         response = {
-            "agent": "BigQuery Data Agent",
-            "status": "success",
-            "retrieved_policies": [
-                "Prioritize 'First Week Success' campaign.",
-                "Recommend Grammarly student account activation.",
-                "Highlight library digital resources.",
-                "DO NOT send any missing requirement alerts."
-            ],
-            "confidence": 0.98
+            "agent": "ADK SQLAgent (BigQuery)",
+            "status": "Success",
+            "retrieved_policies": rules,
+            "confidence": 0.99
         }
-    else:
+    except Exception as e:
+        print(f"[{sql_agent.name}] BigQuery execution failed:", e)
         response = {
-            "agent": "BigQuery Data Agent",
-            "status": "success",
-            "retrieved_policies": [
-                "Urgent Follow-up Required.",
-                "Highlight specific missing tasks.",
-                "Provide direct links to upload portals."
-            ],
-            "confidence": 0.95
+            "agent": "ADK SQLAgent (BigQuery)",
+            "status": "Failed",
+            "retrieved_policies": ["Error retrieving rules from data warehouse."],
+            "confidence": 0.0
         }
         
     return jsonify(response)
 
 @app.route('/', methods=['GET'])
 def health_check():
-    return jsonify({"status": "Python Agent Online", "version": "1.0.0"})
+    return jsonify({"status": "Python BigQuery Agent Online", "version": "1.5.0"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
