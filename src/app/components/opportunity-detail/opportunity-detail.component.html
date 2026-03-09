@@ -123,8 +123,6 @@
                 </div>
             </div>
 
-            @if (student.aiInsights) {
-            
             @if(transientAgentTrace() && transientAgentTrace()!.length > 0) {
             <!-- Multi-Agent Trace Log -->
             <div class="sf-section-container" style="margin-left: 20px;">
@@ -138,7 +136,7 @@
                                     <span>{{ trace.action }}</span>
                                 </div>
                                 <div style="display: flex; gap: 12px;">
-                                    <span [ngStyle]="{'color': trace.status === 'Success' ? 'green' : 'red'}">{{ trace.status }}</span>
+                                    <span [ngStyle]="{'color': trace.status === 'Success' ? 'green' : trace.status === 'Running...' ? '#fbc02d' : 'red'}">{{ trace.status }}</span>
                                     <span style="color: #888;">{{ trace.duration }}</span>
                                 </div>
                             </div>
@@ -147,6 +145,8 @@
                 </div>
             </div>
             }
+
+            @if (student.aiInsights) {
 
             <!-- Tabbed Outreach Options -->
             <div class="sf-section-container" style="margin-left: 20px;">

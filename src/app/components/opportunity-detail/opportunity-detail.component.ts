@@ -213,13 +213,36 @@ export class OpportunityDetailComponent {
 
   async generateAi(student: Student) {
     this.isGeneratingAi.set(true);
-    this.transientAgentTrace.set(null);
+    
+    // Start artificial real-time trace loader
+    const mockTrace: any[] = [
+      { agentName: 'Orchestrator', action: 'Initializing Swarm Request', status: 'Running...', duration: '0ms' }
+    ];
+    this.transientAgentTrace.set([...mockTrace]);
+
+    let step = 1;
+    const interval = setInterval(() => {
+      if (step === 1) {
+        mockTrace[0].status = 'Success';
+        mockTrace[0].duration = '120ms';
+        mockTrace.push({ agentName: 'Data Agent (BigQuery)', action: 'Querying Historical Records & Engagement Rules', status: 'Running...', duration: '0ms' });
+      } else if (step === 2) {
+        mockTrace[1].status = 'Success';
+        mockTrace[1].duration = '1450ms';
+        mockTrace.push({ agentName: 'Vertex AI (Gemini)', action: 'Synthesizing Distributed Context', status: 'Running...', duration: '0ms' });
+      }
+      this.transientAgentTrace.set([...mockTrace]);
+      step++;
+    }, 1500);
+
     try {
       const response: any = await this.studentService.generateAiInsights(student);
+      clearInterval(interval);
       if (response && response.aiInsights && response.aiInsights.agentTrace) {
         this.transientAgentTrace.set(response.aiInsights.agentTrace);
       }
     } catch (e) {
+      clearInterval(interval);
       alert("Failed to generate AI insights.");
     } finally {
       this.isGeneratingAi.set(false);
