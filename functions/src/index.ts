@@ -419,10 +419,10 @@ export const generateStudentInsights = onCall(async (request) => {
             "smsDraft": "Short, friendly text STRICTLY addressed directly TO THE STUDENT (e.g., 'Hi Peter, you have...'). Under 140 chars with a clear call to action. Use note context if appropriate."
           }
 
-          STUDENT DATA:
+          STUDENT DATA (FIRESTORE REAL-TIME STATE):
           ${JSON.stringify(dataContext)}
           
-          ORCHESTRATED DATA WAREHOUSE ENGAGEMENT RULES:
+          BIGQUERY DATA WAREHOUSE (HISTORICAL RECORDS & ENGAGEMENT RULES):
           ${JSON.stringify(externalRules)}
         `;
 

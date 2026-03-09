@@ -43,23 +43,39 @@ def query_engagement_rules():
     student_id = data.get('studentUid', 'Unknown')
     completed_checklist = data.get('isChecklistComplete', False)
     
-    print(f"[{sql_agent.name}] Delegating to BigQuery Toolset to evaluate checklist complete: {completed_checklist}")
+    print(f"[{sql_agent.name}] Delegating to BigQuery Toolset to evaluate UID: {student_id} and checklist: {completed_checklist}")
     
-    # Execute the live BigQuery query against our real dataset
-    query = f"""
+    # Execute the live BigQuery query for Engagement Rules
+    rules_query = f"""
         SELECT rule 
         FROM `{project_id}.{dataset_id}.{table_id}`
         WHERE is_checklist_complete = {completed_checklist}
     """
     
+    # Execute the live BigQuery query for the Student Record
+    student_query = f"""
+        SELECT full_name, academic_program, enrollment_status 
+        FROM `{project_id}.{dataset_id}.r2c_student_records`
+        WHERE student_uid = @student_uid
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("student_uid", "STRING", student_id)
+        ]
+    )
+    
     try:
-        query_job = bq_client.query(query)
-        results = query_job.result()
-        rules = [row.rule for row in results]
+        rules_job = bq_client.query(rules_query)
+        rules = [row.rule for row in rules_job.result()]
+        
+        student_job = bq_client.query(student_query, job_config=job_config)
+        student_records = [dict(row) for row in student_job.result()]
+        historical_record = student_records[0] if student_records else {"status": "No historical record found in BigQuery Warehouse."}
         
         response = {
             "agent": "ADK SQLAgent (BigQuery)",
             "status": "Success",
+            "historical_student_record": historical_record,
             "retrieved_policies": rules,
             "confidence": 0.99
         }
