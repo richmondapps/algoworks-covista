@@ -363,6 +363,9 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
                 timestamp: new Date().toISOString()
             });
             console.log(`[generateStudentInsights] Python Data Agent returned context:`, externalRules);
+            if (externalRules.billing) {
+                console.info(`[TOKEN_METRICS] Feature: BigQuery Data Retrieval | Bytes Billed: ${externalRules.billing.totalBytesBilled} bytes | Total Exec Cost: $${externalRules.billing.estimatedCostUSD.toFixed(10)}`);
+            }
         }
         catch (e) {
             const step1End = Date.now();

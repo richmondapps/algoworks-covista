@@ -72,12 +72,23 @@ def query_engagement_rules():
         student_records = [dict(row) for row in student_job.result()]
         historical_record = student_records[0] if student_records else {"status": "No historical record found in BigQuery Warehouse."}
         
+        # Calculate BigQuery execution cost based on on-demand pricing ($6.25 per TiB)
+        rules_bytes = rules_job.total_bytes_billed or 0
+        student_bytes = student_job.total_bytes_billed or 0
+        total_bytes = rules_bytes + student_bytes
+        estimated_cost = (total_bytes / (1024 ** 4)) * 6.25
+        print(f"[{sql_agent.name}] BigQuery Execution Cost: Total Bytes Billed = {total_bytes}, Estimated Cost = ${estimated_cost:.10f}")
+        
         response = {
             "agent": "ADK SQLAgent (BigQuery)",
             "status": "Success",
             "historical_student_record": historical_record,
             "retrieved_policies": rules,
-            "confidence": 0.99
+            "confidence": 0.99,
+            "billing": {
+                "totalBytesBilled": total_bytes,
+                "estimatedCostUSD": estimated_cost
+            }
         }
     except Exception as e:
         print(f"[{sql_agent.name}] BigQuery execution failed:", e)

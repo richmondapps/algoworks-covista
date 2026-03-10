@@ -368,6 +368,9 @@ export const generateStudentInsights = onCall(async (request) => {
                 timestamp: new Date().toISOString()
             });
             console.log(`[generateStudentInsights] Python Data Agent returned context:`, externalRules);
+            if ((externalRules as any).billing) {
+                console.info(`[TOKEN_METRICS] Feature: BigQuery Data Retrieval | Bytes Billed: ${(externalRules as any).billing.totalBytesBilled} bytes | Total Exec Cost: $${(externalRules as any).billing.estimatedCostUSD.toFixed(10)}`);
+            }
         } catch (e) {
             const step1End = Date.now();
             agentTrace.push({
