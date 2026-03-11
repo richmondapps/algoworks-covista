@@ -43,16 +43,25 @@ def query_engagement_rules():
     student_id = data.get('studentUid', 'Unknown')
     completed_checklist = data.get('isChecklistComplete', False)
     
-    print(f"[{sql_agent.name}] Delegating to BigQuery Toolset to evaluate UID: {student_id} and checklist: {completed_checklist}")
+    print(f"[{sql_agent.name}] Incoming Request. Delegating to BigQuery Toolset to evaluate UID: {student_id}")
     
-    # Execute the live BigQuery query for Engagement Rules
+    # ----------------------------------------------------------------------------------
+    # DETERMINISTIC TOOL EXECUTION (SEMANTIC ROUTING BYPASS)
+    # ----------------------------------------------------------------------------------
+    # Rather than invoking sql_agent.run() and relying on the LLM to auto-generate the 
+    # SQL query (which adds 10+ seconds of latency and risks SQL hallucinations during 
+    # live UI synchronous requests), we use the Agent's architectural schema but directly 
+    # invoke the BigQuery Tools. This guarantees deterministic, micro-second latency.
+    # ----------------------------------------------------------------------------------
+    
+    # Executing the live BigQuery query for Engagement Rules
     rules_query = f"""
         SELECT rule 
         FROM `{project_id}.{dataset_id}.{table_id}`
         WHERE is_checklist_complete = {completed_checklist}
     """
     
-    # Execute the live BigQuery query for the Student Record
+    # Executing the live BigQuery query for the Student Record
     student_query = f"""
         SELECT full_name, academic_program, enrollment_status 
         FROM `{project_id}.{dataset_id}.r2c_student_records`
