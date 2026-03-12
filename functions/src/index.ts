@@ -327,7 +327,7 @@ export const generateStudentInsights = onCall(async (request) => {
 
         // Ensure proper credentials and execution context are passed
         const vertex_ai = new VertexAI({ project: process.env.GCLOUD_PROJECT || 'algoworks-dev', location: 'us-central1' });
-        // Using the highly capable gemini-2.5-flash model as requested
+        // Using the gemini-2.5-flash model
         const model = 'gemini-2.5-flash';
 
         const generativeModel = vertex_ai.preview.getGenerativeModel({
@@ -338,9 +338,9 @@ export const generateStudentInsights = onCall(async (request) => {
                 responseMimeType: "application/json"
             }
         });
-        
+
         const agentTrace: any[] = [];
-        
+
         // ----------------------------------------------------------------------------------
         // AGENT ORCHESTRATION: Step 1 - Query the specialized Python Data Retrieval Agent
         // ----------------------------------------------------------------------------------
@@ -349,11 +349,11 @@ export const generateStudentInsights = onCall(async (request) => {
         const step1Start = Date.now();
         try {
             const checklistComplete = dataContext.checklist && dataContext.checklist.length > 0 && dataContext.checklist.every((i: any) => i.status === 'Completed');
-            
+
             const agentResponse = await fetch('https://python-data-agent-668256868217.us-central1.run.app/query-engagement-rules', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     studentUid: studentUid,
                     isChecklistComplete: checklistComplete
                 })
@@ -392,6 +392,8 @@ export const generateStudentInsights = onCall(async (request) => {
           CRITICAL INSTRUCTION 1: You are an assistant talking to the ES. Therefore, in the 'overview' and 'nextBestActions' sections, you must NEVER address the student directly. Identify tasks the ES needs to perform (e.g. "Remind Peter to register").
           CRITICAL INSTRUCTION 2: The 'emailDraft' and 'smsDraft' sections are exact templates the ES will send TO THE STUDENT. Therefore, those specific drafts MUST address the student directly using "you" and "your".
           CRITICAL INSTRUCTION 3: ENGAGEMENT CAMPAIGN. Review the student's checklist. IF the student has explicitly completed 100% of their checklist items with NO missing requirements, DO NOT invent fake missing tasks. You must pivot your entire strategy to keeping them engaged before their start date. In this scenario, recommend activities like "Set up a Student Grammarly Account", "Explore Library Resources", or "Review New Student Orientation materials". Validate their success and build excitement.
+          CRITICAL INSTRUCTION 4: SENTIMENT & RELEVANCY ANALYSIS. Analyze the 'notes' array. Prioritize the MOST CHRONOLOGICALLY RECENT note (e.g., within the last 7-30 days) to avoid using outdated context. You MUST perform strict sentiment analysis. If a recent note contains sensitive, negative, medical, or serious life events (e.g., surgery, illness, death, funerals), you MUST adjust your tone to be highly empathetic, compassionate, and professional. NEVER use an overly cheerful or excited tone (e.g., "I hope you had fun at...") for serious events. Acknowledge their situation appropriately (e.g., "I hope your recovery is going smoothly" or "I wanted to check in and see how you are feeling").
+          CRITICAL INSTRUCTION 5: COMMUNICATION HISTORY. Review the student's 'communications' array (if any). Ensure your Next Best Actions reflect what has already been sent recently (SMS, emails, calls) to avoid redundant or tone-deaf messaging.
           
           Reply ONLY in strictly valid JSON formatted exactly like this:
           {
@@ -416,7 +418,7 @@ export const generateStudentInsights = onCall(async (request) => {
                 }
             ],
             "emailDraft": {
-                "bodyText": "At least 3 distinct paragraphs of friendly, customized body text. DO NOT include any greeting or salutation (e.g. no 'Hi Student'). Start directly with the first sentence. CRITICAL: This email is written DIRECTLY TO THE STUDENT. You MUST address the student directly as 'you'. Review the student's 'notes' array (if any exist). Use recent notes (like weekend plans, birthdays, life events) to build extreme rapport in the first paragraph as an ice-breaker (e.g. 'I hope you had a fantastic time at your sister's wedding!'). In the second paragraph, transition to what they need to do without dummy placeholder text. Format paragraphs using explicit '\\n\\n' strings for line breaks.",
+                "bodyText": "At least 3 distinct paragraphs of friendly, customized body text. DO NOT include any greeting or salutation (e.g. no 'Hi Student'). Start directly with the first sentence. CRITICAL: This email is written DIRECTLY TO THE STUDENT. You MUST address the student directly as 'you'. Review the student's 'notes' array. Use the MOST RECENT note to build extreme rapport in the first paragraph as an ice-breaker. Apply CRITICAL INSTRUCTION 4 to ensure appropriate sentiment (e.g., 'I hope you had a fantastic time at your sister's wedding!' vs 'I hope you are recovering well from your surgery.'). In the second paragraph, transition to what they need to do without dummy placeholder text. Format paragraphs using explicit '\\n\\n' strings for line breaks.",
                 "bullets": ["Specific actionable task 1", "Specific actionable task 2"]
             },
             "smsDraft": "Short, friendly text STRICTLY addressed directly TO THE STUDENT (e.g., 'Hi Peter, you have...'). Under 140 chars with a clear call to action. Use note context if appropriate."
@@ -436,7 +438,7 @@ export const generateStudentInsights = onCall(async (request) => {
         const step2Start = Date.now();
         const resp = await generativeModel.generateContent(reqPayload);
         const step2End = Date.now();
-        
+
         agentTrace.push({
             agentName: 'Synthesis & Communication Agent',
             action: 'Generate Profile & Drafts',
@@ -444,7 +446,7 @@ export const generateStudentInsights = onCall(async (request) => {
             duration: `${step2End - step2Start}ms`,
             timestamp: new Date().toISOString()
         });
-        
+
         const responseText = resp.response.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
 
         // --- Custom Token Reporting for CIO Demo ---

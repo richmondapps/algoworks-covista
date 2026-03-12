@@ -13,7 +13,7 @@ table_id = "engagement_rules"
 bq_client = bigquery.Client(project=project_id)
 
 # ------------------------------------------------------------------
-# ADK LlmAgent Definition (Architecture Pattern for CIO)
+# ADK LlmAgent Definition (Architecture Pattern)
 # ------------------------------------------------------------------
 def _make_sql_agent(project_id: str, dataset_id: str, table_id: str) -> LlmAgent:
     fq_table = f"`{project_id}.{dataset_id}.{table_id}`"
