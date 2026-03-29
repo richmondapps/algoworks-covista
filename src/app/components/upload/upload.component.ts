@@ -25,7 +25,7 @@ export class UploadComponent {
         if (!u) return undefined;
 
         // Attempt local resolution first from signals
-        return this.studentService.students().find(s => s.uid === u);
+        return this.studentService.students().find(s => s.studentUid === u);
     });
 
     isUploading = signal(false);
@@ -45,11 +45,11 @@ export class UploadComponent {
         this.uploadSuccess.set(false);
         this.uploadProgress.set(0);
 
-        const missingItem = studentRecord.checklist.find(c => c.status !== 'Complete');
-        const docName = missingItem ? missingItem.name : 'General Document';
+        const reqs = studentRecord.requirements as any; const missingKey = Object.keys(reqs).find(k => reqs[k] === false);
+        const docName = missingKey ? missingKey : 'General Document';
 
         // Build the File Path directly mapping to the student UID natively in Firebase Storage
-        const filePath = `uploads/${studentRecord.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
+        const filePath = `uploads/${studentRecord.studentUid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
         const storageRef = ref(this.storage, filePath);
 
         try {
@@ -69,25 +69,25 @@ export class UploadComponent {
                     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
                     console.log('File successfully uploaded, available at', downloadURL);
 
-                    // Update Firestore student record checklist array
-                    const updatedChecklist = [...studentRecord.checklist];
+                    // Update Firestore student record requirements dictionary
+                    const updatedRequirements = { ...studentRecord.requirements };
                     let updatedActionRequired = studentRecord.actionRequired;
 
-                    if (missingItem) {
-                        const index = updatedChecklist.findIndex(c => c.id === missingItem.id);
-                        if (index > -1) {
-                            updatedChecklist[index].status = 'Complete';
-                        }
+                    const reqs = studentRecord.requirements as any;
+                    const missingKey = Object.keys(reqs).find(k => reqs[k] === false);
+
+                    if (missingKey) {
+                        (updatedRequirements as any)[missingKey] = true;
                     }
 
                     // if no longer missing anything, remove risk automatically
-                    const allComplete = updatedChecklist.every(c => c.status === 'Complete');
+                    const allComplete = Object.values(updatedRequirements).every(v => v === true);
                     if (allComplete) {
                         updatedActionRequired = false;
                     }
 
                     await this.studentService.updateStudent(studentRecord.id, {
-                        checklist: updatedChecklist,
+                        requirements: updatedRequirements as any,
                         actionRequired: updatedActionRequired,
                         engagementLevel: 'High' // Implicitly boosting engagement by active tracking
                     });

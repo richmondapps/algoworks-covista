@@ -547,3 +547,7 @@ export const queryStudentDocument = onCall(async (request) => {
         throw new HttpsError("internal", `Vertex AI Parsing Error: ${e.message}`);
     }
 });
+
+// ------------------------------------------------------------------
+// Manual Pub/Sub Sync Simulator
+export * from "./sync-simulator";

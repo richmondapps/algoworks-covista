@@ -29,7 +29,6 @@
                 <th>Risk Level</th>
                 <th>Engagement</th>
                 <th>Time to Start</th>
-                <th>Missing Details</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -58,20 +57,10 @@
                     }
                 </td>
                 <td>
-                    <span class="status-badge" [ngClass]="s.riskIndicator.toLowerCase()">{{ s.riskIndicator }}</span>
+                    <span *ngIf="s.riskIndicator" class="status-badge" [ngClass]="s.riskIndicator ? s.riskIndicator.toLowerCase() : ''">{{ s.riskIndicator }}</span>
                 </td>
                 <td>{{ s.engagementLevel }}</td>
                 <td>{{ s.timeUntilClassStartDays }} Days</td>
-                <td>
-                    <div class="missing-items" style="display: flex; flex-direction: column; gap: 4px;">
-                        @for (item of getMissingItems(s.checklist); track item.id) {
-                        <span style="color: #DC2626;">{{ item.name }}</span>
-                        }
-                        @if (getMissingItems(s.checklist).length === 0) {
-                        <span style="color: #475569;">None</span>
-                        }
-                    </div>
-                </td>
                 <td>
                     <button class="action-btn">
                         View Details <span class="material-icons">arrow_forward</span>

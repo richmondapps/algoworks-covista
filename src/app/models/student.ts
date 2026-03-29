@@ -72,13 +72,23 @@ export interface CommunicationLog {
     agentName?: string;
 }
 
+export interface StudentRequirements {
+    fundingPlan: boolean;
+    courseRegistration: boolean;
+    wwowOrientationStarted: boolean;
+    officialTranscriptsReceived: boolean;
+    orientationStarted: boolean;
+    firstAssignmentSubmitted: boolean;
+    assignmentByCensusDay: boolean;
+}
+
 export interface Student {
     id: string;
-    uid: string; // Firebase UID format
+    studentUid: string; // Firebase UID format natively captured
     name: string;
     email: string;
     phone: string;
-    checklist: ChecklistItem[];
+    requirements: StudentRequirements;
     timeSinceReserveDays: number;
     timeUntilClassStartDays: number;
     engagementLevel: 'High' | 'Medium' | 'Low';

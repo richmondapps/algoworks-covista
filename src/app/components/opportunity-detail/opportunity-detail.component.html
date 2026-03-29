@@ -515,12 +515,14 @@
                 @if (accordions()['checklist']) {
                 <div class="acc-content"
                     style="padding: 12px 16px; border-bottom: 1px solid #dddbda; background: #fafaf9;">
-                    <ul style="padding-left: 20px; font-size: 12px;">
-                        @for (item of student.checklist; track item.id) {
-                        <li>{{ item.name }} - <strong
-                                [ngClass]="item.status === 'Complete' ? 'text-green' : 'text-orange'">{{ item.status
-                                }}</strong></li>
-                        }
+                    <ul style="padding-left: 20px; font-size: 12px; line-height: 1.8;">
+                        <li>Funding Plan & Offers - <strong [ngClass]="student.requirements.fundingPlan ? 'text-green' : 'text-orange'">{{ student.requirements.fundingPlan ? 'Complete' : 'Pending' }}</strong></li>
+                        <li>Course Registration - <strong [ngClass]="student.requirements.courseRegistration ? 'text-green' : 'text-orange'">{{ student.requirements.courseRegistration ? 'Complete' : 'Pending' }}</strong></li>
+                        <li>Official Transcripts on File - <strong [ngClass]="student.requirements.officialTranscriptsReceived ? 'text-green' : 'text-orange'">{{ student.requirements.officialTranscriptsReceived ? 'Complete' : 'Pending' }}</strong></li>
+                        <li>WWOW Orientation - <strong [ngClass]="student.requirements.wwowOrientationStarted ? 'text-green' : 'text-orange'">{{ student.requirements.wwowOrientationStarted ? 'Started' : 'Not Started' }}</strong></li>
+                        <li>Initial Course Login - <strong [ngClass]="student.requirements.orientationStarted ? 'text-green' : 'text-orange'">{{ student.requirements.orientationStarted ? 'Complete' : 'Pending' }}</strong></li>
+                        <li>First Assignment Submission - <strong [ngClass]="student.requirements.firstAssignmentSubmitted ? 'text-green' : 'text-orange'">{{ student.requirements.firstAssignmentSubmitted ? 'Complete' : 'Pending' }}</strong></li>
+                        <li>Census Day Compliance - <strong [ngClass]="student.requirements.assignmentByCensusDay ? 'text-green' : 'text-orange'">{{ student.requirements.assignmentByCensusDay ? 'Cleared' : 'Pending' }}</strong></li>
                     </ul>
                 </div>
                 }

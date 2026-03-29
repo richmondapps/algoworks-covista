@@ -1,0 +1,56 @@
+<div style="padding: 2rem; background: #f8fafc; font-family: sans-serif; border-radius: 8px;">
+  <h2 style="color: #0f172a; margin-top: 0;">Salesforce & BQ Simulator</h2>
+  <p style="color: #64748b;">Modify raw data directly in BigQuery. Then manually trigger the Sync Engine.</p>
+
+  <div style="background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <h3>Target Student Focus:</h3>
+    <select [(ngModel)]="selectedStudent" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1.5rem;">
+      <option value="A00302996">Amy Collins (A00302996)</option>
+      <option value="A00409782">Barbara Woods (A00409782)</option>
+      <option value="A00437050">Angela Catour (A00437050)</option>
+    </select>
+
+    <h4>Action 1: Structural Timelines</h4>
+    <p style="font-size: 13px; color: gray; margin-top: 0; margin-bottom: 4px;">Update Calendar: Program Start Date</p>
+    <input type="date" [(ngModel)]="startDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+    
+    <p style="font-size: 13px; color: gray; margin-top: 0; margin-bottom: 4px;">Update Calendar: Official Reserve Date</p>
+    <input type="date" [(ngModel)]="reserveDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1.5rem;">
+
+    <h4>Action 2: Student Portal Actions</h4>
+    <p style="font-size: 13px; color: gray; margin-top: 0; margin-bottom: 4px;">Set First Login Datetime (Accredited Core Course)</p>
+    <input type="datetime-local" [(ngModel)]="loginAccreditedDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+
+    <p style="font-size: 13px; color: gray; margin-top: 0; margin-bottom: 4px;">Set First Login Datetime (Non-Accredited Elective)</p>
+    <input type="datetime-local" [(ngModel)]="loginNonAccreditedDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+    
+    <p style="font-size: 13px; color: gray; margin-top: 0; margin-bottom: 4px;">Set First Discussion Board Submission Datetime</p>
+    <input type="datetime-local" [(ngModel)]="discussionDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1.5rem;">
+
+    <h4>Action 3: Manual Salesforce Reviews (ES Actions)</h4>
+    <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 0.75rem; cursor: pointer;">
+      <input type="checkbox" [(ngModel)]="transcriptCleared" style="width: 18px; height: 18px;"> 
+      <strong>Official Transcript Reviewed & Cleared</strong>
+    </label>
+    <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 0.75rem; cursor: pointer;">
+      <input type="checkbox" [(ngModel)]="fundingComplete" style="width: 18px; height: 18px;"> 
+      <strong>Funding Plan Submitted (FAFSA/Pocket)</strong>
+    </label>
+    <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 2rem; cursor: pointer;">
+      <input type="checkbox" [(ngModel)]="wwowStarted" style="width: 18px; height: 18px;"> 
+      <strong>WWOW Orientation Started</strong>
+    </label>
+
+    <button (click)="writeToBigQuery()" [disabled]="isWriting" style="width: 100%; padding: 0.75rem; background: #10b981; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;">
+      {{ isWriting ? 'Updating BQ...' : '1. Write Direct to BigQuery' }}
+    </button>
+  </div>
+
+  <button (click)="simulatePubSubSync()" [disabled]="isSyncing" style="width: 100%; padding: 1rem; background: #2563eb; color: white; border: none; font-weight: bold; font-size: 1.1rem; border-radius: 6px; cursor: pointer;">
+    {{ isSyncing ? 'Running Delta Sync...' : '2. FORCE SYNC (Simulate Pub/Sub)' }}
+  </button>
+  
+  <pre *ngIf="syncResult" style="background: #1e293b; color: #10b981; padding: 1rem; border-radius: 4px; margin-top: 1.5rem;">
+    {{ syncResult }}
+  </pre>
+</div>

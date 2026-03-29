@@ -1,17 +1,17 @@
 :root {
-  --bg-primary: #FFFFFF;
-  --bg-secondary: #F8FAFC;
+  --bg-primary: #F3F3F3; /* Salesforce grey background */
+  --bg-secondary: #FFFFFF;
   --bg-surface: #FFFFFF;
-  --text-primary: #0F172A;
-  --text-secondary: #475569;
-  --accent-primary: #2563EB;
-  --accent-secondary: #4F46E5;
-  --success: #059669;
-  --warning: #D97706;
-  --danger: #DC2626;
-  --border-light: rgba(0, 0, 0, 0.1);
-  --glass-shadow: none;
-  --glass-border: 1px solid rgba(0, 0, 0, 0.15);
+  --text-primary: #181818;
+  --text-secondary: #444444;
+  --accent-primary: #0176D3; /* Salesforce Blue */
+  --accent-secondary: #0b5cab;
+  --success: #2E844A;
+  --warning: #DD7A01;
+  --danger: #BA0517;
+  --border-light: #DDDBDA;
+  --glass-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
+  --glass-border: 1px solid #DDDBDA;
 }
 
 body {
@@ -26,13 +26,11 @@ body {
   box-sizing: border-box;
 }
 
-/* Glassmorphism Classes */
+/* Salesforce Panels */
 .glass-panel {
   background: var(--bg-surface);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: var(--glass-border);
-  border-radius: 16px;
+  border-radius: 4px; /* SF uses smaller borders */
   box-shadow: var(--glass-shadow);
 }
 

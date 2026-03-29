@@ -3,7 +3,7 @@ import { Firestore, collection, collectionData, doc, setDoc, query, orderBy, whe
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Student } from '../models/student';
 
-const COLLECTION_NAME = 'students';
+const COLLECTION_NAME = 'student_records'; // Migrated to bypass cached legacy windows
 
 @Injectable({
   providedIn: 'root'
@@ -26,11 +26,7 @@ export class StudentService {
     onSnapshot(studentsRef, (snapshot) => {
       this.zone.run(() => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Student);
-        if (data.length === 0) {
-          this.initializeDummyData();
-        } else {
-          this.students.set(data);
-        }
+        this.students.set(data);
       });
     }, (error) => {
       console.error('Error in onSnapshot students listener:', error);
@@ -86,7 +82,7 @@ export class StudentService {
     const dummyStudents: Student[] = [
       {
         id: 'M2ncaGellerUID1234567890123',
-        uid: 'M2ncaGellerUID1234567890123',
+        studentUid: 'M2ncaGellerUID1234567890123',
         name: 'Monica Geller',
         email: 'monica.geller.csc@gmail.com',
         phone: '+1-555-0102',
@@ -96,16 +92,12 @@ export class StudentService {
         riskIndicator: 'Low',
         actionRequired: false,
         stats: { emailOpens: 5, smsClicks: 2, bestMethod: 'Email' },
-        checklist: [
-          { id: 'c1', name: 'Official Transcripts', status: 'Complete', dueDate: new Date().toISOString() },
-          { id: 'c2', name: 'Financial Aid Documents', status: 'Complete', dueDate: new Date().toISOString() },
-          { id: 'c3', name: 'WWOW (Log in)', status: 'Complete', dueDate: new Date().toISOString() }
-        ],
+        requirements: {} as any,
         recommendedActions: []
       },
       {
         id: 'C3hndlrBingUID1234567890123',
-        uid: 'C3hndlrBingUID1234567890123',
+        studentUid: 'C3hndlrBingUID1234567890123',
         name: 'Peter Griffin',
         email: 'peter.griffin@quahog.net',
         phone: '+1-555-0103',
@@ -115,18 +107,14 @@ export class StudentService {
         riskIndicator: 'High',
         actionRequired: true,
         stats: { emailOpens: 0, smsClicks: 0, bestMethod: 'SMS' },
-        checklist: [
-          { id: 'c1', name: 'Official Transcripts', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 2).toISOString() },
-          { id: 'c2', name: 'Financial Aid Documents', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 2).toISOString() },
-          { id: 'c3', name: 'WWOW (Log in)', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 2).toISOString() }
-        ],
+        requirements: {} as any,
         recommendedActions: [
           { id: 'r1', title: 'Call immediately', description: 'Student is missing all requirements days before start.', priority: 'High', type: 'Call' }
         ]
       },
       {
         id: 'R1OsGellerUID12345678901234',
-        uid: 'R1OsGellerUID12345678901234',
+        studentUid: 'R1OsGellerUID12345678901234',
         name: 'Ross Geller',
         email: 'ross@paleontology.edu',
         phone: '+1-555-0101',
@@ -136,18 +124,14 @@ export class StudentService {
         riskIndicator: 'Medium',
         actionRequired: true,
         stats: { emailOpens: 1, smsClicks: 0, bestMethod: 'Email' },
-        checklist: [
-          { id: 'c1', name: 'Official Transcripts', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 5).toISOString() },
-          { id: 'c2', name: 'Financial Aid Documents', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 5).toISOString() },
-          { id: 'c3', name: 'WWOW (Log in)', status: 'Complete', dueDate: new Date().toISOString() }
-        ],
+        requirements: {} as any,
         recommendedActions: [
           { id: 'r1', title: 'Send Urgent SMS', description: 'Urgent reminder needed for missing financial aid.', priority: 'Medium', type: 'SMS' }
         ]
       },
       {
         id: 'P5oebeBuffyUID1234567890123',
-        uid: 'P5oebeBuffyUID1234567890123',
+        studentUid: 'P5oebeBuffyUID1234567890123',
         name: 'Phoebe Buffay',
         email: 'phoebe@music.com',
         phone: '+1-555-0105',
@@ -157,18 +141,14 @@ export class StudentService {
         riskIndicator: 'Medium',
         actionRequired: true,
         stats: { emailOpens: 2, smsClicks: 1, bestMethod: 'Email' },
-        checklist: [
-          { id: 'c1', name: 'Official Transcripts', status: 'Complete', dueDate: new Date().toISOString() },
-          { id: 'c2', name: 'Financial Aid Documents', status: 'Complete', dueDate: new Date().toISOString() },
-          { id: 'c3', name: 'WWOW (Log in)', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 4).toISOString() }
-        ],
+        requirements: {} as any,
         recommendedActions: [
           { id: 'r1', title: 'Email Reminder', description: 'Student needs to login to WWOW.', priority: 'Medium', type: 'Email' }
         ]
       },
       {
         id: 'R6achelGrenUID1234567890123',
-        uid: 'R6achelGrenUID1234567890123',
+        studentUid: 'R6achelGrenUID1234567890123',
         name: 'Rachel Green',
         email: 'rachel@fashion.com',
         phone: '+1-555-0106',
@@ -178,11 +158,7 @@ export class StudentService {
         riskIndicator: 'High',
         actionRequired: true,
         stats: { emailOpens: 3, smsClicks: 3, bestMethod: 'SMS' },
-        checklist: [
-          { id: 'c1', name: 'Official Transcripts', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 7).toISOString() },
-          { id: 'c2', name: 'Financial Aid Documents', status: 'Complete', dueDate: new Date().toISOString() },
-          { id: 'c3', name: 'WWOW (Log in)', status: 'Missing', dueDate: new Date(Date.now() + 86400000 * 7).toISOString() }
-        ],
+        requirements: {} as any,
         recommendedActions: [
           { id: 'r1', title: 'Send Registration Reminder', description: 'Registration open but missing.', priority: 'High', type: 'SMS' }
         ]

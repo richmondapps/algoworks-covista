@@ -32,6 +32,9 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.queryStudentDocument = exports.generateStudentInsights = exports.sendgridWebhook = exports.twilioWebhook = exports.sendOpportunitySms = exports.sendOpportunityEmail = void 0;
 const https_1 = require("firebase-functions/v2/https");
@@ -523,4 +526,7 @@ exports.queryStudentDocument = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError("internal", `Vertex AI Parsing Error: ${e.message}`);
     }
 });
+// ------------------------------------------------------------------
+// Manual Pub/Sub Sync Simulator
+__exportStar(require("./sync-simulator"), exports);
 //# sourceMappingURL=index.js.map

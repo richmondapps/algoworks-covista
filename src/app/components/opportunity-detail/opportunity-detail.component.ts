@@ -117,9 +117,20 @@ export class OpportunityDetailComponent {
 
   checklistProgress = computed(() => {
     const s = this.student();
-    if (!s || !s.checklist || s.checklist.length === 0) return 0;
-    const completed = s.checklist.filter(c => c.status === 'Complete').length;
-    return Math.round((completed / s.checklist.length) * 100);
+    if (!s || !s.requirements) return 0;
+    
+    const total = 7;
+    let completed = 0;
+    const r = s.requirements;
+    if (r.fundingPlan) completed++;
+    if (r.courseRegistration) completed++;
+    if (r.wwowOrientationStarted) completed++;
+    if (r.officialTranscriptsReceived) completed++;
+    if (r.orientationStarted) completed++;
+    if (r.firstAssignmentSubmitted) completed++;
+    if (r.assignmentByCensusDay) completed++;
+    
+    return Math.round((completed / total) * 100);
   });
 
   isEditingContext = signal(false);
@@ -154,7 +165,7 @@ export class OpportunityDetailComponent {
     this.isQueryingDoc.set(true);
     this.docAiResponse.set('');
     try {
-      const result = await this.studentService.queryDocumentInfo(s.uid, doc.name, query);
+      const result = await this.studentService.queryDocumentInfo(s.studentUid, doc.name, query);
       if (result && result.answer) {
         this.docAiResponse.set(result.answer);
       } else {
@@ -171,7 +182,7 @@ export class OpportunityDetailComponent {
     effect(() => {
       const s = this.student();
       if (s) {
-        this.loadDocuments(s.uid);
+        this.loadDocuments(s.studentUid);
       }
     });
   }
@@ -207,8 +218,8 @@ export class OpportunityDetailComponent {
   }
 
   isFundingComplete(student: Student): boolean {
-    if (!student || !student.checklist || student.checklist.length === 0) return false;
-    return student.checklist.every(item => item.status === 'Complete');
+    if (!student || !student.requirements) return false;
+    return student.requirements.fundingPlan;
   }
 
   async generateAi(student: Student) {
@@ -331,13 +342,15 @@ export class OpportunityDetailComponent {
   }
 
   async triggerCommunication(student: Student, action: Partial<RecommendedAction>, customBody?: string) {
-    // Generate simulated communication logic
-    let missingItem = student.checklist.find(c => c.status !== 'Complete');
-    let documentName = missingItem ? missingItem.name : 'your missing documents';
-    let days = missingItem ? this.daysRemaining(missingItem.dueDate) : 0;
+    // Generate simulated communication logic natively off BigQuery requirements
+    let documentName = 'outstanding enrollment requirements';
+    if (!student.requirements.officialTranscriptsReceived) documentName = 'Official Transcripts';
+    else if (!student.requirements.fundingPlan) documentName = 'Funding Plan Application';
+    
+    let days = student.timeUntilClassStartDays;
 
     // Generates a URL dynamically directing the student directly to your Angular Upload Component
-    let uploadLink = `${window.location.origin}/upload?uid=${student.uid}`;
+    let uploadLink = `${window.location.origin}/upload?uid=${student.studentUid}`;
 
     if (action.type === 'Email') {
       try {
@@ -346,7 +359,7 @@ export class OpportunityDetailComponent {
         const sendEmailFn = httpsCallable(functions, 'sendOpportunityEmail');
 
         await sendEmailFn({
-          studentUid: student.uid,
+          studentUid: student.studentUid,
           email: student.email,
           name: student.name,
           daysLeft: days,
@@ -369,7 +382,7 @@ export class OpportunityDetailComponent {
         const sendSmsFn = httpsCallable(functions, 'sendOpportunitySms');
 
         await sendSmsFn({
-          studentUid: student.uid,
+          studentUid: student.studentUid,
           phone: student.phone,
           name: student.name,
           daysLeft: days,
@@ -388,8 +401,17 @@ export class OpportunityDetailComponent {
   }
 
   getOverallProgress(student: Student): number {
-    if (!student.checklist || student.checklist.length === 0) return 0;
-    const complete = student.checklist.filter(c => c.status === 'Complete').length;
-    return Math.round((complete / student.checklist.length) * 100);
+    if (!student || !student.requirements) return 0;
+    const r = student.requirements;
+    let completed = 0;
+    if (r.fundingPlan) completed++;
+    if (r.courseRegistration) completed++;
+    if (r.wwowOrientationStarted) completed++;
+    if (r.officialTranscriptsReceived) completed++;
+    if (r.orientationStarted) completed++;
+    if (r.firstAssignmentSubmitted) completed++;
+    if (r.assignmentByCensusDay) completed++;
+    
+    return Math.round((completed / 7) * 100);
   }
 }
