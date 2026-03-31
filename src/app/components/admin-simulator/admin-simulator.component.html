@@ -1,6 +1,6 @@
 <div style="padding: 2rem; background: #f8fafc; font-family: sans-serif; border-radius: 8px;">
   <h2 style="color: #0f172a; margin-top: 0;">Salesforce & BQ Simulator</h2>
-  <p style="color: #64748b;">Modify raw data directly in BigQuery. Then manually trigger the Sync Engine.</p>
+  <p style="color: #64748b;">Modify raw data directly in Firestore. The UI components will react instantly via WebSockets.</p>
 
   <div style="background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
     <h3>Target Student Focus:</h3>
@@ -41,14 +41,10 @@
       <strong>WWOW Orientation Started</strong>
     </label>
 
-    <button (click)="writeToBigQuery()" [disabled]="isWriting" style="width: 100%; padding: 0.75rem; background: #10b981; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;">
-      {{ isWriting ? 'Updating BQ...' : '1. Write Direct to BigQuery' }}
+    <button (click)="writeToFirestore()" [disabled]="isWriting" style="width: 100%; padding: 0.75rem; background: #10b981; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;">
+      {{ isWriting ? 'Updating Database...' : '1. Write Direct to Firestore' }}
     </button>
   </div>
-
-  <button (click)="simulatePubSubSync()" [disabled]="isSyncing" style="width: 100%; padding: 1rem; background: #2563eb; color: white; border: none; font-weight: bold; font-size: 1.1rem; border-radius: 6px; cursor: pointer;">
-    {{ isSyncing ? 'Running Delta Sync...' : '2. FORCE SYNC (Simulate Pub/Sub)' }}
-  </button>
   
   <pre *ngIf="syncResult" style="background: #1e293b; color: #10b981; padding: 1rem; border-radius: 4px; margin-top: 1.5rem;">
     {{ syncResult }}

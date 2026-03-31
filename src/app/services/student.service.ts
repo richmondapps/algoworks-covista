@@ -25,7 +25,130 @@ export class StudentService {
     // Realtime listener using native onSnapshot to bypass rxfire bugs with new firebase SDKs
     onSnapshot(studentsRef, (snapshot) => {
       this.zone.run(() => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Student);
+        const data = snapshot.docs.map(doc => {
+          const s = { id: doc.id, ...doc.data() } as Student;
+          const today = new Date().getTime();
+          
+          if (s.programStartDate) {
+            const start = new Date(s.programStartDate).getTime();
+            s.timeUntilClassStartDays = Math.ceil((start - today) / (1000 * 3600 * 24));
+          }
+          if (s.reserveDate) {
+            const reserve = new Date(s.reserveDate).getTime();
+            s.timeSinceReserveDays = Math.floor((today - reserve) / (1000 * 3600 * 24));
+          }
+          
+          if (s.courseActivity && s.courseActivity.length > 0) {
+              const accreditedCourses = s.courseActivity.filter(c => c.isAccredited);
+              if (accreditedCourses.length > 0) {
+                  const hasLogin = accreditedCourses.some(c => !!c.firstLoginAt);
+                  const hasPost = accreditedCourses.some(c => !!c.firstDiscussionPostAt);
+
+                  s.requirements.orientationStarted = hasLogin;
+                  s.requirements.firstAssignmentSubmitted = hasPost;
+              }
+          }
+          
+          if (!s.aiInsights) s.aiInsights = {} as any;
+          s.aiInsights!.nextBestActions = [];
+
+          if (!s.requirements.orientationStarted) {
+            s.aiInsights!.nextBestActions.push({
+              title: 'Initial portal login / Not logged into course',
+              urgent: true,
+              points: [
+                'Link to student portal & Canvas course',
+                'Reserves email address',
+                'How to Log into Your Student Portal: https://youtu.be/ClgP0GtP2uQ',
+                'How to Access Your Walden Orientation: https://youtu.be/67vGaf0uMEQ',
+                'Estimated time to complete - 5 min'
+              ],
+              buttonText: 'Send Email'
+            });
+          }
+
+          if (!s.requirements.fafsaSubmitted) {
+            s.aiInsights!.nextBestActions.push({
+              title: 'Funding - FAFSA Submission Needed',
+              urgent: true,
+              points: [
+                'Walden Federal School Code: 025042',
+                'FAFSA Link: https://studentaid.gov/h/apply-for-aid/fafsa',
+                'Academic Year',
+                'How to Apply for Financial Aid: https://youtu.be/pimitLbiBoE',
+                'Estimated time to complete - 30 min'
+              ],
+              buttonText: 'Send Email'
+            });
+          } else if (!s.requirements.fundingPlan) {
+            s.aiInsights!.nextBestActions.push({
+              title: 'Funding - FAFSA Submitted but awaiting award/decision',
+              urgent: false,
+              points: [
+                'Check FAFSA Status Link: https://studentaid.gov/help/check-fafsa-status or student portal',
+                'Disclaimer/Note that FAFSA process can take several days'
+              ],
+              buttonText: 'Send Email'
+            });
+          }
+
+          if (!s.requirements.courseRegistration) {
+            s.aiInsights!.nextBestActions.push({
+              title: 'No Course Registration - student dropped',
+              urgent: true,
+              points: [
+                'Link to register or reregister for courses',
+                'Suggested course recommendations',
+                'Link to schedule appointment with ES'
+              ],
+              buttonText: 'Send Email'
+            });
+          }
+
+          if (!s.requirements.wwowOrientationStarted) {
+            s.aiInsights!.nextBestActions.push({
+              title: 'No WWOW Login',
+              urgent: true,
+              points: [
+                'Link to WWOW orientation',
+                'Estimated time to complete - 25 min'
+              ],
+              buttonText: 'Send Email'
+            });
+          }
+
+          if (!s.requirements.officialTranscriptsReceived) {
+            s.aiInsights!.nextBestActions.push({
+              title: 'Contingency - Official Transcript',
+              urgent: true,
+              points: [
+                'School name',
+                'Link to school transcript request',
+                'Link for Walden to request TRF if applicable',
+                'Estimated time to complete - 10 min'
+              ],
+              buttonText: 'Send Email'
+            });
+          }
+          
+          if (!s.requirements.nursingLicenseReceived) {
+            s.aiInsights!.nextBestActions.push({
+              title: 'Contingency - Nursing License',
+              urgent: true,
+              points: [
+                'Instruction on where to submit nursing license',
+                'Estimated time to complete - 5 min'
+              ],
+              buttonText: 'Send Email'
+            });
+          }
+
+          s.riskIndicator = this.computeRisk(s, today);
+          s.actionRequired = s.riskIndicator === 'High' || s.riskIndicator === 'Medium';
+          
+          return s;
+        });
+        
         this.students.set(data);
       });
     }, (error) => {
@@ -172,5 +295,73 @@ export class StudentService {
     });
 
     await batch.commit();
+  }
+
+  private computeRisk(s: Student, today: number): 'Low' | 'Medium' | 'High' {
+    let highestRisk: 'Low' | 'Medium' | 'High' = 'Low';
+    
+    // Helper to upgrade risk
+    const upgradeRisk = (newRisk: 'Low' | 'Medium' | 'High') => {
+      if (newRisk === 'High') highestRisk = 'High';
+      if (newRisk === 'Medium' && highestRisk === 'Low') highestRisk = 'Medium';
+    };
+
+    const MS_PER_DAY = 1000 * 3600 * 24;
+    const MS_PER_WEEK = MS_PER_DAY * 7;
+
+    const reserveDateMs = s.reserveDate ? new Date(s.reserveDate).getTime() : null;
+    const startDateMs = s.programStartDate ? new Date(s.programStartDate).getTime() : null;
+
+    // Initial Portal Login
+    if (!s.requirements.orientationStarted && reserveDateMs) {
+      const daysSinceReserve = (today - reserveDateMs) / MS_PER_DAY;
+      if (daysSinceReserve >= 7) upgradeRisk('High');
+      else if (daysSinceReserve >= 5) upgradeRisk('Medium');
+      else if (daysSinceReserve >= 3) upgradeRisk('Low');
+    }
+
+    // Funding - FAFSA
+    if (!s.requirements.fafsaSubmitted && startDateMs) {
+      const daysUntilStart = (startDateMs - today) / MS_PER_DAY;
+      if (daysUntilStart < 14) upgradeRisk('High');
+      else if (daysUntilStart <= 21) upgradeRisk('Medium');
+    }
+
+    // Course Registration
+    if (!s.requirements.courseRegistration && startDateMs && reserveDateMs) {
+       const daysSinceReserve = (today - reserveDateMs) / MS_PER_DAY;
+       const daysUntilStart = (startDateMs - today) / MS_PER_DAY;
+       
+       if (daysSinceReserve > 2) {
+         if (daysUntilStart < 4) upgradeRisk('High');
+         else if (daysUntilStart <= 7) upgradeRisk('Medium');
+       }
+    }
+
+    // WWOW Log in
+    if (!s.requirements.wwowOrientationStarted && s.courseActivity) {
+      // Assuming access string inside courseActivity
+      const wwow = s.courseActivity.find(c => c.courseId === 'WWOW');
+      if (wwow && wwow.firstLoginAt === null) {
+          // Simplified checking
+          upgradeRisk('Medium');
+      }
+    }
+    
+    // Logged into course
+    if (!s.requirements.orientationStarted && startDateMs) {
+       const daysSinceStart = (today - startDateMs) / MS_PER_DAY;
+       if (daysSinceStart >= 3) upgradeRisk('High');
+       else if (daysSinceStart >= 2) upgradeRisk('Medium');
+    }
+
+    // Class Participation
+    if (!s.requirements.firstAssignmentSubmitted && startDateMs) {
+       const daysSinceStart = (today - startDateMs) / MS_PER_DAY;
+       if (daysSinceStart >= 3) upgradeRisk('High');
+       else if (daysSinceStart >= 2) upgradeRisk('Medium');
+    }
+
+    return highestRisk;
   }
 }

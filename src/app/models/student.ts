@@ -73,10 +73,12 @@ export interface CommunicationLog {
 }
 
 export interface StudentRequirements {
+    fafsaSubmitted: boolean;
     fundingPlan: boolean;
     courseRegistration: boolean;
     wwowOrientationStarted: boolean;
     officialTranscriptsReceived: boolean;
+    nursingLicenseReceived: boolean;
     orientationStarted: boolean;
     firstAssignmentSubmitted: boolean;
     assignmentByCensusDay: boolean;
@@ -89,8 +91,16 @@ export interface Student {
     email: string;
     phone: string;
     requirements: StudentRequirements;
-    timeSinceReserveDays: number;
-    timeUntilClassStartDays: number;
+    programStartDate?: string;
+    reserveDate?: string;
+    courseActivity?: {
+        courseId: string;
+        isAccredited: boolean;
+        firstLoginAt?: string;
+        firstDiscussionPostAt?: string;
+    }[];
+    timeSinceReserveDays?: number;
+    timeUntilClassStartDays?: number;
     engagementLevel: 'High' | 'Medium' | 'Low';
     riskIndicator: 'High' | 'Medium' | 'Low';
     recommendedActions: RecommendedAction[];
