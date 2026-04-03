@@ -241,7 +241,7 @@ export class OpportunityDetailComponent {
       if (step === 1) {
         mockTrace[0].status = 'Success';
         mockTrace[0].duration = '120ms';
-        mockTrace.push({ agentName: 'Data Agent (BigQuery)', action: 'Querying Historical Records & Engagement Rules', status: 'Running...', duration: '0ms' });
+        mockTrace.push(          { agentName: 'Data Agent (Firestore)', action: 'Querying Historical Records & Engagement Rules', status: step >= 2 ? 'Success' : 'Running...', duration: step >= 2 ? '145ms' : '' },);
       } else if (step === 2) {
         mockTrace[1].status = 'Success';
         mockTrace[1].duration = '1450ms';
