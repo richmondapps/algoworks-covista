@@ -1,8 +1,10 @@
 import os
+import json
+import threading
+import vertexai
+from vertexai.preview.generative_models import GenerativeModel
 from flask import Flask, request, jsonify
-from google.cloud import bigquery
-from google.adk.agents import LlmAgent
-from google.adk.tools.bigquery import BigQueryToolset
+from google.cloud import bigquery, firestore
 
 app = Flask(__name__)
 
@@ -11,104 +13,238 @@ dataset_id = "covista_demo"
 table_id = "engagement_rules"
 
 bq_client = bigquery.Client(project=project_id)
+db = firestore.Client(project=project_id)
+
+vertexai.init(project=project_id, location="us-central1")
+model_name = "gemini-2.5-flash"
+
+def generate_core_insights(data_context):
+    model = GenerativeModel(model_name)
+    prompt = f"""
+    You are an expert academic advisor AI (Student Success Agent).
+    CRITICAL INSTRUCTION 1: You are an assistant talking to the ES. Therefore, in the 'overview' and 'nextBestActions' sections, you must NEVER address the student directly.
+    CRITICAL INSTRUCTION 3: Review the student's checklist. IF they completed 100%, DO NOT invent missing tasks. Pivot to keeping them engaged.
+    
+    Reply ONLY in strictly valid JSON formatted exactly like this:
+    {{
+      "overview": {{
+          "intro": "Narrative intro summarizing status in 1-2 short sentences.",
+          "highlight": "A 2-4 word urgently missing item.",
+          "outro": "A 1 short sentence firm conclusion."
+      }},
+      "riskSignals": {{
+          "timeSinceReserve": "Formatted string",
+          "timeUntilClassStart": "Formatted string",
+          "engagementLevel": "High, Medium, Low",
+          "checklistProgress": "Calculated percentage string e.g., '50% Complete'",
+          "riskIndicator": "High Risk, On Track"
+      }},
+      "nextBestActions": [
+          {{
+              "title": "Action title explicitly commanding the ES",
+              "urgent": true,
+              "points": ["Instructions for the ES, NOT the student."],
+              "buttonText": "Review Requirement"
+          }}
+      ]
+    }}
+
+    CRITICAL INSTRUCTION: For 'buttonText', DO NOT use words like "Send Email" or "Email Student". Set it EXACTLY to "Review Requirement" or "Complete Task >".
+
+    STUDENT DATA:
+    {json.dumps(data_context)}
+    """
+    response = model.generate_content(
+        prompt,
+        generation_config={"response_mime_type": "application/json", "temperature": 0.2}
+    )
+    try:
+        raw_text = response.text.replace('```json', '').replace('```', '')
+        return json.loads(raw_text.strip())
+    except:
+        print("[Core Insights] FAILED TO PARSE:", response.text)
+        return {}
+
+def generate_communications(data_context):
+    model = GenerativeModel(model_name)
+    prompt = f"""
+    You are an expert academic advisor AI (Communications Agent). Given the raw student data context, generate personalized outreach drafts TO THE STUDENT.
+    CRITICAL: Ensure your drafts reflect recent 'notes' sentiment (e.g., extremely empathetic if health/death, excited if normal).
+    
+    Reply ONLY in strictly valid JSON formatted exactly like this:
+    {{
+      "emailDraft": {{
+          "bodyText": "A friendly, customized 2 paragraph body text. DO NOT include any greeting or salutation.",
+          "bullets": ["Specific actionable task 1"]
+      }},
+      "smsDraft": "Short, friendly text STRICTLY addressed directly TO THE STUDENT. Under 140 chars."
+    }}
+
+    STUDENT DATA:
+    {json.dumps(data_context)}
+    """
+    response = model.generate_content(
+        prompt,
+        generation_config={"response_mime_type": "application/json", "temperature": 0.2}
+    )
+    try:
+        raw_text = response.text.replace('```json', '').replace('```', '')
+        return json.loads(raw_text.strip())
+    except:
+        print("[Comms Agent] FAILED TO PARSE:", response.text)
+        return {}
+
+@app.route('/generate-insights', methods=['POST'])
+def generate_insights():
+    req_data = request.json
+    student_uid = req_data.get('studentUid')
+    data_context = req_data.get('dataContext', {})
+    
+    # -------------------------------------------------------------
+    # PHASE 1: Immediate Synchronous Execution for Core UI Matrix
+    # -------------------------------------------------------------
+    core_payload = generate_core_insights(data_context)
+    
+    # -------------------------------------------------------------
+    # PHASE 2: Detached Background Execution for Heavy Comms payload
+    # -------------------------------------------------------------
+    def generate_and_save_comms(uid, context):
+        comms_payload = generate_communications(context)
+        print(f"[Comms Agent] Background Generation Complete for UID: {uid}. Merging into Firestore.")
+        if uid and comms_payload:
+            # Safely overlay ONLY the specific Comms vectors using dot-notation string maps!
+            print(f"[Comms Agent] Successfully captured valid Comms payload! Injecting to database...")
+            try:
+                db.collection('student_records').document(uid).update({
+                    "aiInsights.emailDraft": comms_payload.get("emailDraft"),
+                    "aiInsights.smsDraft": comms_payload.get("smsDraft")
+                })
+            except Exception as er:
+                print(f"[Comms Agent] FAILED TO INJECT COMMS INTO FIRESTORE: {er}")
+
+    # Spawning the background worker
+    threading.Thread(target=generate_and_save_comms, args=(student_uid, data_context)).start()
+    
+    # Immediately return the Phase 1 trace to unblock the Enrollment Specialist's UI
+    core_payload["agentTrace"] = [
+        {
+            "agentName": "Student Success Agent",
+            "action": "Generate Core Risk Profile",
+            "status": "Success",
+            "duration": "Python Local Thread",
+            "timestamp": "Now"
+        },
+        {
+            "agentName": "Communications Agent",
+            "action": "Synthesize Custom Outreach (Detached)",
+            "status": "Processing in Background...",
+            "duration": "Awaiting Callback",
+            "timestamp": "Now"
+        }
+    ]
+    
+    return jsonify(core_payload)
 
 # ------------------------------------------------------------------
-# ADK LlmAgent Definition (Architecture Pattern)
+# Phase 1: Operational Ingestion Bridge (BigQuery -> Firestore)
 # ------------------------------------------------------------------
-def _make_sql_agent(project_id: str, dataset_id: str, table_id: str) -> LlmAgent:
-    fq_table = f"`{project_id}.{dataset_id}.{table_id}`"
+@app.route('/sync-bq-to-firestore', methods=['POST'])
+def sync_bq_to_firestore():
+    print("[Ingestion Bridge] Starting Comprehensive BigQuery to Firestore sync...")
     
-    # Initialize the ADK BigQuery toolset
-    bigquery_toolset = BigQueryToolset()
-    
-    return LlmAgent(
-        name="SQLAgent",
-        model="gemini-2.5-flash",
-        instruction=f"""
-You are the SQL EXECUTION agent. You have BigQuery tools.
-Your task is to review the schema and query the BigQuery table: {fq_table}
-The table contains columns `is_checklist_complete` (BOOL) and `rule` (STRING).
-If the user indicates the checklist is complete, query for rules where `is_checklist_complete` is true.
-If the checklist is incomplete, query for rules where `is_checklist_complete` is false.
-""",
-        tools=[bigquery_toolset],
-    )
+    # 1. Fetch Student Courses and group by Student ID
+    course_query = f"SELECT student_id, course_id, is_accredited, course_registration_status, first_login_at, first_discussion_post_at FROM `{project_id}.{dataset_id}.student_courses`"
+    course_rows = bq_client.query(course_query).result()
+    course_map = {}
+    for row in course_rows:
+        student_id = str(row.student_id)
+        if student_id not in course_map:
+            course_map[student_id] = []
+        course_map[student_id].append({
+            "courseId": row.course_id,
+            "isAccredited": row.is_accredited,
+            "registrationStatus": row.course_registration_status,
+            "firstLoginAt": row.first_login_at.isoformat() if row.first_login_at else None,
+            "firstDiscussionPostAt": row.first_discussion_post_at.isoformat() if row.first_discussion_post_at else None
+        })
 
-# Instantiate the Agent structure
-sql_agent = _make_sql_agent(project_id, dataset_id, table_id)
+    # 2. Fetch Student Contingencies and group by Student ID
+    cont_query = f"SELECT student_id, contingency_id, institution_name, contingency_type, contingency_status FROM `{project_id}.{dataset_id}.student_contingencies`"
+    cont_rows = bq_client.query(cont_query).result()
+    cont_map = {}
+    for row in cont_rows:
+        student_id = str(row.student_id)
+        if student_id not in cont_map:
+            cont_map[student_id] = []
+        cont_map[student_id].append({
+            "id": row.contingency_id,
+            "institutionName": row.institution_name,
+            "type": row.contingency_type,
+            "status": row.contingency_status
+        })
 
-@app.route('/query-engagement-rules', methods=['POST'])
-def query_engagement_rules():
-    data = request.json
-    student_id = data.get('studentUid', 'Unknown')
-    completed_checklist = data.get('isChecklistComplete', False)
-    
-    print(f"[{sql_agent.name}] Incoming Request. Delegating to BigQuery Toolset to evaluate UID: {student_id}")
-    
-    # ----------------------------------------------------------------------------------
-    # DETERMINISTIC TOOL EXECUTION (SEMANTIC ROUTING BYPASS)
-    # ----------------------------------------------------------------------------------
-    # Rather than invoking sql_agent.run() and relying on the LLM to auto-generate the 
-    # SQL query (which adds 10+ seconds of latency and risks SQL hallucinations during 
-    # live UI synchronous requests), we use the Agent's architectural schema but directly 
-    # invoke the BigQuery Tools. This guarantees deterministic, micro-second latency.
-    # ----------------------------------------------------------------------------------
-    
-    # Executing the live BigQuery query for Engagement Rules
-    rules_query = f"""
-        SELECT rule 
-        FROM `{project_id}.{dataset_id}.{table_id}`
-        WHERE is_checklist_complete = {completed_checklist}
+    # 3. Query the unified `student_core` landing table
+    core_query = f"""
+        SELECT 
+            student_id, full_name, institution_code, program_code, 
+            program_start_date, reserve_date, trf_form_on_file, 
+            enrollment_status, funding_plan_status, 
+            wwow_orientation_started_at, etl_updated_at
+        FROM `{project_id}.{dataset_id}.student_core`
     """
-    
-    # Executing the live BigQuery query for the Student Record
-    student_query = f"""
-        SELECT full_name, academic_program, enrollment_status 
-        FROM `{project_id}.{dataset_id}.r2c_student_records`
-        WHERE student_uid = @student_uid
-    """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("student_uid", "STRING", student_id)
-        ]
-    )
     
     try:
-        rules_job = bq_client.query(rules_query)
-        rules = [row.rule for row in rules_job.result()]
+        query_job = bq_client.query(core_query)
+        rows = query_job.result()
         
-        student_job = bq_client.query(student_query, job_config=job_config)
-        student_records = [dict(row) for row in student_job.result()]
-        historical_record = student_records[0] if student_records else {"status": "No historical record found in BigQuery Warehouse."}
+        synced_count = 0
+        batch = db.batch()
         
-        # Calculate BigQuery execution cost based on on-demand pricing ($6.25 per TiB)
-        rules_bytes = rules_job.total_bytes_billed or 0
-        student_bytes = student_job.total_bytes_billed or 0
-        total_bytes = rules_bytes + student_bytes
-        estimated_cost = (total_bytes / (1024 ** 4)) * 6.25
-        print(f"[{sql_agent.name}] BigQuery Execution Cost: Total Bytes Billed = {total_bytes}, Estimated Cost = ${estimated_cost:.10f}")
-        
-        response = {
-            "agent": "ADK SQLAgent (BigQuery)",
-            "status": "Success",
-            "historical_student_record": historical_record,
-            "retrieved_policies": rules,
-            "confidence": 0.99,
-            "billing": {
-                "totalBytesBilled": total_bytes,
-                "estimatedCostUSD": estimated_cost
+        for row in rows:
+            student_id = str(row.student_id)
+            
+            # Construct the exact nested Firestore JSON contract
+            student_payload = {
+                "id": student_id,
+                "name": row.full_name,
+                "program": row.program_code,
+                "institution": row.institution_code,
+                "status": row.enrollment_status,
+                
+                # Coerce Dates to ISO Strings for Angular compatibility
+                "programStartDate": row.program_start_date.isoformat() if row.program_start_date else None,
+                "reserveDate": row.reserve_date.isoformat() if row.reserve_date else None,
+                
+                "requirements": {
+                    "officialTranscriptsReceived": row.trf_form_on_file,
+                    "fundingPlan": True if row.funding_plan_status == "Approved" else False,
+                    "orientationStarted": True if row.wwow_orientation_started_at else False,
+                },
+                
+                # Inject mapped nested arrays
+                "courseActivity": course_map.get(student_id, []),
+                "contingencies": cont_map.get(student_id, []),
+                
+                "lastUpdatedByPipelineAt": row.etl_updated_at.isoformat() if row.etl_updated_at else None
             }
-        }
-    except Exception as e:
-        print(f"[{sql_agent.name}] BigQuery execution failed:", e)
-        response = {
-            "agent": "ADK SQLAgent (BigQuery)",
-            "status": "Failed",
-            "retrieved_policies": ["Error retrieving rules from data warehouse."],
-            "confidence": 0.0
-        }
+            
+            doc_ref = db.collection('student_records').document(student_id)
+            batch.set(doc_ref, student_payload, merge=True)
+            synced_count += 1
+            
+            if synced_count % 500 == 0:
+                batch.commit()
+                batch = db.batch()
+                
+        if synced_count % 500 != 0:
+            batch.commit()
+            
+        print(f"[Ingestion Bridge] Successfully synced {synced_count} fully-hydrated student records to Firestore.")
+        return jsonify({"status": "Success", "records_synced": synced_count})
         
-    return jsonify(response)
+    except Exception as e:
+        print("[Ingestion Bridge] Failed to sync data:", e)
+        return jsonify({"status": "Failed", "error": str(e)}), 500
 
 @app.route('/', methods=['GET'])
 def health_check():

@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, NgZone } from '@angular/core';
-import { Firestore, collection, collectionData, doc, setDoc, query, orderBy, where, getDocs, writeBatch, onSnapshot } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, doc, setDoc, query, orderBy, where, getDocs, writeBatch, onSnapshot, deleteField } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Student } from '../models/student';
 
@@ -49,7 +49,15 @@ export class StudentService {
               }
           }
           
-          if (!s.aiInsights) s.aiInsights = {} as any;
+          if (!s.aiInsights || !s.aiInsights.overview || !s.aiInsights.riskSignals) {
+              s.aiInsights = {
+                  overview: { intro: '', highlight: '', outro: '' },
+                  riskSignals: { timeSinceReserve: '', timeUntilClassStart: '', engagementLevel: '', riskIndicator: '' },
+                  emailDraft: { bodyText: '', bullets: [] },
+                  smsDraft: '',
+                  nextBestActions: []
+              } as any;
+          }
           s.aiInsights!.nextBestActions = [];
 
           if (!s.requirements.orientationStarted) {
@@ -174,6 +182,11 @@ export class StudentService {
   async updateStudent(id: string, data: Partial<Student>) {
     const studentDoc = doc(this.firestore, `${COLLECTION_NAME}/${id}`);
     await setDoc(studentDoc, data, { merge: true });
+  }
+
+  async clearAiInsights(id: string) {
+    const studentDoc = doc(this.firestore, `${COLLECTION_NAME}/${id}`);
+    await setDoc(studentDoc, { aiInsights: deleteField() }, { merge: true });
   }
 
   async generateAiInsights(student: Student) {

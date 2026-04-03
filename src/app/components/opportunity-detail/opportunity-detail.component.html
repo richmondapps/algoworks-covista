@@ -64,7 +64,7 @@
                     </button>
                 </div>
                 <div class="card-content">
-                    @if (student.aiInsights) {
+                    @if (student.aiInsights && !isGeneratingAi()) {
                     <p class="summary-text line-height-spaced">
                         {{ student.aiInsights.overview.intro }}
                         <span class="highlight-badge-pill">{{ student.aiInsights.overview.highlight }}</span>
@@ -146,7 +146,7 @@
             </div>
             }
 
-            @if (student.aiInsights) {
+            @if (student.aiInsights && !isGeneratingAi()) {
 
             <!-- Tabbed Outreach Options -->
             <div class="sf-section-container" style="margin-left: 20px;">
@@ -242,7 +242,6 @@
                         <li>{{ point }}</li>
                         }
                     </ul>
-                    <button class="sf-outline-btn">{{ action.buttonText }}</button>
                 </div>
                 }
                 }

@@ -223,6 +223,11 @@ export class OpportunityDetailComponent {
   }
 
   async generateAi(student: Student) {
+    // Optimistically obliterate the AI insights from Firestore to simulate dynamic clearing!
+    if (student.id) {
+      await this.studentService.clearAiInsights(student.id);
+    }
+
     this.isGeneratingAi.set(true);
     
     // Start artificial real-time trace loader

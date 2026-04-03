@@ -1,12 +1,23 @@
 {
   "projects": {
-    "default": "algoworks-dev"
+    "dev": "algoworks-dev",
+    "client": "dev-wu-agenticai-app-proj"
   },
   "targets": {
     "algoworks-dev": {
       "hosting": {
         "covista": [
           "algoworks-covista"
+        ]
+      }
+    },
+    "dev-wu-agenticai-app-proj": {
+      "hosting": {
+        "covista": [
+          "covista-algoworks-dev"
+        ],
+        "dev": [
+          "algoworks-dev"
         ]
       }
     }
