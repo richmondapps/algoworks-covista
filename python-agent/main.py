@@ -2,6 +2,8 @@ import os
 import json
 import threading
 import vertexai
+import re
+import datetime
 from vertexai.preview.generative_models import GenerativeModel
 from flask import Flask, request, jsonify
 from google.cloud import bigquery, firestore
@@ -104,6 +106,9 @@ def generate_insights():
     # PHASE 1: Immediate Synchronous Execution for Core UI Matrix
     # -------------------------------------------------------------
     core_payload = generate_core_insights(data_context)
+    
+    # Inject generation timestamp for UI freshness tracking
+    core_payload["generatedAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
     
     # -------------------------------------------------------------
     # PHASE 2: Detached Background Execution for Heavy Comms payload
