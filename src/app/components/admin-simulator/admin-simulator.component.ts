@@ -57,12 +57,12 @@ export class AdminSimulatorComponent {
         term_desc: 'Spring 2026',
         status_stage: 'Enrolled',
         enrollment_specialist_name: base.es,
-        program_start_date: this.programStartDate ? new Date(this.programStartDate).toISOString() : null,
-        reserve_date: this.reserveDate ? new Date(this.reserveDate).toISOString() : null,
-        census_date: this.censusDate ? new Date(this.censusDate).toISOString() : null,
+        program_start_date: this.programStartDate ? new Date(this.programStartDate + 'T00:00:00-04:00').toISOString() : null,
+        reserve_date: this.reserveDate ? new Date(this.reserveDate + 'T00:00:00-04:00').toISOString() : null,
+        census_date: this.censusDate ? new Date(this.censusDate + 'T00:00:00-04:00').toISOString() : null,
         funding_type: this.fundingType,
-        time_to_program_start_days: 14,
-        time_since_reserve_days: 3,
+        time_to_program_start_days: this.calculateDaysToProgramStart(this.programStartDate),
+        time_since_reserve_days: this.calculateDaysSinceReserve(this.reserveDate),
         last_updated_at: new Date().toISOString()
       };
 
@@ -77,7 +77,7 @@ export class AdminSimulatorComponent {
           term_code: '2026-T1',
           activity_category: this.activityCategory,
           activity_name: this.activityName,
-          activity_datetime: new Date(this.activityDate).toISOString(),
+          activity_datetime: new Date(this.activityDate + ':00-04:00').toISOString(),
           
           communication_type: this.activityCategory === 'task_history' ? 'Email' : null,
           task_notes: this.taskNotes || null,
@@ -105,4 +105,21 @@ export class AdminSimulatorComponent {
     }
     this.isWriting = false;
   }
+
+  private calculateDaysSinceReserve(reserveDateStr: string | null): number | null {
+    if (!reserveDateStr) return null;
+    const currentEasternStr = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+    const currentEasternDate = new Date(currentEasternStr);
+    const reserveDate = new Date(reserveDateStr + "T00:00:00-04:00"); 
+    return Math.floor((currentEasternDate.getTime() - reserveDate.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  private calculateDaysToProgramStart(startDateStr: string | null): number | null {
+    if (!startDateStr) return null;
+    const currentEasternStr = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+    const currentEasternDate = new Date(currentEasternStr);
+    const startDate = new Date(startDateStr + "T00:00:00-04:00");
+    return Math.floor((startDate.getTime() - currentEasternDate.getTime()) / (1000 * 60 * 60 * 24));
+  }
 }
+
