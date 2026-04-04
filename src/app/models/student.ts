@@ -26,6 +26,7 @@ export interface StudentStats {
 }
 
 export interface AiInsights {
+    generatedAt?: string;
     overview: {
         intro: string;
         highlight: string;

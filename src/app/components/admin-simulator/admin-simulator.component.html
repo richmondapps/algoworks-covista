@@ -1,52 +1,89 @@
 <div style="padding: 2rem; background: #f8fafc; font-family: sans-serif; border-radius: 8px;">
-  <h2 style="color: #0f172a; margin-top: 0;">Salesforce & BQ Simulator</h2>
-  <p style="color: #64748b;">Modify raw data directly in Firestore. The UI components will react instantly via WebSockets.</p>
+  <h2 style="color: #0f172a; margin-top: 0;">Salesforce Opportunities Architecture (V17.3 Contract)</h2>
+  <p style="color: #64748b;">This environment safely writes to the decoupled <code>salesforce_opportunities</code> endpoint, ensuring your live testing does not impact teammates testing the legacy schema.</p>
 
-  <div style="background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-    <h3>Target Student Focus:</h3>
-    <select [(ngModel)]="selectedStudent" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1.5rem;">
-      <option value="A00302996">Amy Collins (A00302996)</option>
-      <option value="A00409782">Barbara Woods (A00409782)</option>
-      <option value="A00437050">Angela Catour (A00437050)</option>
-    </select>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+    <!-- Profile Controls -->
+    <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      <h3 style="margin-top: 0; color: #1e293b;">1. Core Profile Overrides</h3>
+      
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Target Student Focus:</label>
+      <select [(ngModel)]="selectedStudent" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1.5rem;">
+        <option value="A00302996">Amy Collins (MSEL)</option>
+        <option value="A00409782">Barbara Woods (BSN)</option>
+        <option value="A00437050">Angela Catour (MHA)</option>
+      </select>
 
-    <h4>Action 1: Structural Timelines</h4>
-    <p style="font-size: 13px; color: gray; margin-top: 0; margin-bottom: 4px;">Update Calendar: Program Start Date</p>
-    <input type="date" [(ngModel)]="startDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
-    
-    <p style="font-size: 13px; color: gray; margin-top: 0; margin-bottom: 4px;">Update Calendar: Official Reserve Date</p>
-    <input type="date" [(ngModel)]="reserveDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1.5rem;">
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Official Funding Type:</label>
+      <select [(ngModel)]="fundingType" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1.5rem;">
+        <option value="Federal">Federal Student Aid (FAFSA)</option>
+        <option value="Employer Sponsored">Employer Sponsored</option>
+        <option value="Out of Pocket">Out of Pocket</option>
+      </select>
 
-    <h4>Action 2: Student Portal Actions</h4>
-    <p style="font-size: 13px; color: gray; margin-top: 0; margin-bottom: 4px;">Set First Login Datetime (Accredited Core Course)</p>
-    <input type="datetime-local" [(ngModel)]="loginAccreditedDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Program Start Date:</label>
+      <input type="date" [(ngModel)]="programStartDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+      
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Official Reserve Date:</label>
+      <input type="date" [(ngModel)]="reserveDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
 
-    <p style="font-size: 13px; color: gray; margin-top: 0; margin-bottom: 4px;">Set First Login Datetime (Non-Accredited Elective)</p>
-    <input type="datetime-local" [(ngModel)]="loginNonAccreditedDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
-    
-    <p style="font-size: 13px; color: gray; margin-top: 0; margin-bottom: 4px;">Set First Discussion Board Submission Datetime</p>
-    <input type="datetime-local" [(ngModel)]="discussionDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1.5rem;">
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Census Deadline Date (Critical):</label>
+      <input type="date" [(ngModel)]="censusDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+    </div>
 
-    <h4>Action 3: Manual Salesforce Reviews (ES Actions)</h4>
-    <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 0.75rem; cursor: pointer;">
-      <input type="checkbox" [(ngModel)]="transcriptCleared" style="width: 18px; height: 18px;"> 
-      <strong>Official Transcript Reviewed & Cleared</strong>
-    </label>
-    <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 0.75rem; cursor: pointer;">
-      <input type="checkbox" [(ngModel)]="fundingComplete" style="width: 18px; height: 18px;"> 
-      <strong>Funding Plan Submitted (FAFSA/Pocket)</strong>
-    </label>
-    <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 2rem; cursor: pointer;">
-      <input type="checkbox" [(ngModel)]="wwowStarted" style="width: 18px; height: 18px;"> 
-      <strong>WWOW Orientation Started</strong>
-    </label>
+    <!-- Subcollection Event Trigger -->
+    <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      <h3 style="margin-top: 0; color: #1e293b;">2. Trigger Unified Event (Activity Log)</h3>
+      
+      <div style="display: flex; gap: 1rem;">
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Activity Category:</label>
+          <select [(ngModel)]="activityCategory" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1rem;">
+            <option value="student_event">student_event</option>
+            <option value="task_history">task_history</option>
+            <option value="case">case</option>
+            <option value="contingency">contingency</option>
+            <option value="system_event">system_event</option>
+          </select>
+        </div>
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Event Name:</label>
+          <input type="text" [(ngModel)]="activityName" placeholder="e.g. fafsa_submission" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+        </div>
+      </div>
 
-    <button (click)="writeToFirestore()" [disabled]="isWriting" style="width: 100%; padding: 0.75rem; background: #10b981; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;">
-      {{ isWriting ? 'Updating Database...' : '1. Write Direct to Firestore' }}
-    </button>
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Activity Datetime (Source Time):</label>
+      <input type="datetime-local" [(ngModel)]="activityDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+
+      <div style="display: flex; gap: 1rem;">
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Actor Model:</label>
+          <select [(ngModel)]="actor" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1rem;">
+            <option value="student">student</option>
+            <option value="enrollment_specialist">enrollment_specialist</option>
+            <option value="system">system</option>
+          </select>
+        </div>
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Direction:</label>
+          <select [(ngModel)]="interactionDirection" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1rem;">
+            <option value="inbound">Inbound</option>
+            <option value="outbound">Outbound</option>
+            <option value="null">N/A</option>
+          </select>
+        </div>
+      </div>
+
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Task Notes / Context:</label>
+      <textarea [(ngModel)]="taskNotes" rows="3" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1.5rem; border: 1px solid #cbd5e1; border-radius: 4px;"></textarea>
+      
+      <button (click)="pushToV17Schema()" [disabled]="isWriting" style="width: 100%; padding: 0.75rem; background: #0176d3; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; transition: background 0.2s;">
+        {{ isWriting ? 'Awaiting Firestore Acknowledgement...' : 'Sync Pipeline & Inject Subcollection Event' }}
+      </button>
+    </div>
   </div>
-  
-  <pre *ngIf="syncResult" style="background: #1e293b; color: #10b981; padding: 1rem; border-radius: 4px; margin-top: 1.5rem;">
+
+  <pre *ngIf="syncResult" style="background: #1e293b; color: #10b981; padding: 1rem; border-radius: 4px; margin-top: 1.5rem; font-size: 13px;">
     {{ syncResult }}
   </pre>
 </div>

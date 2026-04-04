@@ -1,7 +1,8 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { StudentService } from '../../services/student.service';
+import { Firestore, doc, setDoc, collection, addDoc } from '@angular/fire/firestore';
+import { SalesforceOpportunityProfile, SalesforceActivityLog } from '../../models/salesforce-opportunity';
 
 @Component({
   selector: 'app-admin-simulator',
@@ -10,70 +11,98 @@ import { StudentService } from '../../services/student.service';
   templateUrl: './admin-simulator.component.html'
 })
 export class AdminSimulatorComponent {
-  private studentService = inject(StudentService);
+  private firestore = inject(Firestore);
   
+  // Profile Foundation
   selectedStudent = 'A00302996'; 
-  
-  startDate = '';
+  programStartDate = '';
   reserveDate = '';
-  loginAccreditedDate = '';
-  loginNonAccreditedDate = '';
-  discussionDate = '';
+  censusDate = '';
+  fundingType = 'Federal';
+
+  // Event Context
+  activityCategory = 'student_event';
+  activityName = 'fafsa_submission';
+  activityDate = new Date().toISOString().slice(0, 16);
+  actor = 'student';
+  interactionDirection = 'inbound';
   
-  transcriptCleared = false;
-  fundingComplete = false;
-  wwowStarted = false;
+  taskNotes = '';
+  caseStatus = 'open';
+  caseRecordType = 'General';
+  isAccredited = true;
 
   isWriting = false;
-  isSyncing = false;
   syncResult = '';
 
-  async writeToFirestore() {
+  studentsBase = {
+    'A00302996': { name: 'Amy Collins', program: 'MSEL', program_name: 'MS Early Ed', es: 'Jennifer Lawson' },
+    'A00409782': { name: 'Barbara Woods', program: 'BSN', program_name: 'BS Nursing', es: 'Kevin Smith' },
+    'A00437050': { name: 'Angela Catour', program: 'MHA', program_name: 'Master Health Admin', es: 'Jessica Thompson' },
+  } as any;
+
+  async pushToV17Schema() {
     this.isWriting = true;
     try {
-      const student = this.studentService.getStudent(this.selectedStudent);
-      if (!student) throw new Error('Student not tracked in live context.');
-      
-      const req = { ...student.requirements } as any;
+      const base = this.studentsBase[this.selectedStudent];
+      const studentId = this.selectedStudent;
 
-      if (this.fundingComplete) req.fundingPlan = true;
-      if (this.transcriptCleared) req.officialTranscriptsReceived = true;
+      const profile: SalesforceOpportunityProfile = {
+        student_id: studentId,
+        student_name: base.name,
+        institution: 'Covista University',
+        program: base.program,
+        program_name: base.program_name,
+        term_code: '2026-T1',
+        term_desc: 'Spring 2026',
+        status_stage: 'Enrolled',
+        enrollment_specialist_name: base.es,
+        program_start_date: this.programStartDate ? new Date(this.programStartDate).toISOString() : null,
+        reserve_date: this.reserveDate ? new Date(this.reserveDate).toISOString() : null,
+        census_date: this.censusDate ? new Date(this.censusDate).toISOString() : null,
+        funding_type: this.fundingType,
+        time_to_program_start_days: 14,
+        time_since_reserve_days: 3,
+        last_updated_at: new Date().toISOString()
+      };
 
-      const mockCourses = [];
-      if (this.loginAccreditedDate || this.discussionDate) {
-        mockCourses.push({
-            courseId: 'ACCREDITED_MOCK',
-            isAccredited: true,
-            firstLoginAt: this.loginAccreditedDate ? new Date(this.loginAccreditedDate).toISOString() : undefined,
-            firstDiscussionPostAt: this.discussionDate ? new Date(this.discussionDate).toISOString() : undefined
-        });
+      // 1. Force the Profile Root Document
+      await setDoc(doc(this.firestore, 'salesforce_opportunities', studentId), profile, { merge: true });
+
+      // 2. Generate and Append the Active Activity Subcollection Row
+      if (this.activityCategory && this.activityName) {
+        const eventLog: SalesforceActivityLog = {
+          log_id: 'auto-gen',
+          student_id: studentId,
+          term_code: '2026-T1',
+          activity_category: this.activityCategory,
+          activity_name: this.activityName,
+          activity_datetime: new Date(this.activityDate).toISOString(),
+          
+          communication_type: this.activityCategory === 'task_history' ? 'Email' : undefined,
+          task_notes: this.taskNotes || undefined,
+          interaction_direction: this.interactionDirection,
+
+          case_status: this.activityCategory === 'case' ? this.caseStatus : undefined,
+          case_record_type: this.activityCategory === 'case' ? this.caseRecordType : undefined,
+
+          actor: this.actor,
+          source_system: 'Salesforce Simulator',
+          last_updated_timestamp: new Date().toISOString(),
+
+          is_accredited: this.isAccredited
+        };
+
+        const activityRef = collection(this.firestore, `salesforce_opportunities/${studentId}/activity_logs`);
+        await addDoc(activityRef, eventLog);
       }
-      if (this.loginNonAccreditedDate) {
-        mockCourses.push({
-            courseId: 'NON_ACCREDITED_MOCK',
-            isAccredited: false,
-            firstLoginAt: new Date(this.loginNonAccreditedDate).toISOString()
-        });
-      }
 
-      await this.studentService.updateStudent(this.selectedStudent, {
-        programStartDate: this.startDate ? new Date(this.startDate).toISOString() : student.programStartDate,
-        reserveDate: this.reserveDate ? new Date(this.reserveDate).toISOString() : student.reserveDate,
-        courseActivity: mockCourses.length > 0 ? mockCourses : student.courseActivity,
-        requirements: req
-      });
+      this.syncResult = `SUCCESS! Student Profile and [${this.activityCategory}:${this.activityName}] Subcollection Event written to salesforce_opportunities collection!`;
 
-      alert('Student payload written instantaneously directly into operational Firestore DB!');
-    } catch(e) { console.error('Write Failed:', e); }
+    } catch(e) { 
+      console.error('Write Failed:', e); 
+      this.syncResult = `ERROR: ${e}`;
+    }
     this.isWriting = false;
-  }
-
-  async simulatePubSubSync() {
-    this.isSyncing = true;
-    this.syncResult = 'Executing Delta Sync Engine...';
-    setTimeout(() => {
-      this.syncResult = 'SUCCESS! Architecture is now completely Firestore-First. Syncs are zero-latency WebSockets. The BigQuery Poll is officially decommissioned.';
-      this.isSyncing = false;
-    }, 1000);
   }
 }

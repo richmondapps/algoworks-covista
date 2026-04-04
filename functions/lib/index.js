@@ -36,8 +36,9 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.queryStudentDocument = exports.generateStudentInsights = void 0;
+exports.queryStudentDocument = exports.syncAiInsightsOnUpdate = exports.generateStudentInsights = void 0;
 const https_1 = require("firebase-functions/v2/https");
+const firestore_1 = require("firebase-functions/v2/firestore");
 // import { onRequest } from 'firebase-functions/v2/https';
 const admin = __importStar(require("firebase-admin"));
 // import { defineSecret } from 'firebase-functions/params';
@@ -327,6 +328,42 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
     catch (e) {
         console.error('[generateStudentInsights] Python Pipeline Execution Failed', e);
         throw new https_1.HttpsError('internal', `Python Architecture Failed: ${e.message}`);
+    }
+});
+/**
+ * Event-Driven AI Generation Architecture
+ * Silently listens for structural updates to the student_records database and invokes the python-data-agent dynamically.
+ * Explicitly guards against AI cyclic generations to prevent infinite network loops.
+ */
+exports.syncAiInsightsOnUpdate = (0, firestore_1.onDocumentUpdated)('student_records/{studentId}', async (event) => {
+    var _a, _b, _c, _d;
+    const studentUid = event.params.studentId;
+    const beforeData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const afterData = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    if (!beforeData || !afterData)
+        return;
+    // Critical Recursion Guard: Do not execute if the only change was a background completion update from the AI!
+    if (((_c = beforeData.aiInsights) === null || _c === void 0 ? void 0 : _c.generatedAt) !== ((_d = afterData.aiInsights) === null || _d === void 0 ? void 0 : _d.generatedAt) ||
+        JSON.stringify(beforeData.aiInsights) !== JSON.stringify(afterData.aiInsights)) {
+        console.log(`[syncAiInsightsOnUpdate] Change exclusively contained AI trace objects. Skipping to prevent loop.`);
+        return;
+    }
+    console.log(`[syncAiInsightsOnUpdate] Structural Core Update Detected for UID: ${studentUid}. Invoking Generative Agent...`);
+    try {
+        const response = await fetch('https://python-data-agent-668256868217.us-central1.run.app/generate-insights', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentUid, dataContext: afterData })
+        });
+        if (!response.ok) {
+            console.error(`[syncAiInsightsOnUpdate] Python agent async execution failure: ${response.status}`);
+        }
+        else {
+            console.log(`[syncAiInsightsOnUpdate] Successfully dispatched execution payload to background container.`);
+        }
+    }
+    catch (err) {
+        console.error(`[syncAiInsightsOnUpdate] Fatal HTTP Fetch Exception:`, err);
     }
 });
 /**

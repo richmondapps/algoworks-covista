@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 // import { onRequest } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 // import { defineSecret } from 'firebase-functions/params';
@@ -339,6 +340,50 @@ export const generateStudentInsights = onCall(async (request) => {
   } catch (e: any) {
     console.error('[generateStudentInsights] Python Pipeline Execution Failed', e);
     throw new HttpsError('internal', `Python Architecture Failed: ${e.message}`);
+  }
+});
+
+/**
+ * Event-Driven AI Generation Architecture
+ * Silently listens for structural updates to the student_records database and invokes the python-data-agent dynamically.
+ * Explicitly guards against AI cyclic generations to prevent infinite network loops.
+ */
+export const syncAiInsightsOnUpdate = onDocumentUpdated('student_records/{studentId}', async (event) => {
+  const studentUid = event.params.studentId;
+  const beforeData = event.data?.before.data();
+  const afterData = event.data?.after.data();
+
+  if (!beforeData || !afterData) return;
+
+  // Critical Recursion Guard: Do not execute if the only change was a background completion update from the AI!
+  if (beforeData.aiInsights?.generatedAt !== afterData.aiInsights?.generatedAt || 
+      JSON.stringify(beforeData.aiInsights) !== JSON.stringify(afterData.aiInsights)) {
+    console.log(`[syncAiInsightsOnUpdate] Change exclusively contained AI trace objects. Skipping to prevent loop.`);
+    return;
+  }
+
+  console.log(`[syncAiInsightsOnUpdate] Structural Core Update Detected for UID: ${studentUid}. Invoking Generative Agent...`);
+  try {
+      const response = await fetch(
+        'https://python-data-agent-668256868217.us-central1.run.app/generate-insights',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ studentUid, dataContext: afterData })
+        }
+      );
+      if (!response.ok) {
+          console.error(`[syncAiInsightsOnUpdate] Python agent async execution failure: ${response.status}`);
+      } else {
+          const aiPayload = await response.json();
+          await db.collection('student_records').doc(studentUid).set(
+            { aiInsights: aiPayload, isGeneratingAi: false },
+            { merge: true },
+          );
+          console.log(`[syncAiInsightsOnUpdate] Successfully committed Phase 1 payload mapping to background container.`);
+      }
+  } catch (err) {
+      console.error(`[syncAiInsightsOnUpdate] Fatal HTTP Fetch Exception:`, err);
   }
 });
 
