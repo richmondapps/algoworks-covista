@@ -79,12 +79,12 @@ export class AdminSimulatorComponent {
           activity_name: this.activityName,
           activity_datetime: new Date(this.activityDate).toISOString(),
           
-          communication_type: this.activityCategory === 'task_history' ? 'Email' : undefined,
-          task_notes: this.taskNotes || undefined,
+          communication_type: this.activityCategory === 'task_history' ? 'Email' : null,
+          task_notes: this.taskNotes || null,
           interaction_direction: this.interactionDirection,
 
-          case_status: this.activityCategory === 'case' ? this.caseStatus : undefined,
-          case_record_type: this.activityCategory === 'case' ? this.caseRecordType : undefined,
+          case_status: this.activityCategory === 'case' ? this.caseStatus : null,
+          case_record_type: this.activityCategory === 'case' ? this.caseRecordType : null,
 
           actor: this.actor,
           source_system: 'Salesforce Simulator',

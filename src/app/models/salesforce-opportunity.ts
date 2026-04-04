@@ -45,31 +45,31 @@ export interface SalesforceActivityLog {
     activity_datetime: string | null;
 
     // Task / Interaction 
-    communication_type?: string;     // Phone, Email, Text, Chat, File Review
-    task_notes?: string;
-    task_comments?: string;
-    interaction_direction?: string;  // inbound, outbound
+    communication_type?: string | null;     // Phone, Email, Text, Chat, File Review
+    task_notes?: string | null;
+    task_comments?: string | null;
+    interaction_direction?: string | null;  // inbound, outbound
 
     // Case Management
-    case_number?: string;
-    case_subject?: string;
-    case_record_type?: string;
-    case_type?: string;
-    case_subtype?: string;
-    case_status?: string;            // open, in_progress, pending, resolved, closed
-    case_closed_reason?: string;
+    case_number?: string | null;
+    case_subject?: string | null;
+    case_record_type?: string | null;
+    case_type?: string | null;
+    case_subtype?: string | null;
+    case_status?: string | null;            // open, in_progress, pending, resolved, closed
+    case_closed_reason?: string | null;
     case_closed_datetime?: string | null;
     case_created_date?: string | null;
-    case_comments?: string;
+    case_comments?: string | null;
 
     // Source Telemetry
-    actor?: string; // student, enrollment_specialist, system
-    source_system?: string;
+    actor?: string | null; // student, enrollment_specialist, system
+    source_system?: string | null;
     last_updated_timestamp: string | null;
 
     // Course Context
-    course_identification?: string;
-    course_level?: string;
-    course_status?: string;
-    is_accredited?: boolean;
+    course_identification?: string | null;
+    course_level?: string | null;
+    course_status?: string | null;
+    is_accredited?: boolean | null;
 }
