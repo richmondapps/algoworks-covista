@@ -36,7 +36,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.queryStudentDocument = exports.syncAiInsightsOnUpdate = exports.generateStudentInsights = void 0;
+exports.queryStudentDocument = exports.aggregateChecklistsOnUpdate = exports.syncAiInsightsOnUpdate = exports.generateStudentInsights = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 // import { onRequest } from 'firebase-functions/v2/https';
@@ -373,6 +373,49 @@ exports.syncAiInsightsOnUpdate = (0, firestore_1.onDocumentUpdated)('salesforce_
     }
     catch (err) {
         console.error(`[syncAiInsightsOnUpdate] Fatal HTTP Fetch Exception:`, err);
+    }
+});
+const firestore_2 = require("firebase-functions/v2/firestore");
+/**
+ * Event-Driven Aggregator for Personalized Checklists
+ * Intercepts structural mutations inside the decoupled subcollection and aggregates
+ * the boolean values directly into the root 'requirements' object of the active payload.
+ * This triggers syncAiInsightsOnUpdate automatically.
+ */
+exports.aggregateChecklistsOnUpdate = (0, firestore_2.onDocumentWritten)('salesforce_opportunities/{studentId}/personalized_checklists/{chkId}', async (event) => {
+    const studentUid = event.params.studentId;
+    console.log(`[aggregateChecklistsOnUpdate] Detected Checklist Mutation for UID: ${studentUid}`);
+    try {
+        const checklistsSnapshot = await admin.firestore().collection('salesforce_opportunities').doc(studentUid).collection('personalized_checklists').get();
+        const requirements = {};
+        checklistsSnapshot.forEach(doc => {
+            const id = doc.id;
+            const satisfied = doc.data().is_satisfied === true;
+            if (id === 'initial_portal_login')
+                requirements.orientationStarted = satisfied;
+            if (id === 'fafsa_submission')
+                requirements.fafsaSubmitted = satisfied;
+            if (id === 'course_registration')
+                requirements.courseRegistration = satisfied;
+            if (id === 'wwow_login')
+                requirements.wwowOrientationStarted = satisfied;
+            if (id === 'contingencies') {
+                requirements.officialTranscriptsReceived = satisfied;
+                requirements.nursingLicenseReceived = satisfied;
+            }
+            if (id === 'logged_into_course')
+                requirements.firstAssignmentSubmitted = satisfied; // Mapped loosely for test schema
+            if (id === 'class_participation')
+                requirements.assignmentByCensusDay = satisfied;
+        });
+        // Update parent, naturally invoking syncAiInsightsOnUpdate
+        await admin.firestore().collection('salesforce_opportunities').doc(studentUid).set({
+            requirements
+        }, { merge: true });
+        console.log(`[aggregateChecklistsOnUpdate] Successfully committed aggregated requirements payload to root.`);
+    }
+    catch (err) {
+        console.error(`[aggregateChecklistsOnUpdate] Failed to sync subcollection up to root.`, err);
     }
 });
 /**

@@ -397,6 +397,51 @@ export const syncAiInsightsOnUpdate = onDocumentUpdated('salesforce_opportunitie
   }
 });
 
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+
+/**
+ * Event-Driven Aggregator for Personalized Checklists
+ * Intercepts structural mutations inside the decoupled subcollection and aggregates
+ * the boolean values directly into the root 'requirements' object of the active payload.
+ * This triggers syncAiInsightsOnUpdate automatically.
+ */
+export const aggregateChecklistsOnUpdate = onDocumentWritten('salesforce_opportunities/{studentId}/personalized_checklists/{chkId}', async (event) => {
+  const studentUid = event.params.studentId;
+  
+  console.log(`[aggregateChecklistsOnUpdate] Detected Checklist Mutation for UID: ${studentUid}`);
+  
+  try {
+      const checklistsSnapshot = await admin.firestore().collection('salesforce_opportunities').doc(studentUid).collection('personalized_checklists').get();
+      
+      const requirements: any = {};
+      
+      checklistsSnapshot.forEach(doc => {
+          const id = doc.id;
+          const satisfied = doc.data().is_satisfied === true;
+          
+          if (id === 'initial_portal_login') requirements.orientationStarted = satisfied;
+          if (id === 'fafsa_submission') requirements.fafsaSubmitted = satisfied;
+          if (id === 'course_registration') requirements.courseRegistration = satisfied;
+          if (id === 'wwow_login') requirements.wwowOrientationStarted = satisfied;
+          if (id === 'contingencies') {
+              requirements.officialTranscriptsReceived = satisfied;
+              requirements.nursingLicenseReceived = satisfied;
+          }
+          if (id === 'logged_into_course') requirements.firstAssignmentSubmitted = satisfied; // Mapped loosely for test schema
+          if (id === 'class_participation') requirements.assignmentByCensusDay = satisfied; 
+      });
+      
+      // Update parent, naturally invoking syncAiInsightsOnUpdate
+      await admin.firestore().collection('salesforce_opportunities').doc(studentUid).set({
+          requirements
+      }, { merge: true });
+      
+      console.log(`[aggregateChecklistsOnUpdate] Successfully committed aggregated requirements payload to root.`);
+  } catch (err) {
+      console.error(`[aggregateChecklistsOnUpdate] Failed to sync subcollection up to root.`, err);
+  }
+});
+
 /**
  * Cloud Function to directly query or summarize an uploaded student document on demand.
  * This dynamically utilizes Gemini's native File API integrations simply by translating

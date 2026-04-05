@@ -66,7 +66,10 @@ export class StudentService {
                   nextBestActions: []
               } as any;
           }
-          s.aiInsights!.nextBestActions = [];
+          // Only fall back to localized hardcoded constraints if the Python architecture hasn't mapped customized logic!
+          const hasGeneratedActions = s.aiInsights?.nextBestActions && s.aiInsights.nextBestActions.length > 0;
+          if (!hasGeneratedActions) {
+            s.aiInsights!.nextBestActions = [];
 
           if (!s.requirements.orientationStarted) {
             s.aiInsights!.nextBestActions.push({
@@ -147,16 +150,17 @@ export class StudentService {
             });
           }
           
-          if (!s.requirements.nursingLicenseReceived) {
-            s.aiInsights!.nextBestActions.push({
-              title: 'Contingency - Nursing License',
-              urgent: true,
-              points: [
-                'Instruction on where to submit nursing license',
-                'Estimated time to complete - 5 min'
-              ],
-              buttonText: 'Send Email'
-            });
+            if (!s.requirements.nursingLicenseReceived) {
+              s.aiInsights!.nextBestActions.push({
+                title: 'Contingency - Nursing License',
+                urgent: true,
+                points: [
+                  'Instruction on where to submit nursing license',
+                  'Estimated time to complete - 5 min'
+                ],
+                buttonText: 'Send Email'
+              });
+            }
           }
 
           s.riskIndicator = this.computeRisk(s, today);
