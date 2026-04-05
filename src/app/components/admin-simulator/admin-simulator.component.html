@@ -75,10 +75,6 @@
 
       <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Task Notes / Context:</label>
       <textarea [(ngModel)]="taskNotes" rows="3" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1.5rem; border: 1px solid #cbd5e1; border-radius: 4px;"></textarea>
-      
-      <button (click)="pushToV17Schema()" [disabled]="isWriting" style="width: 100%; padding: 0.75rem; background: #0176d3; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; transition: background 0.2s;">
-        {{ isWriting ? 'Awaiting Firestore Acknowledgement...' : 'Sync Pipeline & Inject Event' }}
-      </button>
     </div>
 
     <!-- Personalized Checklist Trigger -->
@@ -97,6 +93,12 @@
       </div>
 
     </div>
+  </div>
+
+  <div style="margin-top: 2rem;">
+    <button (click)="pushToV17Schema()" [disabled]="isWriting" style="width: 100%; padding: 1rem; background: #0176d3; color: white; border: none; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 6px rgba(1, 118, 211, 0.2); transition: background 0.2s;">
+      {{ isWriting ? 'Awaiting Firestore Acknowledgement...' : 'Sync Master Profile & Inject Subcollection Event' }}
+    </button>
   </div>
 
   <pre *ngIf="syncResult" style="background: #1e293b; color: #10b981; padding: 1rem; border-radius: 4px; margin-top: 1.5rem; font-size: 13px;">
