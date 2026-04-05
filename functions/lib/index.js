@@ -322,7 +322,7 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
         console.log(`[generateStudentInsights] Successfully received deeply optimized AI profile from Python Orchestrator.`);
         console.log(`[LATENCY_TRACE] Python Orchestrator Execution finished in ${execDuration}ms / ${(execDuration / 1000).toFixed(2)} seconds!`);
         // Append generated AI payload directly to the student record in Firestore
-        await db.collection('student_records').doc(studentUid).set({ aiInsights: aiPayload }, { merge: true });
+        await db.collection('salesforce_opportunities').doc(studentUid).set({ aiInsights: aiPayload }, { merge: true });
         return { success: true, aiInsights: aiPayload };
     }
     catch (e) {
@@ -332,10 +332,10 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
 });
 /**
  * Event-Driven AI Generation Architecture
- * Silently listens for structural updates to the student_records database and invokes the python-data-agent dynamically.
+ * Silently listens for structural updates to the salesforce_opportunities database and invokes the python-data-agent dynamically.
  * Explicitly guards against AI cyclic generations to prevent infinite network loops.
  */
-exports.syncAiInsightsOnUpdate = (0, firestore_1.onDocumentUpdated)('student_records/{studentId}', async (event) => {
+exports.syncAiInsightsOnUpdate = (0, firestore_1.onDocumentUpdated)('salesforce_opportunities/{studentId}', async (event) => {
     var _a, _b, _c, _d;
     const studentUid = event.params.studentId;
     const beforeData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
@@ -359,7 +359,9 @@ exports.syncAiInsightsOnUpdate = (0, firestore_1.onDocumentUpdated)('student_rec
             console.error(`[syncAiInsightsOnUpdate] Python agent async execution failure: ${response.status}`);
         }
         else {
-            console.log(`[syncAiInsightsOnUpdate] Successfully dispatched execution payload to background container.`);
+            const aiPayload = await response.json();
+            await db.collection('salesforce_opportunities').doc(studentUid).set({ aiInsights: aiPayload, isGeneratingAi: false }, { merge: true });
+            console.log(`[syncAiInsightsOnUpdate] Successfully committed Phase 1 payload mapping to background container.`);
         }
     }
     catch (err) {

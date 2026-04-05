@@ -331,7 +331,7 @@ export const generateStudentInsights = onCall(async (request) => {
     console.log(`[LATENCY_TRACE] Python Orchestrator Execution finished in ${execDuration}ms / ${(execDuration / 1000).toFixed(2)} seconds!`);
 
     // Append generated AI payload directly to the student record in Firestore
-    await db.collection('student_records').doc(studentUid).set(
+    await db.collection('salesforce_opportunities').doc(studentUid).set(
       { aiInsights: aiPayload },
       { merge: true },
     );
@@ -345,10 +345,10 @@ export const generateStudentInsights = onCall(async (request) => {
 
 /**
  * Event-Driven AI Generation Architecture
- * Silently listens for structural updates to the student_records database and invokes the python-data-agent dynamically.
+ * Silently listens for structural updates to the salesforce_opportunities database and invokes the python-data-agent dynamically.
  * Explicitly guards against AI cyclic generations to prevent infinite network loops.
  */
-export const syncAiInsightsOnUpdate = onDocumentUpdated('student_records/{studentId}', async (event) => {
+export const syncAiInsightsOnUpdate = onDocumentUpdated('salesforce_opportunities/{studentId}', async (event) => {
   const studentUid = event.params.studentId;
   const beforeData = event.data?.before.data();
   const afterData = event.data?.after.data();
@@ -376,7 +376,7 @@ export const syncAiInsightsOnUpdate = onDocumentUpdated('student_records/{studen
           console.error(`[syncAiInsightsOnUpdate] Python agent async execution failure: ${response.status}`);
       } else {
           const aiPayload = await response.json();
-          await db.collection('student_records').doc(studentUid).set(
+          await db.collection('salesforce_opportunities').doc(studentUid).set(
             { aiInsights: aiPayload, isGeneratingAi: false },
             { merge: true },
           );
