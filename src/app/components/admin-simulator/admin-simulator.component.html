@@ -2,7 +2,7 @@
   <h2 style="color: #0f172a; margin-top: 0;">Salesforce Opportunities Architecture (V17.3 Contract)</h2>
   <p style="color: #64748b;">This environment safely writes to the decoupled <code>salesforce_opportunities</code> endpoint, ensuring your live testing does not impact teammates testing the legacy schema.</p>
 
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem;">
     <!-- Profile Controls -->
     <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
       <h3 style="margin-top: 0; color: #1e293b;">1. Core Profile Overrides</h3>
@@ -78,7 +78,50 @@
       <textarea [(ngModel)]="taskNotes" rows="3" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1.5rem; border: 1px solid #cbd5e1; border-radius: 4px;"></textarea>
       
       <button (click)="pushToV17Schema()" [disabled]="isWriting" style="width: 100%; padding: 0.75rem; background: #0176d3; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; transition: background 0.2s;">
-        {{ isWriting ? 'Awaiting Firestore Acknowledgement...' : 'Sync Pipeline & Inject Subcollection Event' }}
+        {{ isWriting ? 'Awaiting Firestore Acknowledgement...' : 'Sync Pipeline & Inject Event' }}
+      </button>
+    </div>
+
+    <!-- Personalized Checklist Trigger -->
+    <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      <h3 style="margin-top: 0; color: #1e293b;">3. Trigger Personalized Checklist</h3>
+      
+      <div style="display: flex; gap: 1rem;">
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Req ID:</label>
+          <input type="text" [(ngModel)]="checklistReqId" placeholder="e.g. fafsa_submission" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+        </div>
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Target Name:</label>
+          <input type="text" [(ngModel)]="checklistReqName" placeholder="e.g. FAFSA Submission" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+        </div>
+      </div>
+
+      <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 1rem; cursor: pointer;">
+        <input type="checkbox" [(ngModel)]="checklistIsPersonalized" style="width: 18px; height: 18px;"> 
+        <strong>Is Student-Specific? (Personalized)</strong>
+      </label>
+
+      <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 1rem; cursor: pointer;">
+        <input type="checkbox" [(ngModel)]="checklistIsSatisfied" style="width: 18px; height: 18px;"> 
+        <strong style="color: #10b981;">Requirement Satisfied!</strong>
+      </label>
+
+      <label *ngIf="checklistIsSatisfied" style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Satisfied Datetime (EDT):</label>
+      <input *ngIf="checklistIsSatisfied" type="datetime-local" [(ngModel)]="checklistSatisfiedAt" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Live Evaluated Risk Level:</label>
+      <select [(ngModel)]="checklistCurrentRiskLevel" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1.5rem;">
+        <option value="Happy Path">Happy Path</option>
+        <option value="Low Risk">Low Risk</option>
+        <option value="Medium Risk">Medium Risk</option>
+        <option value="High Risk">High Risk</option>
+        <option value="Cleared">Cleared</option>
+        <option value="Pending">Pending</option>
+      </select>
+
+      <button (click)="pushChecklistState()" [disabled]="isWriting" style="width: 100%; padding: 0.75rem; background: #8b5cf6; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; transition: background 0.2s;">
+        {{ isWriting ? 'Awaiting Firestore...' : 'Write Checklist Sub-Document' }}
       </button>
     </div>
   </div>

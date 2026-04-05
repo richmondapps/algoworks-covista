@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Firestore, doc, setDoc, collection, addDoc } from '@angular/fire/firestore';
-import { SalesforceOpportunityProfile, SalesforceActivityLog } from '../../models/salesforce-opportunity';
+import { SalesforceOpportunityProfile, SalesforceActivityLog, SalesforcePersonalizedChecklist } from '../../models/salesforce-opportunity';
 
 @Component({
   selector: 'app-admin-simulator',
@@ -31,6 +31,15 @@ export class AdminSimulatorComponent {
   caseStatus = 'open';
   caseRecordType = 'General';
   isAccredited = true;
+
+  // Checklist Context
+  checklistReqId = 'fafsa_submission';
+  checklistReqName = 'Funding - FAFSA Submission';
+  checklistReqType = 'Checklist';
+  checklistIsPersonalized = false;
+  checklistIsSatisfied = false;
+  checklistSatisfiedAt = new Date().toISOString().slice(0, 16);
+  checklistCurrentRiskLevel = 'Medium Risk';
 
   isWriting = false;
   syncResult = '';
@@ -101,6 +110,40 @@ export class AdminSimulatorComponent {
 
     } catch(e) { 
       console.error('Write Failed:', e); 
+      this.syncResult = `ERROR: ${e}`;
+    }
+    this.isWriting = false;
+  }
+
+  async pushChecklistState() {
+    this.isWriting = true;
+    try {
+      const studentId = this.selectedStudent;
+      const refId = this.checklistReqId;
+      
+      const chkDoc: SalesforcePersonalizedChecklist = {
+        requirement_id: refId,
+        student_id: studentId,
+        requirement_name: this.checklistReqName,
+        requirement_type: this.checklistReqType,
+        is_personalized: this.checklistIsPersonalized,
+        is_satisfied: this.checklistIsSatisfied,
+        satisfied_at: (this.checklistIsSatisfied && this.checklistSatisfiedAt) ? new Date(this.checklistSatisfiedAt + ':00-04:00').toISOString() : null,
+        risk_thresholds: {
+            happy_path_rule: null,
+            low_risk_rule: null,
+            medium_risk_rule: null,
+            high_risk_rule: null
+        },
+        current_risk_level: this.checklistCurrentRiskLevel as any,
+        notes: null,
+        last_evaluated_timestamp: new Date().toISOString()
+      };
+
+      await setDoc(doc(this.firestore, `salesforce_opportunities/${studentId}/personalized_checklists/${refId}`), chkDoc, { merge: true });
+      this.syncResult = `SUCCESS! Personalized Checklist [${refId}] isolated sub-document successfully pushed.`;
+    } catch(e) {
+      console.error('Checklist Write Failed:', e); 
       this.syncResult = `ERROR: ${e}`;
     }
     this.isWriting = false;

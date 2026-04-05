@@ -73,3 +73,32 @@ export interface SalesforceActivityLog {
     course_status?: string | null;
     is_accredited?: boolean | null;
 }
+
+export interface SalesforcePersonalizedChecklist {
+    requirement_id: string;      // e.g., 'fafsa_submission', 'initial_portal_login'
+    student_id: string;
+    
+    // Core Identity
+    requirement_name: string;    // "Funding - FAFSA Submission"
+    requirement_type: string;    // "Checklist" or "Contingency"
+    is_personalized: boolean;    // false = Common for all, true = Student specific
+    
+    // Live State
+    is_satisfied: boolean;       
+    satisfied_at: string | null; 
+
+    // Risk Vector Definitions (Bound via CSV)
+    risk_thresholds: {
+        happy_path_rule: string | null;
+        low_risk_rule: string | null;
+        medium_risk_rule: string | null;
+        high_risk_rule: string | null;
+    };
+    
+    // Evaluated Intelligence Engine State
+    current_risk_level: 'Happy Path' | 'Low Risk' | 'Medium Risk' | 'High Risk' | 'Cleared' | 'Pending'; 
+    
+    // Telemetry
+    notes: string | null;
+    last_evaluated_timestamp: string;
+}
