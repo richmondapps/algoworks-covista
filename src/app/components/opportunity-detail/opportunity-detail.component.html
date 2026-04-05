@@ -57,7 +57,12 @@
                     </div>
                 </div>
                 <div style="margin-bottom: 16px;">
-                    @if (student.aiInsights?.generatedAt) {
+                    @if (isGeneratingAi()) {
+                    <div style="background-color: #f59e0b; color: #ffffff; padding: 10px 14px; border-radius: 6px; font-size: 13px; font-weight: 700; margin-bottom: 12px; display: inline-flex; align-items: center; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);">
+                        <span class="material-icons" style="font-size: 18px; margin-right: 6px;">hourglass_top</span>
+                        COMPUTING LIVE INSIGHTS...
+                    </div>
+                    } @else if (student.aiInsights?.generatedAt) {
                     <div style="background-color: #2e844a; color: #ffffff; padding: 10px 14px; border-radius: 6px; font-size: 13px; font-weight: 700; margin-bottom: 12px; display: inline-flex; align-items: center; box-shadow: 0 4px 6px rgba(46, 132, 74, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);">
                         <span class="material-icons" style="font-size: 18px; margin-right: 6px;">check_circle</span>
                         LAST UPDATED AT: {{ student.aiInsights?.generatedAt | date:'short' }}
