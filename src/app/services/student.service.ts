@@ -3,7 +3,7 @@ import { Firestore, collection, collectionData, doc, setDoc, query, orderBy, whe
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Student } from '../models/student';
 
-const COLLECTION_NAME = 'student_records'; // Migrated to bypass cached legacy windows
+const COLLECTION_NAME = 'salesforce_opportunities'; // Fully Migrated to V17.3 Data Contract
 
 @Injectable({
   providedIn: 'root'
@@ -26,7 +26,15 @@ export class StudentService {
     onSnapshot(studentsRef, (snapshot) => {
       this.zone.run(() => {
         const data = snapshot.docs.map(doc => {
-          const s = { id: doc.id, ...doc.data() } as Student;
+          const raw = doc.data();
+          const s = { 
+            id: doc.id, 
+            ...raw,
+            name: raw['student_name'] || raw['name'] || 'Unknown Student',
+            programStartDate: raw['program_start_date'] || raw['programStartDate'],
+            reserveDate: raw['reserve_date'] || raw['reserveDate'],
+            requirements: raw['requirements'] || {}
+          } as any as Student;
           const today = new Date().getTime();
           
           if (s.programStartDate) {

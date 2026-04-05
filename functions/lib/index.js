@@ -338,10 +338,17 @@ exports.generateStudentInsights = (0, https_1.onCall)(async (request) => {
 exports.syncAiInsightsOnUpdate = (0, firestore_1.onDocumentUpdated)('salesforce_opportunities/{studentId}', async (event) => {
     var _a, _b, _c, _d;
     const studentUid = event.params.studentId;
+    console.log(`\n======================================================`);
+    console.log(`[EVENT_ARC_DIAGNOSTIC] -> syncAiInsightsOnUpdate NATIVELY FIRED!`);
+    console.log(`[EVENT_ARC_DIAGNOSTIC] -> Target Collection: salesforce_opportunities`);
+    console.log(`[EVENT_ARC_DIAGNOSTIC] -> Target UID: ${studentUid}`);
+    console.log(`======================================================\n`);
     const beforeData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
     const afterData = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
-    if (!beforeData || !afterData)
+    if (!beforeData || !afterData) {
+        console.log(`[EVENT_ARC_DIAGNOSTIC] -> HALTED: Missing before/after data structures.`);
         return;
+    }
     // Critical Recursion Guard: Do not execute if the only change was a background completion update from the AI!
     if (((_c = beforeData.aiInsights) === null || _c === void 0 ? void 0 : _c.generatedAt) !== ((_d = afterData.aiInsights) === null || _d === void 0 ? void 0 : _d.generatedAt) ||
         JSON.stringify(beforeData.aiInsights) !== JSON.stringify(afterData.aiInsights)) {

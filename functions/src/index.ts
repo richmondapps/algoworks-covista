@@ -350,10 +350,20 @@ export const generateStudentInsights = onCall(async (request) => {
  */
 export const syncAiInsightsOnUpdate = onDocumentUpdated('salesforce_opportunities/{studentId}', async (event) => {
   const studentUid = event.params.studentId;
+  
+  console.log(`\n======================================================`);
+  console.log(`[EVENT_ARC_DIAGNOSTIC] -> syncAiInsightsOnUpdate NATIVELY FIRED!`);
+  console.log(`[EVENT_ARC_DIAGNOSTIC] -> Target Collection: salesforce_opportunities`);
+  console.log(`[EVENT_ARC_DIAGNOSTIC] -> Target UID: ${studentUid}`);
+  console.log(`======================================================\n`);
+
   const beforeData = event.data?.before.data();
   const afterData = event.data?.after.data();
 
-  if (!beforeData || !afterData) return;
+  if (!beforeData || !afterData) {
+      console.log(`[EVENT_ARC_DIAGNOSTIC] -> HALTED: Missing before/after data structures.`);
+      return;
+  }
 
   // Critical Recursion Guard: Do not execute if the only change was a background completion update from the AI!
   if (beforeData.aiInsights?.generatedAt !== afterData.aiInsights?.generatedAt || 
