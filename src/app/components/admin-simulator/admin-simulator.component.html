@@ -8,7 +8,7 @@
       <h3 style="margin-top: 0; color: #1e293b;">1. Core Profile Overrides</h3>
       
       <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Target Student Focus:</label>
-      <select [(ngModel)]="selectedStudent" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1.5rem;">
+      <select [(ngModel)]="selectedStudent" (change)="onStudentChange()" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1.5rem;">
         <option value="A00302996">Amy Collins (MSEL)</option>
         <option value="A00409782">Barbara Woods (BSN)</option>
         <option value="A00437050">Angela Catour (MHA)</option>
@@ -84,45 +84,19 @@
 
     <!-- Personalized Checklist Trigger -->
     <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-      <h3 style="margin-top: 0; color: #1e293b;">3. Trigger Personalized Checklist</h3>
-      
-      <div style="display: flex; gap: 1rem;">
-        <div style="flex: 1;">
-          <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Req ID:</label>
-          <input type="text" [(ngModel)]="checklistReqId" placeholder="e.g. fafsa_submission" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
-        </div>
-        <div style="flex: 1;">
-          <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Target Name:</label>
-          <input type="text" [(ngModel)]="checklistReqName" placeholder="e.g. FAFSA Submission" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
-        </div>
+      <h3 style="margin-top: 0; color: #1e293b;">3. Live Subcollection State</h3>
+      <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 1.5rem;">
+        These boxes are mapped directly to <code>personalized_checklists</code> sub-documents via real-time WebSocket Observers.
+      </p>
+
+      <div *ngFor="let chk of checklists" style="padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; background: #f8fafc;">
+        <span style="font-size: 14px; font-weight: 600; color: #334155;">{{ chk.name }}</span>
+        <label style="display: flex; align-items: center; cursor: pointer; gap: 8px;">
+          <input type="checkbox" [(ngModel)]="chk.satisfied" (change)="toggleChecklist(chk)" style="width: 20px; height: 20px; accent-color: #10b981;">
+          <span style="font-size: 13px; color: #64748b; font-weight: bold; width: 60px;">{{ chk.satisfied ? 'Satisfied' : 'Pending' }}</span>
+        </label>
       </div>
 
-      <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 1rem; cursor: pointer;">
-        <input type="checkbox" [(ngModel)]="checklistIsPersonalized" style="width: 18px; height: 18px;"> 
-        <strong>Is Student-Specific? (Personalized)</strong>
-      </label>
-
-      <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 1rem; cursor: pointer;">
-        <input type="checkbox" [(ngModel)]="checklistIsSatisfied" style="width: 18px; height: 18px;"> 
-        <strong style="color: #10b981;">Requirement Satisfied!</strong>
-      </label>
-
-      <label *ngIf="checklistIsSatisfied" style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Satisfied Datetime (EDT):</label>
-      <input *ngIf="checklistIsSatisfied" type="datetime-local" [(ngModel)]="checklistSatisfiedAt" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
-
-      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Live Evaluated Risk Level:</label>
-      <select [(ngModel)]="checklistCurrentRiskLevel" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1.5rem;">
-        <option value="Happy Path">Happy Path</option>
-        <option value="Low Risk">Low Risk</option>
-        <option value="Medium Risk">Medium Risk</option>
-        <option value="High Risk">High Risk</option>
-        <option value="Cleared">Cleared</option>
-        <option value="Pending">Pending</option>
-      </select>
-
-      <button (click)="pushChecklistState()" [disabled]="isWriting" style="width: 100%; padding: 0.75rem; background: #8b5cf6; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; transition: background 0.2s;">
-        {{ isWriting ? 'Awaiting Firestore...' : 'Write Checklist Sub-Document' }}
-      </button>
     </div>
   </div>
 
