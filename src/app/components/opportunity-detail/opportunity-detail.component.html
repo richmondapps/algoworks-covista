@@ -192,6 +192,12 @@
                         <p>Draft generated instantly by Gemini 2.5 Flash, hyper-personalized using student context and
                             task notes.</p>
                     </div>
+                    @if (isGeneratingAi()) {
+                    <div style="background-color: #f59e0b; color: #ffffff; padding: 10px 14px; border-radius: 6px; font-size: 13px; font-weight: 700; margin-top: 10px; margin-bottom: 12px; display: inline-flex; align-items: center; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);">
+                        <span class="material-icons" style="font-size: 18px; margin-right: 6px;">hourglass_top</span>
+                        COMPUTING LIVE INSIGHTS...
+                    </div>
+                    } @else {
                     <div class="email-box">
                         <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 4px;">
                             <button class="sf-button-rounded"
@@ -221,6 +227,7 @@
                             </button>
                         </div>
                     </div>
+                    }
                 </div>
                 }
 
@@ -229,9 +236,16 @@
                 <div class="sf-card white-bg with-border row-layout">
                     <div class="outreach-header no-margin" style="max-width: 70%;">
                         <h4>Create SMS Message</h4>
+                        @if (isGeneratingAi()) {
+                        <div style="background-color: #f59e0b; color: #ffffff; padding: 10px 14px; border-radius: 6px; font-size: 13px; font-weight: 700; margin-top: 10px; display: inline-flex; align-items: center; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);">
+                            <span class="material-icons" style="font-size: 18px; margin-right: 6px;">hourglass_top</span>
+                            COMPUTING LIVE INSIGHTS...
+                        </div>
+                        } @else {
                         <p style="margin-top: 4px; white-space: pre-wrap;">"{{ student.aiInsights.smsDraft }}"</p>
+                        }
                     </div>
-                    <button class="sf-button-outline-blue"
+                    <button class="sf-button-outline-blue" [disabled]="isGeneratingAi()"
                         (click)="triggerCommunication(student, { type: 'SMS' }, student.aiInsights.smsDraft)">Send
                         SMS</button>
                 </div>

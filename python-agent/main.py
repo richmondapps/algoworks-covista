@@ -120,7 +120,7 @@ def generate_insights():
             # Safely overlay ONLY the specific Comms vectors using dot-notation string maps!
             print(f"[Comms Agent] Successfully captured valid Comms payload! Injecting to database...")
             try:
-                db.collection('student_records').document(uid).update({
+                db.collection('salesforce_opportunities').document(uid).update({
                     "aiInsights.emailDraft": comms_payload.get("emailDraft"),
                     "aiInsights.smsDraft": comms_payload.get("smsDraft")
                 })

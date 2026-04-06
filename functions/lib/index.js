@@ -393,8 +393,10 @@ exports.aggregateChecklistsOnUpdate = (0, firestore_2.onDocumentWritten)('salesf
             const satisfied = doc.data().is_satisfied === true;
             if (id === 'initial_portal_login')
                 requirements.orientationStarted = satisfied;
-            if (id === 'fafsa_submission')
+            if (id === 'fafsa_submission') {
                 requirements.fafsaSubmitted = satisfied;
+                requirements.fundingPlan = satisfied;
+            }
             if (id === 'course_registration')
                 requirements.courseRegistration = satisfied;
             if (id === 'wwow_login')
