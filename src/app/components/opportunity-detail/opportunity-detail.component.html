@@ -4,50 +4,13 @@
         <button class="action-btn back-btn" routerLink="/dashboard">
             <span class="material-icons">arrow_back</span>
         </button>
-        <span class="nav-text">Previous &nbsp; &lt; &nbsp; &gt; &nbsp; Next</span>
-    </div>
-
-    <!-- Header Card -->
-    <div class="sf-panel header-card">
-        <div class="title-row">
-            <div class="icons-left">
-                <span class="material-icons star-icon">star_border</span>
-                <span class="material-icons copy-icon">content_copy</span>
-                <span class="material-icons people-icon">people</span>
-            </div>
-            <h2>{{ student.name }} - BS in Elementary Education (Licensure)</h2>
-        </div>
-
-        <div class="meta-row">
-            <span class="badge applicant">Applicant</span>
-            <span class="badge qualified">Qualified</span>
-            <span class="material-icons info-icon">info</span>
-
-            <div class="meta-item">
-                <span class="material-icons">schedule</span>
-                02:13 PM Central Standard Time
-            </div>
-            <div class="meta-item">
-                <span class="material-icons">location_on</span>
-                Georgia, U.S. | EST
-            </div>
-            <div class="meta-item mail-wrap">
-                <span class="material-icons icon-green">mail</span>
-                {{ student.email }}
-            </div>
-            <div class="meta-item phone-wrap">
-                <span class="material-icons icon-blue">call</span>
-                <span class="material-icons icon-dark">sms</span>
-                {{ student.phone }}
-            </div>
-        </div>
     </div>
 
     <!-- New Client Layout: R2C Agentic AI --> 
     <div class="r2c-agentic-section" id="r2c-capture-target">
         <div class="r2c-header">
             <div>
-                <h2>R2C Agentic AI POC</h2>
+                <h2>R2C AI Success Plan</h2>
                 <p>Explore how AI generates next-best actions and personalized communications.</p>
             </div>
             <div class="gemini-badge">
@@ -111,35 +74,11 @@
 
         <div class="content-grid-2col">
             <div class="left-risk">
-                <div class="risk-card" [ngClass]="student.aiInsights!.readinessRisk?.level?.toLowerCase() || 'medium'">
+                <div class="risk-card" style="background: #ffffff; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                     <div class="risk-title">
-                        <div class="left-t"><span class="material-icons">warning</span> READINESS RISK</div>
-                        <strong class="badge">{{ student.aiInsights!.readinessRisk?.level }}</strong>
+                        <div class="left-t"><span class="material-icons" style="color: #6366f1;">analytics</span> AI Overview Summary</div>
                     </div>
-                    <p>{{ student.aiInsights!.readinessRisk?.text }}</p>
-                    @if (student.aiInsights?.readinessRisk?.trendDirection) {
-                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.05); font-size: 12px; display: flex; align-items: flex-start; gap: 6px;">
-                            <span class="material-icons" [ngStyle]="{'color': student.aiInsights?.readinessRisk?.trendDirection === 'down' ? '#10b981' : (student.aiInsights?.readinessRisk?.trendDirection === 'up' ? '#ef4444' : '#6b7280')}" style="font-size: 16px;">
-                                {{ student.aiInsights?.readinessRisk?.trendDirection === 'down' ? 'trending_down' : (student.aiInsights?.readinessRisk?.trendDirection === 'up' ? 'trending_up' : 'trending_flat') }}
-                            </span>
-                            <span style="color: #4b5563;">{{ student.aiInsights?.readinessRisk?.trendNote || 'Stable trajectory tracked across the last 7 days.' }}</span>
-                        </div>
-                    }
-                </div>
-                <div class="risk-card" [ngClass]="student.aiInsights!.engagementRisk?.level?.toLowerCase() || 'medium'">
-                    <div class="risk-title">
-                        <div class="left-t"><span class="material-icons">chat_bubble_outline</span> ENGAGEMENT RISK</div>
-                        <strong class="badge">{{ student.aiInsights!.engagementRisk?.level }}</strong>
-                    </div>
-                    <p>{{ student.aiInsights!.engagementRisk?.text }}</p>
-                    @if (student.aiInsights?.engagementRisk?.trendDirection) {
-                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.05); font-size: 12px; display: flex; align-items: flex-start; gap: 6px;">
-                            <span class="material-icons" [ngStyle]="{'color': student.aiInsights?.engagementRisk?.trendDirection === 'down' ? '#10b981' : (student.aiInsights?.engagementRisk?.trendDirection === 'up' ? '#ef4444' : '#6b7280')}" style="font-size: 16px;">
-                                {{ student.aiInsights?.engagementRisk?.trendDirection === 'down' ? 'trending_down' : (student.aiInsights?.engagementRisk?.trendDirection === 'up' ? 'trending_up' : 'trending_flat') }}
-                            </span>
-                            <span style="color: #4b5563;">{{ student.aiInsights?.engagementRisk?.trendNote || 'Stable trajectory tracked across the last 7 days.' }}</span>
-                        </div>
-                    }
+                    <p style="color: #374151; font-size: 13px; line-height: 1.5;">{{ student.aiInsights!.overviewSummary || 'System is actively calibrating a holistic summary matrix across both readiness parameters and active engagement metrics to provide a unified student success strategy.' }}</p>
                 </div>
             </div>
 
@@ -147,7 +86,6 @@
                 <div class="nba-card">
                     <div class="nba-header">
                         <div class="h-left"><span class="material-icons icon">my_location</span> AI-Generated Next Best Actions</div>
-                        <span class="badge">HIGH PRIORITY</span>
                     </div>
                     <ul class="nba-list">
                         @for (action of student.aiInsights!.nextBestActions || []; track action.title) {
@@ -156,9 +94,6 @@
                             <div class="text-content">
                                 <h4 style="display: flex; align-items: center; gap: 6px;">
                                     {{ action.title }}
-                                    @if (action.urgent) {
-                                        <span style="background: #fee2e2; color: #ef4444; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; border: 1px solid #fca5a5;">HIGH PRIORITY</span>
-                                    }
                                 </h4>
                                 <p>{{ action.points[0] }}</p>
                             </div>
@@ -169,7 +104,7 @@
 
                 <div class="nba-card">
                     <div class="nba-header">
-                        <div class="h-left" style="color: #1e1e1e;"><span class="material-icons icon" style="color: #6366f1;">checklist</span> Pre-Program Requirements</div>
+                        <div class="h-left" style="color: #1e1e1e;"><span class="material-icons icon" style="color: #6366f1;">checklist</span> Readiness Checklist</div>
                     </div>
                     <ul class="nba-list">
                         <li class="nba-item" style="align-items: center;">
@@ -188,14 +123,17 @@
                                 <h4 style="margin: 0;">Funding Plan Submission</h4>
                             </div>
                         </li>
-                        <li class="nba-item" style="align-items: center;">
-                            <span class="material-icons" [ngStyle]="{'color': student.requirements.officialTranscriptsReceived ? '#10b981' : '#f59e0b', 'font-size': '18px'}">
-                                {{ student.requirements.officialTranscriptsReceived ? 'check_circle' : 'pending' }}
-                            </span>
-                            <div class="text-content">
-                                <h4 style="margin: 0;">Official Transcripts</h4>
-                            </div>
-                        </li>
+                        
+                        @for (transcript of (student.requirements.dynamicTranscripts || [{name: 'Official Transcript - Default University (updating logic)', valid: student.requirements.officialTranscriptsReceived}]); track transcript.name) {
+                            <li class="nba-item" style="align-items: center;">
+                                <span class="material-icons" [ngStyle]="{'color': transcript.valid ? '#10b981' : '#f59e0b', 'font-size': '18px'}">
+                                    {{ transcript.valid ? 'check_circle' : 'pending' }}
+                                </span>
+                                <div class="text-content">
+                                    <h4 style="margin: 0;">{{ transcript.name }}</h4>
+                                </div>
+                            </li>
+                        }
                     </ul>
                 </div>
             </div>
@@ -204,9 +142,22 @@
         <div class="sf-section-container" style="margin-bottom: 24px;">
             <div class="sf-accordions-list">
                 <div class="sf-accordion-item">
+                    <div class="acc-left" (click)="toggleAccordion('history')" style="cursor: pointer;">
+                        <span class="material-icons" style="font-size: 24px; color: #1e1e1e;">{{ accordions()['history'] ? 'expand_more' : 'chevron_right' }}</span>
+                        <span class="acc-title" style="font-size: 14px;">TASK HISTORY AND CASES</span>
+                    </div>
+                </div>
+                @if (accordions()['history']) {
+                <div style="padding: 16px; border-bottom: 1px solid #dddbda; background: #fafafa;">
+                    <div style="font-size: 12px; color: #4b5563; margin-bottom: 8px;"><strong>Audit Traceability payload</strong> mapped directly from programmatic event ingestion.</div>
+                    <pre style="background: #111827; color: #10b981; padding: 12px; border-radius: 6px; font-size: 11px; overflow-x: auto; max-height: 300px;">{{ student.aiInsights?.dataContext | json }}</pre>
+                </div>
+                }
+
+                <div class="sf-accordion-item">
                     <div class="acc-left" (click)="toggleAccordion('notes')" style="cursor: pointer;">
                         <span class="material-icons" style="font-size: 24px; color: #1e1e1e;">{{ accordions()['notes'] ? 'expand_more' : 'chevron_right' }}</span>
-                        <span class="acc-title" style="font-size: 14px;">STAFF NOTES & OBSERVATIONS</span>
+                        <span class="acc-title" style="font-size: 14px;">NOTES</span>
                     </div>
                 </div>
                 @if (accordions()['notes']) {
@@ -242,11 +193,7 @@
                             @if (isGeneratingAi()) {
                                 <span class="material-icons" style="font-size: 16px; animation: spin 2s linear infinite;">autorenew</span>
                                 <span style="font-size: 10px; text-transform: uppercase;">Generating...</span>
-                            } @else {
-                                <button class="copy-btn" (click)="copyToClipboard(student.aiInsights!.emailDraft?.bodyText || '', student.aiInsights!.emailDraft?.bullets || [])">
-                                    <span class="material-icons">content_copy</span>
-                                </button>
-                            }
+                            } 
                         </div>
                     </div>
                     <div class="subject">
@@ -271,11 +218,7 @@
                         <div style="display: flex; align-items: center; gap: 8px;">
                             @if (isGeneratingAi()) {
                                 <span class="material-icons" style="font-size: 16px; animation: spin 2s linear infinite;">autorenew</span>
-                            } @else {
-                                <button class="copy-btn" (click)="copyToClipboard(student.aiInsights!.smsDraft || '', [])">
-                                    <span class="material-icons">content_copy</span>
-                                </button>
-                            }
+                            } 
                         </div>
                     </div>
                     <div class="body">

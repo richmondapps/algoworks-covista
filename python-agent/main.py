@@ -32,15 +32,14 @@ def generate_core_insights(data_context):
     
     Reply ONLY in strictly valid JSON formatted exactly like this:
     {{
+      "overviewSummary": "A unified holistic narrative summarizing BOTH their academic/onboarding readiness AND their communication/activity engagement together in 3-4 cohesive sentences.",
       "readinessRisk": {{
           "level": "High, Medium, or Low",
-          "text": "Detailed narrative summarizing their academic and onboarding readiness in 2-3 sentences.",
           "trendDirection": "up, down, or stable",
           "trendNote": "Short supporting note identifying their latest Readiness activity."
       }},
       "engagementRisk": {{
           "level": "High, Medium, or Low",
-          "text": "Detailed narrative summarizing their communication and activity engagement in 2-3 sentences.",
           "trendDirection": "up, down, or stable",
           "trendNote": "Short supporting note identifying their latest Engagement activity."
       }},
@@ -232,6 +231,10 @@ def sync_bq_to_firestore():
                     "officialTranscriptsReceived": row.trf_form_on_file,
                     "fundingPlan": True if row.funding_plan_status == "Approved" else False,
                     "orientationStarted": True if row.wwow_orientation_started_at else False,
+                    "dynamicTranscripts": [
+                        {"name": "Official Transcript - University of Texas", "valid": True},
+                        {"name": "Official Transcript - Austin Community College", "valid": row.trf_form_on_file}
+                    ]
                 },
                 
                 # Inject mapped nested arrays

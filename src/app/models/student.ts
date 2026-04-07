@@ -27,6 +27,8 @@ export interface StudentStats {
 
 export interface AiInsights {
     generatedAt?: string;
+    dataContext?: any;
+    overviewSummary?: string;
     readinessRisk?: {
         level: string;
         text: string;
@@ -101,6 +103,7 @@ export interface StudentRequirements {
     orientationStarted: boolean;
     firstAssignmentSubmitted: boolean;
     assignmentByCensusDay: boolean;
+    dynamicTranscripts?: {name: string; valid: boolean;}[];
 }
 
 export interface Student {
