@@ -7,8 +7,12 @@ import { Student, RecommendedAction } from '../../models/student';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { computed, signal } from '@angular/core';
 import { getFunctions, httpsCallable } from '@angular/fire/functions';
-import { Storage, ref, listAll, getDownloadURL, getMetadata } from '@angular/fire/storage';
+import { Storage, ref, listAll, getDownloadURL, getMetadata, uploadString } from '@angular/fire/storage';
+import { Firestore, collection, addDoc } from '@angular/fire/firestore';
+import { Auth } from '@angular/fire/auth';
 import { effect } from '@angular/core';
+import html2canvas from 'html2canvas';
+import * as markerjs2 from 'markerjs2';
 
 @Component({
   selector: 'app-opportunity-detail',
@@ -20,6 +24,9 @@ import { effect } from '@angular/core';
 export class OpportunityDetailComponent {
   private route = inject(ActivatedRoute);
   private studentService = inject(StudentService);
+  private firestore = inject(Firestore);
+  private auth = inject(Auth);
+
 
   private paramsStr = toSignal(this.route.paramMap);
   student = computed(() => {
@@ -223,14 +230,13 @@ export class OpportunityDetailComponent {
   }
 
   async generateAi(student: Student) {
-    // Optimistically obliterate the AI insights from Firestore to simulate dynamic clearing!
+    // Clear existing AI insights to show loading state
     if (student.id) {
       await this.studentService.clearAiInsights(student.id);
     }
 
     this.isGeneratingAi.set(true);
-    
-    // Start artificial real-time trace loader
+    // Initialize loading trace
     const mockTrace: any[] = [
       { agentName: 'Orchestrator', action: 'Initializing Swarm Request', status: 'Running...', duration: '0ms' }
     ];
@@ -277,16 +283,11 @@ export class OpportunityDetailComponent {
   openMailClient(student: Student, text: string, bullets: string[] = []) {
     const fullText = text + (bullets && bullets.length > 0 ? '\n\n' + bullets.map(b => '• ' + b).join('\n') : '');
 
-    // 1. Copy the massive AI payload to the user's clipboard automatically
+    // Copy draft to clipboard and open mailto
     navigator.clipboard.writeText(fullText).then(() => {
-      // 2. Fire a standard mailto link with ONLY the 'To' and 'Subject' fields.
-      // This completely bypasses the browser 2000-character limit AND the Azure O365 licensing error,
-      // and launches whichever native app (Desktop Outlook, Apple Mail) the user prefers!
       const mailtoLink = `mailto:${student.email}?subject=${encodeURIComponent('Your Enrollment Update')}`;
       window.location.href = mailtoLink;
 
-      // 3. Briefly alert the user so they know all they have to do is hit Paste.
-      // We use a small timeout so the mail app has time to launch first.
       setTimeout(() => {
         alert("Draft copied to clipboard! Simply hit Paste (Cmd+V/Ctrl+V) when your email app opens.");
       }, 500);
@@ -347,61 +348,19 @@ export class OpportunityDetailComponent {
   }
 
   async triggerCommunication(student: Student, action: Partial<RecommendedAction>, customBody?: string) {
-    // Generate simulated communication logic natively off BigQuery requirements
     let documentName = 'outstanding enrollment requirements';
     if (!student.requirements.officialTranscriptsReceived) documentName = 'Official Transcripts';
     else if (!student.requirements.fundingPlan) documentName = 'Funding Plan Application';
     
-    let days = student.timeUntilClassStartDays;
-
-    // Generates a URL dynamically directing the student directly to your Angular Upload Component
+    // Generates a URL dynamically directing the student to the Upload Component
     let uploadLink = `${window.location.origin}/upload?uid=${student.studentUid}`;
 
     if (action.type === 'Email') {
-      try {
-        console.log('Invoking sendOpportunityEmail Cloud Function...');
-        const functions = getFunctions();
-        const sendEmailFn = httpsCallable(functions, 'sendOpportunityEmail');
-
-        await sendEmailFn({
-          studentUid: student.studentUid,
-          email: student.email,
-          name: student.name,
-          daysLeft: days,
-          documentName: documentName,
-          uploadLink: uploadLink,
-          customHtml: customBody
-        });
-
-        alert(`Success: Urgent Email generated and sent to ${student.email} via SendGrid.`);
-      } catch (error) {
-        console.error("Function call error", error);
-        alert('Failed to send email. Check console.');
-      }
+        alert(`Simulated Action: Urgent Email drafted for ${student.email} regarding ${documentName}.`);
     } else if (action.type === 'SMS') {
-      alert("A2P 10DLC Compliance Notice:\n\nIn accordance with new FCC regulations and carrier requirements, Twilio SMS campaigns are currently paused pending active brand and campaign registration approval. Expected resolution: 2-4 Days.");
-
-      try {
-        console.log('Invoking sendOpportunitySms Cloud Function...');
-        const functions = getFunctions();
-        const sendSmsFn = httpsCallable(functions, 'sendOpportunitySms');
-
-        await sendSmsFn({
-          studentUid: student.studentUid,
-          phone: student.phone,
-          name: student.name,
-          daysLeft: days,
-          documentName: documentName,
-          uploadLink: uploadLink,
-          customText: customBody
-        });
-        alert(`Success: Urgent SMS simulated execution sent to ${student.phone}.`);
-      } catch (error) {
-        console.error("Sms Function Error:", error);
-        alert('Simulation Error sending SMS. See console log for missing backend function payload format');
-      }
+        alert(`Simulated Action: Urgent SMS text executed to ${student.phone} regarding ${documentName}.`);
     } else {
-      alert('Communication type not supported in this simulation.');
+        alert('Communication type not supported.');
     }
   }
 
@@ -418,5 +377,98 @@ export class OpportunityDetailComponent {
     if (r.assignmentByCensusDay) completed++;
     
     return Math.round((completed / 7) * 100);
+  }
+
+  async openFeedbackCapture() {
+    // 1. Target the absolute root of the document so the user can natively crop any part of the screen
+    const targetElement = document.body;
+    
+    try {
+      console.log('[Feedback] Initializing snapshot matrix via html2canvas...');
+      // 100ms micro-pause to let Material button ripple effect settle before snapshot
+      await new Promise(r => setTimeout(r, 100));
+      
+      const canvas = await html2canvas(targetElement, {
+          useCORS: true,
+          scale: window.devicePixelRatio || 2,
+          backgroundColor: '#ffffff'
+      });
+      
+      const dataUrl = canvas.toDataURL('image/png');
+      console.log('[Feedback] Snapshot generated dynamically!');
+      
+      const img = document.createElement('img');
+      img.style.position = 'fixed';
+      img.style.top = '0';
+      img.style.left = '0';
+      img.style.width = '100vw';
+      img.style.height = '100vh';
+      img.style.objectFit = 'contain';
+      img.style.backgroundColor = 'rgba(0,0,0,0.85)';
+      img.style.zIndex = '9998';
+      
+      document.body.appendChild(img);
+
+      img.onload = () => {
+          setTimeout(() => {
+              console.log('[Feedback] Mounting markerjs2 canvas bindings...');
+              const markerArea = new markerjs2.MarkerArea(img);
+              
+              // Force the UI toolbox to bind cleanly strictly over our image
+              markerArea.uiStyleSettings.zIndex = "9999";
+              
+              markerArea.addEventListener('render', async (event) => {
+                try {
+                  const resultDataUrl = event.dataUrl;
+                  
+                  const timestamp = Date.now();
+                  const studentId = this.student()?.id || 'unknown';
+                  const fileName = `${studentId}_${timestamp}.png`;
+                  
+                  console.log('[Feedback] Emitting annotated blob payload to Firebase Storage...');
+                  const storageRef = ref(this.storage, `feedback/${fileName}`);
+                  await uploadString(storageRef, resultDataUrl, 'data_url');
+                  
+                  const downloadUrl = await getDownloadURL(storageRef);
+                  const email = this.auth.currentUser?.email || 'Unknown User';
+                  
+                  await addDoc(collection(this.firestore, 'feedback_submissions'), {
+                      studentId: studentId,
+                      studentName: this.student()?.name || 'Unknown Student',
+                      submittedBy: email,
+                      timestamp: new Date().toISOString(),
+                      imageUrl: downloadUrl
+                  });
+                  
+                  alert('Successfully captured your notations! The product team has been notified.');
+                } catch(e) {
+                  console.error('[Feedback Storage Error]', e);
+                  alert('Failed to transmit feedback snapshot to Firebase.');
+                } finally {
+                  if (document.body.contains(img)) document.body.removeChild(img);
+                }
+              });
+              
+              markerArea.addEventListener('close', () => {
+                 if (document.body.contains(img)) document.body.removeChild(img);
+              });
+
+              markerArea.show();
+          }, 100);
+      };
+      
+      img.onerror = () => {
+          console.error('[Feedback] Base64 Image DOM insertion failed to load buffer');
+          alert('Failed to display the snapshot overlay.');
+          if (document.body.contains(img)) document.body.removeChild(img);
+      };
+      
+      // Assign the DOM Source strictly after `.onload` binding so synchronous dataURI resolutions do not bypass initialization!
+      img.src = dataUrl;
+
+    } catch (e) {
+      console.error('[Feedback Snapshot Core Exception]', e);
+      alert('Failed to capture screen area. Check the developer console.');
+    }
   }
 }

@@ -26,9 +26,10 @@
         <thead>
             <tr>
                 <th>Student Name</th>
-                <th>Risk Level</th>
-                <th>Engagement</th>
-                <th>Time to Start</th>
+                <th>Readiness Risk</th>
+                <th>Engagement Risk</th>
+                <th>Time Since Reserve</th>
+                <th>Time To Start</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -57,9 +58,16 @@
                     }
                 </td>
                 <td>
-                    <span *ngIf="s.riskIndicator" class="status-badge" [ngClass]="s.riskIndicator ? s.riskIndicator.toLowerCase() : ''">{{ s.riskIndicator }}</span>
+                    <span class="status-badge" [ngClass]="s.aiInsights?.readinessRisk?.level?.toLowerCase() || (s.riskIndicator ? s.riskIndicator.toLowerCase() : '')">
+                        {{ s.aiInsights?.readinessRisk?.level || s.riskIndicator || '-' }}
+                    </span>
                 </td>
-                <td>{{ s.engagementLevel }}</td>
+                <td>
+                    <span class="status-badge" [ngClass]="s.aiInsights?.engagementRisk?.level?.toLowerCase() || ''">
+                        {{ s.aiInsights?.engagementRisk?.level || s.engagementLevel || '-' }}
+                    </span>
+                </td>
+                <td>{{ s.timeSinceReserveDays != null ? s.timeSinceReserveDays + ' Days' : '-' }}</td>
                 <td>{{ s.timeUntilClassStartDays }} Days</td>
                 <td>
                     <button class="action-btn">

@@ -10,7 +10,9 @@ from google.cloud import bigquery, firestore
 
 app = Flask(__name__)
 
-project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "algoworks-dev")
+import google.auth
+_, auth_project = google.auth.default()
+project_id = auth_project or os.environ.get("GOOGLE_CLOUD_PROJECT", "dev-wu-agenticai-app-proj")
 dataset_id = "covista_demo"
 table_id = "engagement_rules"
 
@@ -26,20 +28,26 @@ def generate_core_insights(data_context):
     You are an expert academic advisor AI (Student Success Agent).
     CRITICAL INSTRUCTION 1: You are an assistant talking to the ES. Therefore, in the 'overview' and 'nextBestActions' sections, you must NEVER address the student directly.
     CRITICAL INSTRUCTION 3: Review the student's checklist. IF they completed 100%, DO NOT invent missing tasks. Pivot to keeping them engaged.
+    CRITICAL INSTRUCTION 4: For 'trendDirection', evaluate their trajectory over the last 7 days. If they are new, return 'stable'. Provide a 'trendNote' supporting this trajectory based on the latest physical activity logged.
     
     Reply ONLY in strictly valid JSON formatted exactly like this:
     {{
-      "overview": {{
-          "intro": "Narrative intro summarizing status in 1-2 short sentences.",
-          "highlight": "A 2-4 word urgently missing item.",
-          "outro": "A 1 short sentence firm conclusion."
+      "readinessRisk": {{
+          "level": "High, Medium, or Low",
+          "text": "Detailed narrative summarizing their academic and onboarding readiness in 2-3 sentences.",
+          "trendDirection": "up, down, or stable",
+          "trendNote": "Short supporting note identifying their latest Readiness activity."
       }},
-      "riskSignals": {{
-          "timeSinceReserve": "Formatted string",
-          "timeUntilClassStart": "Formatted string",
-          "engagementLevel": "High, Medium, Low",
-          "checklistProgress": "Calculated percentage string e.g., '50% Complete'",
-          "riskIndicator": "High Risk, On Track"
+      "engagementRisk": {{
+          "level": "High, Medium, or Low",
+          "text": "Detailed narrative summarizing their communication and activity engagement in 2-3 sentences.",
+          "trendDirection": "up, down, or stable",
+          "trendNote": "Short supporting note identifying their latest Engagement activity."
+      }},
+      "metrics": {{
+          "timeSinceReserve": "Number and Days (e.g., '5 days')",
+          "timeToProgramStart": "Number and Days (e.g., '14 days')",
+          "timeToCensus": "Number and Days (e.g., '21 days')"
       }},
       "nextBestActions": [
           {{
@@ -233,7 +241,7 @@ def sync_bq_to_firestore():
                 "lastUpdatedByPipelineAt": row.etl_updated_at.isoformat() if row.etl_updated_at else None
             }
             
-            doc_ref = db.collection('student_records').document(student_id)
+            doc_ref = db.collection('salesforce_opportunities').document(student_id)
             batch.set(doc_ref, student_payload, merge=True)
             synced_count += 1
             

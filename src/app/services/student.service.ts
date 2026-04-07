@@ -57,19 +57,16 @@ export class StudentService {
               }
           }
           
-          if (!s.aiInsights || !s.aiInsights.overview || !s.aiInsights.riskSignals) {
-              s.aiInsights = {
-                  overview: { intro: '', highlight: '', outro: '' },
-                  riskSignals: { timeSinceReserve: '', timeUntilClassStart: '', engagementLevel: '', riskIndicator: '' },
-                  emailDraft: { bodyText: '', bullets: [] },
-                  smsDraft: '',
-                  nextBestActions: []
-              } as any;
+          if (!s.aiInsights) {
+              s.aiInsights = {} as any;
           }
+
           // Only fall back to localized hardcoded constraints if the Python architecture hasn't mapped customized logic!
           const hasGeneratedActions = s.aiInsights?.nextBestActions && s.aiInsights.nextBestActions.length > 0;
           if (!hasGeneratedActions) {
-            s.aiInsights!.nextBestActions = [];
+            if (!s.aiInsights!.nextBestActions) {
+                s.aiInsights!.nextBestActions = [];
+            }
 
           if (!s.requirements.orientationStarted) {
             s.aiInsights!.nextBestActions.push({
@@ -202,17 +199,33 @@ export class StudentService {
   }
 
   async generateAiInsights(student: Student) {
-    const callable = httpsCallable(this.functions, 'generateStudentInsights');
-    try {
-      const response = await callable({
-        studentUid: student.id,
-        dataContext: student
-      });
-      return response.data;
-    } catch (e) {
-      console.error('Failed to generate insights', e);
-      throw e;
-    }
+    return new Promise(async (resolve, reject) => {
+      try {
+        const studentDoc = doc(this.firestore, `${COLLECTION_NAME}/${student.id}`);
+        // 1. Trigger the background AI Generation natively via Firestore Events to bypass CORS
+        await setDoc(studentDoc, { isGeneratingAi: true, syncTimestamp: Date.now() }, { merge: true });
+
+        // 2. Await the structural completion payload via snapshot observer
+        const unsubscribe = onSnapshot(studentDoc, (snapshot) => {
+          const data = snapshot.data();
+          if (data && data['isGeneratingAi'] === false && data['aiInsights']) {
+            unsubscribe();
+            resolve({ aiInsights: data['aiInsights'] });
+          }
+        }, (error) => {
+          unsubscribe();
+          reject(error);
+        });
+
+        // 3. Fallback timeout for architectural resilience
+        setTimeout(() => {
+          unsubscribe();
+          reject(new Error("AI Generation Timeout"));
+        }, 45000); // 45 seconds max timeout
+      } catch (e) {
+        reject(e);
+      }
+    });
   }
 
   async queryDocumentInfo(studentUid: string, fileName: string, query: string) {

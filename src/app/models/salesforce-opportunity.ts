@@ -31,7 +31,23 @@ export interface SalesforceOpportunityProfile {
     contingency_description?: string;
 
     // AI Payload Output Destination (Mapped later by the asynchronous Eventarc Agent)
-    aiInsights?: any;
+    aiInsights?: {
+        readinessRisk?: { level: 'High' | 'Medium' | 'Low' | string; text: string; trendDirection?: 'up' | 'down' | 'stable' | string; trendNote?: string; };
+        engagementRisk?: { level: 'High' | 'Medium' | 'Low' | string; text: string; trendDirection?: 'up' | 'down' | 'stable' | string; trendNote?: string; };
+        metrics?: {
+            timeSinceReserve: string;
+            timeToProgramStart: string;
+            timeToCensus: string;
+        };
+        nextBestActions?: { title: string; points: string[]; urgent: boolean; }[];
+        emailDraft?: { subject: string; bodyText: string; bullets: string[]; };
+        smsDraft?: string;
+        generatedAt?: string;
+        
+        // Legacy fallbacks
+        overview?: any; 
+        riskSignals?: any;
+    };
     isGeneratingAi?: boolean;
 }
 

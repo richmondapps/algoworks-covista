@@ -40,7 +40,7 @@ const bigquery_1 = require("@google-cloud/bigquery");
 const bq = new bigquery_1.BigQuery();
 exports.updateBigQueryMockData = (0, https_1.onCall)(async (request) => {
     const { studentUid, loginAccreditedDate, loginNonAccreditedDate, discussionDate, transcriptCleared, fundingComplete, wwowStarted, startDate, reserveDate } = request.data;
-    const projectId = process.env.GCLOUD_PROJECT || "algoworks-dev";
+    const projectId = process.env.GCLOUD_PROJECT || "dev-wu-agenticai-app-proj";
     try {
         // Course level tracking (Accredited)
         if (loginAccreditedDate || discussionDate) {
@@ -89,7 +89,7 @@ exports.updateBigQueryMockData = (0, https_1.onCall)(async (request) => {
 });
 exports.manualSyncBQtoFirestore = (0, https_1.onCall)(async (request) => {
     const db = admin.firestore();
-    const projectId = process.env.GCLOUD_PROJECT || "algoworks-dev";
+    const projectId = process.env.GCLOUD_PROJECT || "dev-wu-agenticai-app-proj";
     try {
         // DELTA QUERY: For the prototype demo, we will pull all students directly to prevent out-of-bounds dropoffs.
         // In production, you would re-enable the (etl_updated_at > 1 HOUR) logic to optimize bandwidth.
@@ -155,7 +155,7 @@ exports.manualSyncBQtoFirestore = (0, https_1.onCall)(async (request) => {
                 riskIndicator = 'Medium';
             }
             // Migrated to 'student_records' to bypass legacy client sockets from reseeding 'students'
-            await db.collection("student_records").doc(student.student_id).set({
+            await db.collection("salesforce_opportunities").doc(student.student_id).set({
                 studentUid: student.student_id,
                 name: student.full_name,
                 requirements,

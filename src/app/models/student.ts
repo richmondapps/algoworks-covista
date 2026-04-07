@@ -27,7 +27,24 @@ export interface StudentStats {
 
 export interface AiInsights {
     generatedAt?: string;
-    overview: {
+    readinessRisk?: {
+        level: string;
+        text: string;
+        trendDirection?: string;
+        trendNote?: string;
+    };
+    engagementRisk?: {
+        level: string;
+        text: string;
+        trendDirection?: string;
+        trendNote?: string;
+    };
+    metrics?: {
+        timeSinceReserve: string;
+        timeToProgramStart: string;
+        timeToCensus: string;
+    };
+    overview?: {
         intro: string;
         highlight: string;
         outro: string;
@@ -45,11 +62,12 @@ export interface AiInsights {
         points: string[];
         buttonText: string;
     }[];
-    emailDraft: {
+    emailDraft?: {
+        subject?: string;
         bodyText: string;
         bullets: string[];
     };
-    smsDraft: string;
+    smsDraft?: string;
     agentTrace?: {
         agentName: string;
         action: string;

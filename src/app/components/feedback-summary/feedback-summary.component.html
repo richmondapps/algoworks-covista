@@ -1,0 +1,38 @@
+<div class="sf-page-container">
+  <div class="sf-page-header">
+    <h1 class="sf-page-title">ES Feedback</h1>
+    <p class="sf-page-subtitle">Annotated screenshots of user comments</p>
+  </div>
+
+  <div *ngIf="loading" class="empty-state">Retrieving records from Firestore...</div>
+  
+  <div *ngIf="!loading && feedbacks.length === 0" class="empty-state">
+    <span class="material-icons">inbox</span>
+    <p>No annotations have been submitted into the database yet.</p>
+  </div>
+
+  <table class="sf-table" *ngIf="feedbacks.length > 0">
+    <thead>
+      <tr>
+        <th>Date Captured</th>
+        <th>Submitted By Email</th>
+        <th>Student Name</th>
+        <th>Student Database ID</th>
+        <th>Annotated Blob URL</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let fb of feedbacks">
+        <td>{{ fb.timestamp | date:'short' }}</td>
+        <td>{{ fb.submittedBy }}</td>
+        <td>{{ fb.studentName }}</td>
+        <td>{{ fb.studentId }}</td>
+        <td>
+          <a [href]="fb.imageUrl" target="_blank" class="sf-outline-btn sf-btn" style="padding: 8px 16px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none;">
+            <span class="material-icons" style="font-size: 16px;">open_in_new</span> View Snapshot
+          </a>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

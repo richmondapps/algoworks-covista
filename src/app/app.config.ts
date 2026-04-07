@@ -10,17 +10,18 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideHttpClient } from '@angular/common/http';
 import { provideFunctions, getFunctions } from '@angular/fire/functions';
 
-// const firebaseConfig = {
-//   apiKey: 'AIzaSyAHNDN4eoJuWuXk3UegX9PoSWcZQj6yFz4',
-//   authDomain: 'algoworks-dev.firebaseapp.com',
-//   projectId: 'algoworks-dev',
-//   storageBucket: 'algoworks-dev.firebasestorage.app',
-//   messagingSenderId: '668256868217',
-//   appId: '1:668256868217:web:b1028aa041a6cb8cb141a8',
-//   measurementId: 'G-QGY276YZCR',
-// };
 const firebaseConfig = {
-  piKey: 'AIzaSyDwbq6TlPBGP_OjvQ6zdtiVthuN8Wwlk00',
+  apiKey: 'AIzaSyAHNDN4eoJuWuXk3UegX9PoSWcZQj6yFz4',
+  authDomain: 'algoworks-dev.firebaseapp.com',
+  projectId: 'algoworks-dev',
+  storageBucket: 'algoworks-dev.firebasestorage.app',
+  messagingSenderId: '668256868217',
+  appId: '1:668256868217:web:b1028aa041a6cb8cb141a8',
+  measurementId: 'G-QGY276YZCR',
+};
+
+const firebaseConfigClient = {
+  apiKey: 'AIzaSyDwbq6TlPBGP_OjvQ6zdtiVthuN8Wwlk00',
   authDomain: 'dev-wu-agenticai-app-proj.firebaseapp.com',
   projectId: 'dev-wu-agenticai-app-proj',
   storageBucket: 'dev-wu-agenticai-app-proj.firebasestorage.app',
@@ -35,7 +36,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideAnimations(),
     provideAnimationsAsync(),
-    provideFirebaseApp(() => initializeApp(firebaseConfig)),
+    provideFirebaseApp(() => initializeApp(firebaseConfigClient)),
     provideStorage(() => getStorage()),
     provideFirestore(() => getFirestore()),
     provideFunctions(() => getFunctions()),

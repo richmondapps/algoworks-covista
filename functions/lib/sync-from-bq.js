@@ -36,15 +36,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const bigquery_1 = require("@google-cloud/bigquery");
 const admin = __importStar(require("firebase-admin"));
 // Initialize SDKs natively on Application Default Credentials
-admin.initializeApp({ projectId: 'algoworks-dev' });
+admin.initializeApp({ projectId: 'dev-wu-agenticai-app-proj' });
 const db = admin.firestore();
-const bq = new bigquery_1.BigQuery({ projectId: 'algoworks-dev' });
+const bq = new bigquery_1.BigQuery({ projectId: 'dev-wu-agenticai-app-proj' });
 const DATASET = 'covista_demo';
 async function syncBigQuery() {
     var _a, _b, _c, _d, _e;
     console.log('[Node Ingester] Fetching BigQuery Tables...');
     // 1. Fetch Courses
-    const [courses] = await bq.query(`SELECT * FROM \`algoworks-dev.${DATASET}.student_courses\``);
+    const [courses] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_courses\``);
     const courseMap = {};
     for (const row of courses) {
         if (!courseMap[row.student_id])
@@ -58,7 +58,7 @@ async function syncBigQuery() {
         });
     }
     // 2. Fetch Contingencies
-    const [contingencies] = await bq.query(`SELECT * FROM \`algoworks-dev.${DATASET}.student_contingencies\``);
+    const [contingencies] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_contingencies\``);
     const contMap = {};
     for (const row of contingencies) {
         if (!contMap[row.student_id])
@@ -71,7 +71,7 @@ async function syncBigQuery() {
         });
     }
     // 3. Fetch Core and Populate Firestore
-    const [coreRows] = await bq.query(`SELECT * FROM \`algoworks-dev.${DATASET}.student_core\``);
+    const [coreRows] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_core\``);
     let batch = db.batch();
     let count = 0;
     for (const row of coreRows) {

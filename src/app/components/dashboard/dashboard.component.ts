@@ -9,7 +9,7 @@ import { Student } from '../../models/student';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, FilterRiskPipe],
+  imports: [CommonModule, RouterLink, FormsModule],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
@@ -33,7 +33,7 @@ export class DashboardComponent {
     const mode = this.filterMode();
 
     if (mode === 'High Risk') {
-      return list.filter(s => s.riskIndicator === 'High');
+      return list.filter(s => s.aiInsights?.readinessRisk?.level === 'High' || s.riskIndicator === 'High');
     }
     if (mode === 'Action Required') {
       return list.filter(s => s.actionRequired);
@@ -43,7 +43,7 @@ export class DashboardComponent {
   });
 
   countAll = computed(() => this.allStudents().length);
-  countHighRisk = computed(() => this.allStudents().filter(s => s.riskIndicator === 'High').length);
+  countHighRisk = computed(() => this.allStudents().filter(s => s.aiInsights?.readinessRisk?.level === 'High' || s.riskIndicator === 'High').length);
   countActionReq = computed(() => this.allStudents().filter(s => s.actionRequired).length);
 
   getMissingItems(checklist: any[]) {
