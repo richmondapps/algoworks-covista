@@ -1,0 +1,139 @@
+<div style="padding: 2rem; background: #f8fafc; font-family: sans-serif; border-radius: 8px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+      <h2 style="color: #0f172a; margin: 0;">Multi-Tenant Sandbox Simulator</h2>
+      <span style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: bold;">
+          Testing as: {{ userEmail }}
+      </span>
+  </div>
+
+  <!-- Generate Sandbox Tooling -->
+  <div style="background: #1e293b; color: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+      <h3 style="margin-top: 0; color: white; display: flex; align-items: center; gap: 8px;">
+          <span class="material-icons" style="color: #60a5fa;">content_copy</span> Scaffold New Isolated Mock
+      </h3>
+      <p style="font-size: 13px; color: #94a3b8; margin-top: 0; margin-bottom: 1rem;">
+          Clone a pristine baseline mock into a dedicated sandbox strictly assigned to your identity. Destructive test changes will <strong>not</strong> bleed into the global data schema boundaries.
+      </p>
+      
+      <div style="display: flex; gap: 1rem; align-items: center;">
+        <select [(ngModel)]="cloneSource" style="padding: 0.75rem; border-radius: 4px; border: 1px solid #475569; background: #334155; color: white; width: 300px;">
+          <option value="A00302996">Amy Collins (MSEL)</option>
+          <option value="A00409782">Barbara Woods (BSN)</option>
+          <option value="A00437050">Angela Catour (MHA)</option>
+        </select>
+        
+        <button (click)="cloneBaseProfile()" [disabled]="isCloning" style="padding: 0.75rem 2rem; background: #3b82f6; color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;">
+            {{ isCloning ? 'Generating Mock...' : 'Create My Mock Sandbox' }}
+        </button>
+      </div>
+
+      <pre *ngIf="cloneMessage" style="color: #34d399; margin-top: 1rem; font-size: 12px; margin-bottom: 0;">{{ cloneMessage }}</pre>
+  </div>
+
+  <div *ngIf="sandboxRecords.length === 0" style="padding: 2rem; text-align: center; border: 2px dashed #cbd5e1; border-radius: 8px; color: #64748b;">
+      <span class="material-icons" style="font-size: 32px; color: #94a3b8; margin-bottom: 8px;">hub</span>
+      <p>No isolated sandbox mocks detected. Clone a baseline student to begin testing!</p>
+  </div>
+
+  <div *ngIf="sandboxRecords.length > 0" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem;">
+    <!-- Profile Controls -->
+    <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      <h3 style="margin-top: 0; color: #1e293b;">1. Target Sandbox Document</h3>
+      
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">My Mock Sandboxes:</label>
+      <select [(ngModel)]="selectedStudent" (change)="onStudentChange()" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; font-weight: bold; color: #2563eb;">
+        <option *ngFor="let rec of sandboxRecords" [value]="rec.id">{{ rec.name }} [{{ rec.id }}]</option>
+      </select>
+
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Official Funding Type:</label>
+      <select [(ngModel)]="fundingType" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1.5rem;">
+        <option value="Federal">Federal Student Aid (FAFSA)</option>
+        <option value="Employer Sponsored">Employer Sponsored</option>
+        <option value="Out of Pocket">Out of Pocket</option>
+      </select>
+
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Program Start Date:</label>
+      <input type="date" [(ngModel)]="programStartDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+      
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Official Reserve Date:</label>
+      <input type="date" [(ngModel)]="reserveDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Census Deadline Date (Critical):</label>
+      <input type="date" [(ngModel)]="censusDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+    </div>
+
+    <!-- Subcollection Event Trigger -->
+    <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      <h3 style="margin-top: 0; color: #1e293b;">2. Trigger Unified Event (Activity Log)</h3>
+      
+      <div style="display: flex; gap: 1rem;">
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Activity Category:</label>
+          <select [(ngModel)]="activityCategory" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1rem;">
+            <option value="student_event">student_event</option>
+            <option value="task_history">task_history</option>
+            <option value="case">case</option>
+            <option value="contingency">contingency</option>
+            <option value="system_event">system_event</option>
+          </select>
+        </div>
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Event Name:</label>
+          <input type="text" [(ngModel)]="activityName" placeholder="e.g. fafsa_submission" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+        </div>
+      </div>
+
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Activity Datetime (Source Time):</label>
+      <input type="datetime-local" [(ngModel)]="activityDate" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem;">
+
+      <div style="display: flex; gap: 1rem;">
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Actor Model:</label>
+          <select [(ngModel)]="actor" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1rem;">
+            <option value="student">student</option>
+            <option value="enrollment_specialist">enrollment_specialist</option>
+            <option value="system">system</option>
+          </select>
+        </div>
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Direction:</label>
+          <select [(ngModel)]="interactionDirection" style="padding: 0.5rem; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 1rem;">
+            <option value="inbound">Inbound</option>
+            <option value="outbound">Outbound</option>
+            <option value="null">N/A</option>
+          </select>
+        </div>
+      </div>
+
+      <label style="display: block; font-size: 13px; color: gray; margin-bottom: 4px;">Task Notes / Context:</label>
+      <textarea [(ngModel)]="taskNotes" rows="3" style="padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1.5rem; border: 1px solid #cbd5e1; border-radius: 4px;"></textarea>
+    </div>
+
+    <!-- Personalized Checklist Trigger -->
+    <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      <h3 style="margin-top: 0; color: #1e293b;">3. Live Subcollection State</h3>
+      <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 1.5rem;">
+        These boxes are mapped directly to <code>personalized_checklists</code> sub-documents via real-time WebSocket Observers.
+      </p>
+
+      <div *ngFor="let chk of checklists" style="padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; background: #f8fafc;">
+        <span style="font-size: 14px; font-weight: 600; color: #334155;">{{ chk.name }}</span>
+        <label style="display: flex; align-items: center; cursor: pointer; gap: 8px;">
+          <input type="checkbox" [(ngModel)]="chk.satisfied" (change)="toggleChecklist(chk)" style="width: 20px; height: 20px; accent-color: #10b981;">
+          <span style="font-size: 13px; color: #64748b; font-weight: bold; width: 60px;">{{ chk.satisfied ? 'Satisfied' : 'Pending' }}</span>
+        </label>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="margin-top: 2rem;" *ngIf="sandboxRecords.length > 0">
+    <button (click)="pushToV17Schema()" [disabled]="isWriting" style="width: 100%; padding: 1rem; background: #0176d3; color: white; border: none; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 6px rgba(1, 118, 211, 0.2); transition: background 0.2s;">
+      {{ isWriting ? 'Awaiting Firestore Acknowledgement...' : 'Sync Master Profile & Inject Subcollection Event' }}
+    </button>
+  </div>
+
+  <pre *ngIf="syncResult" style="background: #1e293b; color: #10b981; padding: 1rem; border-radius: 4px; margin-top: 1.5rem; font-size: 13px;">
+    {{ syncResult }}
+  </pre>
+</div>

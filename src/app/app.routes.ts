@@ -6,12 +6,14 @@ import { UploadComponent } from './components/upload/upload.component';
 import { LoginComponent } from './components/login/login.component';
 import { authGuard } from './guards/auth.guard';
 import { AdminSimulatorComponent } from './components/admin-simulator/admin-simulator.component';
+import { SandboxSimulatorComponent } from './components/sandbox-simulator/sandbox-simulator.component';
 import { FeedbackSummaryComponent } from './components/feedback-summary/feedback-summary.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'upload', component: UploadComponent },
   { path: 'sf-simulator', component: AdminSimulatorComponent },
+  { path: 'sandbox-simulator', component: SandboxSimulatorComponent, canActivate: [authGuard] },
   {
     path: '',
     component: LayoutComponent,
