@@ -144,6 +144,18 @@
                 </div>
                 @if (accordions()['history']) {
                 <div style="padding: 16px; border-bottom: 1px solid #dddbda; background: #fafafa;">
+                    <div style="margin-bottom: 16px;">
+                        @for (log of student.communications; track log.timestamp) {
+                        <div style="padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <strong style="font-size: 13px; color: #1e293b;">{{ log.type }} ({{ log.status }})</strong>
+                                <span style="font-size: 11px; color: #64748b;">{{ log.timestamp | date:'short' }} - {{ log.agentName || 'System' }}</span>
+                            </div>
+                            <div style="font-size: 13px; color: #475569; white-space: pre-wrap;">{{ log.body }}</div>
+                        </div>
+                        }
+                    </div>
+                    
                     <div style="font-size: 12px; color: #4b5563; margin-bottom: 8px;"><strong>Audit Traceability payload</strong> mapped directly from programmatic event ingestion.</div>
                     <pre style="background: #111827; color: #10b981; padding: 12px; border-radius: 6px; font-size: 11px; overflow-x: auto; max-height: 300px;">{{ student.aiInsights?.dataContext | json }}</pre>
                 </div>
@@ -170,7 +182,7 @@
                         <span>SUBJECT</span>
                         {{ student.aiInsights!.emailDraft?.subject || 'Important update regarding your enrollment' }}
                     </div>
-                    <div class="body">
+                    <div class="body" style="white-space: pre-wrap;">
                         {{ student.aiInsights!.emailDraft?.bodyText }}
                         @if (student.aiInsights!.emailDraft?.bullets?.length) {
                             <ul style="margin-top: 12px; padding-left: 20px;">
