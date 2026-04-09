@@ -11,8 +11,6 @@ import { Storage, ref, listAll, getDownloadURL, getMetadata, uploadString } from
 import { Firestore, collection, addDoc } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { effect } from '@angular/core';
-import html2canvas from 'html2canvas';
-import * as markerjs2 from 'markerjs2';
 
 @Component({
   selector: 'app-opportunity-detail',
@@ -316,10 +314,7 @@ export class OpportunityDetailComponent {
     }
   }
 
-  newNoteText = signal('');
-
   accordions = signal<{ [key: string]: boolean }>({
-    notes: true,
     cases: false,
     docs: false,
     progress: false,
@@ -332,20 +327,6 @@ export class OpportunityDetailComponent {
     this.accordions.set({ ...current, [key]: !current[key] });
   }
 
-  async submitNote(student: Student) {
-    if (!this.newNoteText().trim()) return;
-
-    const newNote = {
-      text: this.newNoteText().trim(),
-      timestamp: new Date().toISOString(),
-      author: 'Admissions Specialist'
-    };
-
-    const notes = student.notes ? [...student.notes, newNote] : [newNote];
-
-    await this.studentService.updateStudent(student.id, { notes });
-    this.newNoteText.set(''); // clear input
-  }
 
   async triggerCommunication(student: Student, action: Partial<RecommendedAction>, customBody?: string) {
     let documentName = 'outstanding enrollment requirements';
@@ -379,96 +360,4 @@ export class OpportunityDetailComponent {
     return Math.round((completed / 7) * 100);
   }
 
-  async openFeedbackCapture() {
-    // 1. Target the absolute root of the document so the user can natively crop any part of the screen
-    const targetElement = document.body;
-    
-    try {
-      console.log('[Feedback] Initializing snapshot matrix via html2canvas...');
-      // 100ms micro-pause to let Material button ripple effect settle before snapshot
-      await new Promise(r => setTimeout(r, 100));
-      
-      const canvas = await html2canvas(targetElement, {
-          useCORS: true,
-          scale: window.devicePixelRatio || 2,
-          backgroundColor: '#ffffff'
-      });
-      
-      const dataUrl = canvas.toDataURL('image/png');
-      console.log('[Feedback] Snapshot generated dynamically!');
-      
-      const img = document.createElement('img');
-      img.style.position = 'fixed';
-      img.style.top = '0';
-      img.style.left = '0';
-      img.style.width = '100vw';
-      img.style.height = '100vh';
-      img.style.objectFit = 'contain';
-      img.style.backgroundColor = 'rgba(0,0,0,0.85)';
-      img.style.zIndex = '9998';
-      
-      document.body.appendChild(img);
-
-      img.onload = () => {
-          setTimeout(() => {
-              console.log('[Feedback] Mounting markerjs2 canvas bindings...');
-              const markerArea = new markerjs2.MarkerArea(img);
-              
-              // Force the UI toolbox to bind cleanly strictly over our image
-              markerArea.uiStyleSettings.zIndex = "9999";
-              
-              markerArea.addEventListener('render', async (event) => {
-                try {
-                  const resultDataUrl = event.dataUrl;
-                  
-                  const timestamp = Date.now();
-                  const studentId = this.student()?.id || 'unknown';
-                  const fileName = `${studentId}_${timestamp}.png`;
-                  
-                  console.log('[Feedback] Emitting annotated blob payload to Firebase Storage...');
-                  const storageRef = ref(this.storage, `feedback/${fileName}`);
-                  await uploadString(storageRef, resultDataUrl, 'data_url');
-                  
-                  const downloadUrl = await getDownloadURL(storageRef);
-                  const email = this.auth.currentUser?.email || 'Unknown User';
-                  
-                  await addDoc(collection(this.firestore, 'feedback_submissions'), {
-                      studentId: studentId,
-                      studentName: this.student()?.name || 'Unknown Student',
-                      submittedBy: email,
-                      timestamp: new Date().toISOString(),
-                      imageUrl: downloadUrl
-                  });
-                  
-                  alert('Successfully captured your notations! The product team has been notified.');
-                } catch(e) {
-                  console.error('[Feedback Storage Error]', e);
-                  alert('Failed to transmit feedback snapshot to Firebase.');
-                } finally {
-                  if (document.body.contains(img)) document.body.removeChild(img);
-                }
-              });
-              
-              markerArea.addEventListener('close', () => {
-                 if (document.body.contains(img)) document.body.removeChild(img);
-              });
-
-              markerArea.show();
-          }, 100);
-      };
-      
-      img.onerror = () => {
-          console.error('[Feedback] Base64 Image DOM insertion failed to load buffer');
-          alert('Failed to display the snapshot overlay.');
-          if (document.body.contains(img)) document.body.removeChild(img);
-      };
-      
-      // Assign the DOM Source strictly after `.onload` binding so synchronous dataURI resolutions do not bypass initialization!
-      img.src = dataUrl;
-
-    } catch (e) {
-      console.error('[Feedback Snapshot Core Exception]', e);
-      alert('Failed to capture screen area. Check the developer console.');
-    }
-  }
 }

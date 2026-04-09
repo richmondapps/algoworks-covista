@@ -40,11 +40,6 @@
                 {{ isGeneratingAi() ? 'Generating via Eventarc...' : (student.aiInsights?.generatedAt ? 'Regenerate AI Insights' : 'Run Vertex AI Insights') }}
             </a>
             </div>
-            
-            <button class="sf-outline-btn" style="border: 2px solid #5533FF; color: #5533FF; background: #ffffff; border-radius: 6px; padding: 8px 16px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;" (click)="openFeedbackCapture()" [disabled]="!student.aiInsights">
-                <span class="material-icons" style="font-size: 16px;">draw</span>
-                Provide Annotated Feedback
-            </button>
         </div>
 
         @if (student.aiInsights?.readinessRisk) {
@@ -154,32 +149,7 @@
                 </div>
                 }
 
-                <div class="sf-accordion-item">
-                    <div class="acc-left" (click)="toggleAccordion('notes')" style="cursor: pointer;">
-                        <span class="material-icons" style="font-size: 24px; color: #1e1e1e;">{{ accordions()['notes'] ? 'expand_more' : 'chevron_right' }}</span>
-                        <span class="acc-title" style="font-size: 14px;">NOTES</span>
-                    </div>
-                </div>
-                @if (accordions()['notes']) {
-                <div style="padding: 16px; border-bottom: 1px solid #dddbda; background: #fff;">
-                    <div class="sf-quick-notes">
-                        <textarea class="sf-notes-area" rows="3" placeholder="Log outreach history or general observation..." [(ngModel)]="newNoteText" style="width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; font-family: inherit; font-size: 13px;"></textarea>
-                        <div class="sf-text-right" style="display: flex; justify-content: flex-end;">
-                            <button class="sf-outline-btn" style="border: 1px solid #0176d3; color: #0176d3; background: #ffffff; border-radius: 16px; padding: 6px 16px; font-weight: 600; margin-top: 8px; cursor: pointer;" (click)="submitNote(student)">Save Note</button>
-                        </div>
-                    </div>
-                    @if (student.notes && student.notes.length) {
-                    <div style="margin-top: 16px;">
-                        @for (n of student.notes.slice().reverse(); track n.timestamp) {
-                        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #eee;">
-                            <div style="font-size: 11px; color: #747474; margin-bottom: 4px;">{{ n.timestamp | date:'short' }} - <strong>{{ n.author }}</strong></div>
-                            <div style="font-size: 13px; color: #1b1b1b; white-space: pre-wrap;">{{ n.text }}</div>
-                        </div>
-                        }
-                    </div>
-                    }
-                </div>
-                }
+
             </div>
         </div>
 
