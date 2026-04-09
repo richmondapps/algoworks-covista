@@ -23,14 +23,6 @@
                 Sign in with Google
             </button>
 
-            <div class="divider">or</div>
-
-            <div class="magic-link-group">
-                <label>Email Address</label>
-                <input type="email" placeholder="name@company.com" [(ngModel)]="email" [disabled]="isSending" />
-                <button (click)="sendMagicLink()" [disabled]="isSending">{{ isSending ? 'Sending Link...' : 'Send Magic
-                    Link' }}</button>
-            </div>
         </div>
 
         <div class="footer-text">
