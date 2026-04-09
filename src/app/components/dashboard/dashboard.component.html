@@ -2,34 +2,42 @@
     <div>
         <h2>Opportunities Dashboard</h2>
         <p>Monitor readiness checklists and identify students needing action before census.</p>
+        <p style="font-weight: 500; margin-top: 4px;">Select a student to see their outputs and provide feedback.</p>
     </div>
-    <button class="primary-btn" (click)="triggerAction()" [disabled]="isLoading()">
-        <span class="material-icons">bolt</span>
-        {{ isLoading() ? 'Checking...' : 'Check Action Required' }}
-    </button>
 </div>
 
 
 
 <div class="glass-panel table-container">
-    <div
-        style="padding: 15px 20px; border-bottom: 1px solid rgba(0, 0, 0, 0.1); display: flex; gap: 10px; align-items: center;">
-        <span style="font-weight: 500; color: var(--text-secondary); margin-right: 15px;">Filter View:</span>
-        <button class="action-btn small-btn" [class.active]="filterMode() === 'All'" (click)="setFilter('All')">All
-            Students ({{ countAll() }})</button>
-        <button class="action-btn small-btn" [class.active]="filterMode() === 'High Risk'"
-            (click)="setFilter('High Risk')">High Risk ({{ countHighRisk() }})</button>
-        <button class="action-btn small-btn" [class.active]="filterMode() === 'Action Required'"
-            (click)="setFilter('Action Required')">Action Required ({{ countActionReq() }})</button>
+    <div style="padding: 15px 20px; border-bottom: 1px solid rgba(0, 0, 0, 0.1); display: flex; gap: 20px; align-items: center;">
+        <span style="font-weight: 500; color: var(--text-secondary);">Filter View:</span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <label style="font-size: 13px; color: var(--text-secondary);">Engagement Risk:</label>
+            <select [ngModel]="engagementFilter()" (ngModelChange)="engagementFilter.set($event)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
+                <option value="All">All</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+            </select>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <label style="font-size: 13px; color: var(--text-secondary);">Readiness Risk:</label>
+            <select [ngModel]="readinessFilter()" (ngModelChange)="readinessFilter.set($event)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
+                <option value="All">All</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+            </select>
+        </div>
     </div>
     <table class="students-table">
         <thead>
             <tr>
-                <th>Student Name</th>
-                <th>Readiness Risk</th>
-                <th>Engagement Risk</th>
-                <th>Time Since Reserve</th>
-                <th>Time To Start</th>
+                <th (click)="setSort('name')" style="cursor: pointer; user-select: none;">Student Name <span *ngIf="sortField() === 'name'">{{ sortDir() === 'asc' ? '↑' : '↓' }}</span></th>
+                <th (click)="setSort('readiness')" style="cursor: pointer; user-select: none;">Readiness Risk <span *ngIf="sortField() === 'readiness'">{{ sortDir() === 'asc' ? '↑' : '↓' }}</span></th>
+                <th (click)="setSort('engagement')" style="cursor: pointer; user-select: none;">Engagement Risk <span *ngIf="sortField() === 'engagement'">{{ sortDir() === 'asc' ? '↑' : '↓' }}</span></th>
+                <th (click)="setSort('timeReserve')" style="cursor: pointer; user-select: none;">Time Since Reserve <span *ngIf="sortField() === 'timeReserve'">{{ sortDir() === 'asc' ? '↑' : '↓' }}</span></th>
+                <th (click)="setSort('timeStart')" style="cursor: pointer; user-select: none;">Time To Start <span *ngIf="sortField() === 'timeStart'">{{ sortDir() === 'asc' ? '↑' : '↓' }}</span></th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -38,24 +46,8 @@
             <tr [routerLink]="['/opportunity', s.id]" class="clickable-row">
                 <td>
                     <div class="student-name">{{ s.name }}</div>
-                    @if (editingId() === s.id) {
-                    <div class="edit-mode" (click)="$event.stopPropagation()">
-                        <input type="email" [ngModel]="editEmail()" (ngModelChange)="editEmail.set($event)"
-                            class="inline-input" placeholder="Email" />
-                        <input type="tel" [ngModel]="editPhone()" (ngModelChange)="editPhone.set($event)"
-                            class="inline-input" placeholder="Phone" />
-                        <div class="edit-actions">
-                            <button class="action-btn small-btn cancel-btn" (click)="cancelEdit($event)">Cancel</button>
-                            <button class="primary-btn small-btn save-btn" (click)="saveEdit($event, s)">Save</button>
-                        </div>
-                    </div>
-                    } @else {
                     <div class="student-email">{{ s.email }}</div>
                     <div class="student-phone">{{ s.phone }}</div>
-                    <button class="edit-text-btn" (click)="startEdit($event, s)">
-                        <span class="material-icons" style="font-size: 14px;">edit</span> Edit Contact Info
-                    </button>
-                    }
                 </td>
                 <td>
                     <span class="status-badge" [ngClass]="s.aiInsights?.readinessRisk?.level?.toLowerCase() || (s.riskIndicator ? s.riskIndicator.toLowerCase() : '')">

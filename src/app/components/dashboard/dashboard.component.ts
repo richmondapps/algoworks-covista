@@ -19,73 +19,75 @@ export class DashboardComponent {
   // Base raw stream from database
   allStudents = this.studentService.students;
 
-  // The active UI filter state
-  filterMode = signal<'All' | 'High Risk' | 'Action Required'>('All');
+  // Dynamic filtering states
+  engagementFilter = signal<'All' | 'High' | 'Medium' | 'Low'>('All');
+  readinessFilter = signal<'All' | 'High' | 'Medium' | 'Low'>('All');
 
-  // Inline edit state
-  editingId = signal<string | null>(null);
-  editEmail = signal<string>('');
-  editPhone = signal<string>('');
+  // Unified sorting states
+  sortField = signal<'name' | 'readiness' | 'engagement' | 'timeReserve' | 'timeStart' | ''>('');
+  sortDir = signal<'asc' | 'desc'>('asc');
 
-  // Computed projection based on active filter
+  // Computed projection combining multi-layered filtering AND sorting natively
   students = computed(() => {
-    const list = this.allStudents();
-    const mode = this.filterMode();
+    let list = this.allStudents();
 
-    if (mode === 'High Risk') {
-      return list.filter(s => s.aiInsights?.readinessRisk?.level === 'High' || s.riskIndicator === 'High');
+    // 1. Evaluate Filters
+    const eFilt = this.engagementFilter();
+    if (eFilt !== 'All') {
+      list = list.filter(s => (s.aiInsights?.engagementRisk?.level || s.engagementLevel) === eFilt);
     }
-    if (mode === 'Action Required') {
-      return list.filter(s => s.actionRequired);
+    
+    const rFilt = this.readinessFilter();
+    if (rFilt !== 'All') {
+      list = list.filter(s => (s.aiInsights?.readinessRisk?.level || s.riskIndicator) === rFilt);
+    }
+
+    // 2. Evaluate Sorting matrix
+    const field = this.sortField();
+    const dir = this.sortDir() === 'asc' ? 1 : -1;
+
+    if (field) {
+      list = [...list].sort((a, b) => {
+        let valA: any = 0;
+        let valB: any = 0;
+
+        if (field === 'name') {
+          valA = a.name.toLowerCase();
+          valB = b.name.toLowerCase();
+        } else if (field === 'readiness') {
+          // Normalize rank map (High > Medium > Low)
+          const rank: any = { 'High': 3, 'Medium': 2, 'Low': 1 };
+          valA = rank[a.aiInsights?.readinessRisk?.level || a.riskIndicator || 'Low'] || 0;
+          valB = rank[b.aiInsights?.readinessRisk?.level || b.riskIndicator || 'Low'] || 0;
+        } else if (field === 'engagement') {
+          const rank: any = { 'High': 3, 'Medium': 2, 'Low': 1 };
+          valA = rank[a.aiInsights?.engagementRisk?.level || a.engagementLevel || 'Low'] || 0;
+          valB = rank[b.aiInsights?.engagementRisk?.level || b.engagementLevel || 'Low'] || 0;
+        } else if (field === 'timeReserve') {
+          valA = a.timeSinceReserveDays || 0;
+          valB = b.timeSinceReserveDays || 0;
+        } else if (field === 'timeStart') {
+          valA = a.timeUntilClassStartDays || 0;
+          valB = b.timeUntilClassStartDays || 0;
+        }
+
+        if (valA < valB) return -1 * dir;
+        if (valA > valB) return 1 * dir;
+        return 0;
+      });
     }
 
     return list;
   });
 
-  countAll = computed(() => this.allStudents().length);
-  countHighRisk = computed(() => this.allStudents().filter(s => s.aiInsights?.readinessRisk?.level === 'High' || s.riskIndicator === 'High').length);
-  countActionReq = computed(() => this.allStudents().filter(s => s.actionRequired).length);
-
-  getMissingItems(checklist: any[]) {
-    if (!checklist) return [];
-    return checklist.filter(c => c.status === 'Missing');
+  setSort(field: 'name' | 'readiness' | 'engagement' | 'timeReserve' | 'timeStart') {
+    if (this.sortField() === field) {
+      this.sortDir.set(this.sortDir() === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sortField.set(field);
+      this.sortDir.set('asc');
+    }
   }
 
-  isLoading = signal(false);
 
-  async triggerAction() {
-    this.isLoading.set(true);
-    await this.studentService.triggerActionCheck();
-    // Enforce view to newly fetched prioritized objects
-    this.filterMode.set('Action Required');
-    this.isLoading.set(false);
-  }
-
-  setFilter(mode: 'All' | 'High Risk' | 'Action Required') {
-    this.filterMode.set(mode);
-  }
-
-  startEdit(event: Event, student: Student) {
-    event.stopPropagation();
-    event.preventDefault();
-    this.editingId.set(student.id);
-    this.editEmail.set(student.email);
-    this.editPhone.set(student.phone);
-  }
-
-  cancelEdit(event: Event) {
-    event.stopPropagation();
-    event.preventDefault();
-    this.editingId.set(null);
-  }
-
-  async saveEdit(event: Event, student: Student) {
-    event.stopPropagation();
-    event.preventDefault();
-    await this.studentService.updateStudent(student.id, {
-      email: this.editEmail(),
-      phone: this.editPhone()
-    });
-    this.editingId.set(null);
-  }
 }

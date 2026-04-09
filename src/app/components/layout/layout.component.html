@@ -1,45 +1,5 @@
-<div class="app-layout">
-    <nav class="sidebar">
-        <div class="logo">
-            <div class="logo-icon">C</div>
-            <h1>Covista R2C</h1>
-        </div>
-        <ul class="nav-links">
-            <li>
-                <a routerLink="/dashboard" routerLinkActive="active">
-                    <span class="icon material-icons">dashboard</span>
-                    Dashboard
-                </a>
-            </li>
-            <li>
-                <a routerLink="/feedback" routerLinkActive="active">
-                    <span class="icon material-icons">photo_library</span>
-                    Feedback Gallery
-                </a>
-            </li>
-        </ul>
-
-        <div class="bottom-nav">
-            @if (currentUser(); as user) {
-            <div class="user-profile" style="padding-bottom: 20px;">
-                <div class="avatar">{{ (user.displayName?.charAt(0) || user.email?.charAt(0) || 'U').toUpperCase() }}
-                </div>
-                <div class="info" style="overflow: hidden; display: flex; flex-direction: column; width: 100%;">
-                    <span class="name"
-                        style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-                        [title]="user.email">{{ user.displayName || user.email }}</span>
-                    <span class="role"
-                        style="font-size: 10px; color: #60A5FA; font-weight: 500; cursor: pointer; margin-top: 4px; display: flex; align-items: center; gap: 4px;"
-                        (click)="logout()">
-                        <span class="material-icons" style="font-size: 12px;">logout</span> Sign Out
-                    </span>
-                </div>
-            </div>
-            }
-        </div>
-    </nav>
-
-    <main class="main-content">
+<div class="app-layout" style="display: block; width: 100%;">
+    <main class="main-content" style="width: 100%; max-width: 100%; margin: 0; padding: 20px;">
         <header class="top-header">
             <div class="header-actions">
             </div>
