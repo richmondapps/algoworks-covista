@@ -144,7 +144,7 @@
                 </div>
                 @if (accordions()['history']) {
                 <div style="padding: 16px; border-bottom: 1px solid #dddbda; background: #fafafa;">
-                    <div style="margin-bottom: 16px;">
+                    <div style="margin-bottom: 16px; max-height: 400px; overflow-y: auto; padding-right: 8px;">
                         @for (log of liveActivityLogs(); track (log.activity_datetime || log.last_updated_timestamp)) {
                         <div style="padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; margin-bottom: 8px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
