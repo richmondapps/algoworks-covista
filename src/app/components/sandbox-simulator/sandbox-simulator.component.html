@@ -14,6 +14,10 @@
       <p style="font-size: 13px; color: #94a3b8; margin-top: 0; margin-bottom: 1rem;">
           Clone a pristine baseline mock into a dedicated sandbox strictly assigned to your identity. Destructive test changes will <strong>not</strong> bleed into the global data schema boundaries.
       </p>
+      <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;">
+        <input type="text" [(ngModel)]="mockFirstName" placeholder="First Name (e.g. John)" style="flex: 1; padding: 0.75rem; border-radius: 4px; border: 1px solid #475569; background: #334155; color: white;">
+        <input type="text" [(ngModel)]="mockLastName" placeholder="Last Name (e.g. Doe)" style="flex: 1; padding: 0.75rem; border-radius: 4px; border: 1px solid #475569; background: #334155; color: white;">
+      </div>
       
       <div style="display: flex; gap: 1rem; align-items: center;">
         <select [(ngModel)]="cloneSource" style="padding: 0.75rem; border-radius: 4px; border: 1px solid #475569; background: #334155; color: white; width: 300px;">

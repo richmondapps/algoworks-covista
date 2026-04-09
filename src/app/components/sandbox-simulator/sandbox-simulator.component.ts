@@ -23,6 +23,8 @@ export class SandboxSimulatorComponent implements OnInit, OnDestroy {
   
   // Clone Control
   cloneSource = 'A00302996';
+  mockFirstName = '';
+  mockLastName = '';
   isCloning = false;
   cloneMessage = '';
 
@@ -95,6 +97,11 @@ export class SandboxSimulatorComponent implements OnInit, OnDestroy {
   }
 
   async cloneBaseProfile() {
+    if (!this.mockFirstName.trim() || !this.mockLastName.trim()) {
+        this.cloneMessage = 'ERROR: First and Last name are strictly required to construct a valid Mock identifier.';
+        return;
+    }
+    
     this.isCloning = true;
     try {
         const base = this.studentsBase[this.cloneSource];
@@ -102,7 +109,7 @@ export class SandboxSimulatorComponent implements OnInit, OnDestroy {
         
         const profile: any = {
             student_id: newId,
-            student_name: `${base.name} (Sandbox)`,
+            student_name: `${this.mockFirstName.trim()} ${this.mockLastName.trim()}`,
             institution: 'Covista University',
             program: base.program,
             program_name: base.program_name,
