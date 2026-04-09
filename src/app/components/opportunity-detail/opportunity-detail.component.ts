@@ -11,6 +11,7 @@ import { Storage, ref, listAll, getDownloadURL, getMetadata, uploadString } from
 import { Firestore, collection, addDoc } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { effect } from '@angular/core';
+import { onSnapshot } from '@angular/fire/firestore';
 
 @Component({
   selector: 'app-opportunity-detail',
@@ -188,7 +189,19 @@ export class OpportunityDetailComponent {
       const s = this.student();
       if (s) {
         this.loadDocuments(s.studentUid);
+        this.loadActivityLogs(s.id);
       }
+    });
+  }
+
+  liveActivityLogs = signal<any[]>([]);
+
+  async loadActivityLogs(uid: string) {
+    const logsRef = collection(this.firestore, `salesforce_opportunities/${uid}/activity_logs`);
+    onSnapshot(logsRef, (snap) => {
+       const logs = snap.docs.map(d => d.data());
+       logs.sort((a,b) => new Date(b['activity_datetime'] || b['last_updated_timestamp']).getTime() - new Date(a['activity_datetime'] || a['last_updated_timestamp']).getTime());
+       this.liveActivityLogs.set(logs);
     });
   }
 
