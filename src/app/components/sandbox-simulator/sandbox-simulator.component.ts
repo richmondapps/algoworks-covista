@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Firestore, doc, setDoc, collection, addDoc, onSnapshot, Unsubscribe, query, where, getDocs } from '@angular/fire/firestore';
+import { Firestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, Unsubscribe, query, where, getDocs } from '@angular/fire/firestore';
 import { AuthService } from '../../services/auth.service';
 import { SalesforceOpportunityProfile, SalesforceActivityLog, SalesforcePersonalizedChecklist } from '../../models/salesforce-opportunity';
 
@@ -104,27 +104,50 @@ export class SandboxSimulatorComponent implements OnInit, OnDestroy {
     
     this.isCloning = true;
     try {
-        const base = this.studentsBase[this.cloneSource];
-        const newId = `${this.cloneSource}-${this.userEmail.split('@')[0]}`;
+        const baseId = this.cloneSource;
+        const newId = this.auth.currentUser()?.uid || this.userEmail.split('@')[0];
         
+        // 1. Deep fetch of the Master Record
+        const masterSnap = await getDoc(doc(this.firestore, 'salesforce_opportunities', baseId));
+        if (!masterSnap.exists()) {
+             throw new Error("Master baseline not found");
+        }
+        
+        const masterData = masterSnap.data();
+        
+        // 2. Assemble cloned root payload
         const profile: any = {
+            ...masterData,
             student_id: newId,
             student_name: `${this.mockFirstName.trim()} ${this.mockLastName.trim()}`,
-            institution: 'Covista University',
-            program: base.program,
-            program_name: base.program_name,
-            term_code: '2026-T1',
-            term_desc: 'Spring 2026',
-            status_stage: 'Enrolled',
-            enrollment_specialist_name: base.es,
-            funding_type: 'Federal',
             sandboxOwner: this.userEmail,
             last_updated_at: new Date().toISOString(),
             isSandboxClone: true
         };
         
         await setDoc(doc(this.firestore, 'salesforce_opportunities', newId), profile, { merge: true });
-        this.cloneMessage = `SUCCESS: Securely Cloned Tenant Overlay onto -> ${newId}`;
+        
+        // 3. Deep clone the Checklists
+        const chkSnap = await getDocs(collection(this.firestore, `salesforce_opportunities/${baseId}/personalized_checklists`));
+        for (const snap of chkSnap.docs) {
+             const chkData = snap.data();
+             await setDoc(doc(this.firestore, `salesforce_opportunities/${newId}/personalized_checklists`, snap.id), {
+                 ...chkData,
+                 student_id: newId
+             });
+        }
+        
+        // 4. Deep clone Activity Logs
+        const actSnap = await getDocs(collection(this.firestore, `salesforce_opportunities/${baseId}/activity_logs`));
+        for (const snap of actSnap.docs) {
+             const actData = snap.data();
+             await setDoc(doc(this.firestore, `salesforce_opportunities/${newId}/activity_logs`, snap.id), {
+                 ...actData,
+                 student_id: newId
+             });
+        }
+        
+        this.cloneMessage = `SUCCESS: Securely Cloned Deep Struct Map -> ${newId}`;
         await this.fetchSandboxRecords();
         this.selectedStudent = newId;
         this.bindStudentState();
