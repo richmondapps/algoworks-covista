@@ -7,6 +7,31 @@
     </div>
 
     <!-- New Client Layout: R2C Agentic AI --> 
+    <div class="sf-panel header-card" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 24px; margin-bottom: 24px; border-radius: 12px;">
+        <div>
+            <h1 style="font-size: 28px; font-weight: 800; margin: 0 0 8px 0; color: #1e1e1e;">{{ student.name }}</h1>
+            <div style="font-size: 15px; font-weight: 600; color: #4b5563; display: flex; align-items: center; gap: 8px;">
+                <span class="material-icons" style="font-size: 18px; color: #6366f1;">school</span>
+                {{ $any(student).program || 'MS Early Education' }}
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 16px;">
+            <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                <span style="font-size: 12px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Readiness Level</span>
+                <span class="status-badge" [ngClass]="student.aiInsights?.readinessRisk?.level?.toLowerCase() || (student.riskIndicator ? student.riskIndicator.toLowerCase() : '')" style="font-size: 14px; padding: 6px 16px;">
+                    {{ student.aiInsights?.readinessRisk?.level || student.riskIndicator || '-' }}
+                </span>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                <span style="font-size: 12px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Engagement Level</span>
+                <span class="status-badge" [ngClass]="student.aiInsights?.engagementRisk?.level?.toLowerCase() || ''" style="font-size: 14px; padding: 6px 16px;">
+                    {{ student.aiInsights?.engagementRisk?.level || student.engagementLevel || '-' }}
+                </span>
+            </div>
+        </div>
+    </div>
+
     <div class="r2c-agentic-section" id="r2c-capture-target">
         <div class="r2c-header">
             <div>
@@ -107,7 +132,39 @@
                                 {{ student.requirements.orientationStarted ? 'check_circle' : 'pending' }}
                             </span>
                             <div class="text-content">
-                                <h4 style="margin: 0;">Program Orientation</h4>
+                                <h4 style="margin: 0;">Initial Portal Login</h4>
+                            </div>
+                        </li>
+                        <li class="nba-item" style="align-items: center;">
+                            <span class="material-icons" [ngStyle]="{'color': student.requirements.courseRegistration ? '#10b981' : '#f59e0b', 'font-size': '18px'}">
+                                {{ student.requirements.courseRegistration ? 'check_circle' : 'pending' }}
+                            </span>
+                            <div class="text-content">
+                                <h4 style="margin: 0;">Course Registration</h4>
+                            </div>
+                        </li>
+                        <li class="nba-item" style="align-items: center;">
+                            <span class="material-icons" [ngStyle]="{'color': student.requirements.wwowOrientationStarted ? '#10b981' : '#f59e0b', 'font-size': '18px'}">
+                                {{ student.requirements.wwowOrientationStarted ? 'check_circle' : 'pending' }}
+                            </span>
+                            <div class="text-content">
+                                <h4 style="margin: 0;">WWOW Login</h4>
+                            </div>
+                        </li>
+                        <li class="nba-item" style="align-items: center;">
+                            <span class="material-icons" [ngStyle]="{'color': student.requirements.firstAssignmentSubmitted ? '#10b981' : '#f59e0b', 'font-size': '18px'}">
+                                {{ student.requirements.firstAssignmentSubmitted ? 'check_circle' : 'pending' }}
+                            </span>
+                            <div class="text-content">
+                                <h4 style="margin: 0;">Course Login</h4>
+                            </div>
+                        </li>
+                        <li class="nba-item" style="align-items: center;">
+                            <span class="material-icons" [ngStyle]="{'color': student.requirements.assignmentByCensusDay ? '#10b981' : '#f59e0b', 'font-size': '18px'}">
+                                {{ student.requirements.assignmentByCensusDay ? 'check_circle' : 'pending' }}
+                            </span>
+                            <div class="text-content">
+                                <h4 style="margin: 0;">Course Participation</h4>
                             </div>
                         </li>
                         <li class="nba-item" style="align-items: center;">
@@ -115,11 +172,11 @@
                                 {{ student.requirements.fundingPlan ? 'check_circle' : 'pending' }}
                             </span>
                             <div class="text-content">
-                                <h4 style="margin: 0;">Funding Plan Submission</h4>
+                                <h4 style="margin: 0;">FAFSA Submission (or Alternative Funding)</h4>
                             </div>
                         </li>
                         
-                        @for (transcript of (student.requirements.dynamicTranscripts || [{name: 'Official Transcript - Default University (updating logic)', valid: student.requirements.officialTranscriptsReceived}]); track transcript.name) {
+                        @for (transcript of (student.requirements.dynamicTranscripts || [{name: 'Contingency - Default University Transcript', valid: student.requirements.officialTranscriptsReceived}]); track transcript.name) {
                             <li class="nba-item" style="align-items: center;">
                                 <span class="material-icons" [ngStyle]="{'color': transcript.valid ? '#10b981' : '#f59e0b', 'font-size': '18px'}">
                                     {{ transcript.valid ? 'check_circle' : 'pending' }}

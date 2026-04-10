@@ -32,7 +32,7 @@ def generate_core_insights(data_context):
     
     Reply ONLY in strictly valid JSON formatted exactly like this:
     {{
-      "overviewSummary": "A unified holistic narrative summarizing BOTH their academic/onboarding readiness AND their communication/activity engagement together in 3-4 cohesive sentences.",
+      "overviewSummary": "You MUST explicitly state and justify the assigned Levels. Your summary must adopt the exact format: 'Readiness Level is [Level] because... Engagement Level is [Level] because...'",
       "readinessRisk": {{
           "level": "High, Medium, or Low",
           "trendDirection": "up, down, or stable",
