@@ -1,2 +1,35 @@
-# wu-ai-r2c
-R2C (Reserve to Census) is an AI‑driven initiative to help Enrollment Specialists (ES) move students from reserved to census by giving them clear readiness insight, risk signals, and next‑best actions in one place.
+Project Title:
+Description:
+Ownership & Contacts:
+
+Installation & Setup:
+
+Features:
+
+Testing:
+
+FAQ (If Applicable):
+
+Changelog:
+
+Architecture / Design Overview:
+
+Security Considerations:
+
+Configuration & Environment Details:
+
+Operations & Support Information:
+
+Usage Examples:
+
+Dependencies & Integrations:
+
+Known Limitations:
+
+Roadmap:
+
+License:
+
+Contributing Guidelines:
+
+Lifecycle Status:
