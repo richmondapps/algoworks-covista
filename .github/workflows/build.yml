@@ -1,0 +1,16 @@
+name: Build and SonarQube Scan
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
+      - qa
+jobs:
+   build:
+     name: Build and analyze testing
+     uses: atge-org/atge-sq-cmncfgs/.github/workflows/sonar-build.yml@main
+     secrets:
+         KSM_CONFIG: ${{ secrets.KSM_CONFIG }}
+         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+         SONAR_ROOT_CERT: ${{ secrets.SONAR_ROOT_CERT }}
