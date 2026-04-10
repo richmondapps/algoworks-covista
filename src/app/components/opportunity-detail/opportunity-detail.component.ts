@@ -227,7 +227,23 @@ export class OpportunityDetailComponent {
   }
 
   isGeneratingAi = signal(false);
+  isGeneratingComms = signal(false);
   transientAgentTrace = signal<any[] | null>(null);
+
+  async requestCommunications(student: Student) {
+    if (this.isGeneratingComms()) return;
+    this.isGeneratingComms.set(true);
+
+    try {
+      await this.studentService.generateCommunications(student);
+      console.log('Explicit Communications request finalized successfully via Python Agent native bindings.');
+    } catch (e) {
+      console.error('Failed to command comms agent natively:', e);
+      alert('Internal architecture failed to hook into explicitly detached generation payload.');
+    } finally {
+      this.isGeneratingComms.set(false);
+    }
+  }
   selectedOutreachTab = signal<'actions' | 'email' | 'sms'>('actions');
 
   daysRemaining(dueDate: string): number {

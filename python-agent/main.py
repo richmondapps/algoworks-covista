@@ -117,25 +117,8 @@ def generate_insights():
     # Inject generation timestamp for UI freshness tracking
     core_payload["generatedAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
     
-    # -------------------------------------------------------------
-    # PHASE 2: Detached Background Execution for Heavy Comms payload
-    # -------------------------------------------------------------
-    def generate_and_save_comms(uid, context):
-        comms_payload = generate_communications(context)
-        print(f"[Comms Agent] Background Generation Complete for UID: {uid}. Merging into Firestore.")
-        if uid and comms_payload:
-            # Safely overlay ONLY the specific Comms vectors using dot-notation string maps!
-            print(f"[Comms Agent] Successfully captured valid Comms payload! Injecting to database...")
-            try:
-                db.collection('salesforce_opportunities').document(uid).update({
-                    "aiInsights.emailDraft": comms_payload.get("emailDraft"),
-                    "aiInsights.smsDraft": comms_payload.get("smsDraft")
-                })
-            except Exception as er:
-                print(f"[Comms Agent] FAILED TO INJECT COMMS INTO FIRESTORE: {er}")
-
-    # Spawning the background worker
-    threading.Thread(target=generate_and_save_comms, args=(student_uid, data_context)).start()
+    # Core Insights successfully processed synchronously.
+    # Note: Comms generation is completely decoupled per architectural rules.
     
     # Immediately return the Phase 1 trace to unblock the Enrollment Specialist's UI
     core_payload["agentTrace"] = [
@@ -145,17 +128,31 @@ def generate_insights():
             "status": "Success",
             "duration": "Python Local Thread",
             "timestamp": "Now"
-        },
-        {
-            "agentName": "Communications Agent",
-            "action": "Synthesize Custom Outreach (Detached)",
-            "status": "Processing in Background...",
-            "duration": "Awaiting Callback",
-            "timestamp": "Now"
         }
     ]
     
     return jsonify(core_payload)
+
+@app.route('/generate-comms', methods=['POST'])
+def run_comms_agent():
+    req_data = request.json
+    uid = req_data.get('studentUid')
+    context = req_data.get('dataContext', {})
+    
+    comms_payload = generate_communications(context)
+    print(f"[Comms Agent] Explicit Generation Complete for UID: {uid}. Merging into Firestore.")
+    
+    if uid and comms_payload:
+        try:
+            db.collection('salesforce_opportunities').document(uid).update({
+                "aiInsights.emailDraft": comms_payload.get("emailDraft"),
+                "aiInsights.smsDraft": comms_payload.get("smsDraft")
+            })
+        except Exception as er:
+            print(f"[Comms Agent] FAILED TO INJECT COMMS INTO FIRESTORE: {er}")
+            return jsonify({"status": "error", "message": str(er)}), 500
+            
+    return jsonify({"status": "success", "comms": comms_payload})
 
 # ------------------------------------------------------------------
 # Phase 1: Operational Ingestion Bridge (BigQuery -> Firestore)

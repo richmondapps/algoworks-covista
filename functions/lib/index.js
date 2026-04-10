@@ -36,7 +36,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.queryStudentDocument = exports.aggregateChecklistsOnUpdate = exports.syncAiInsightsOnUpdate = exports.generateStudentInsights = void 0;
+exports.queryStudentDocument = exports.aggregateChecklistsOnUpdate = exports.syncAiInsightsOnUpdate = exports.generateStudentCommunications = exports.generateStudentInsights = void 0;
 const google_auth_library_1 = require("google-auth-library");
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -74,6 +74,35 @@ exports.generateStudentInsights = (0, https_1.onCall)({ cors: true }, async (req
     }
     catch (e) {
         console.error('[generateStudentInsights] Python Pipeline Execution Failed', e);
+        throw new https_1.HttpsError('internal', `Python Architecture Failed: ${e.message}`);
+    }
+});
+/**
+ * Cloud Function to explicitly command the disconnected Communications Agent explicitly via Vertex AI gemini-3.1-pro-preview
+ */
+exports.generateStudentCommunications = (0, https_1.onCall)({ cors: true }, async (request) => {
+    const { studentUid, dataContext } = request.data;
+    if (!studentUid) {
+        throw new https_1.HttpsError('invalid-argument', 'Missing student UID');
+    }
+    try {
+        console.log(`Generating isolated communications for student: ${studentUid}`);
+        const execStart = Date.now();
+        const agentResponse = await fetch('https://python-data-agent-1033582308599.us-central1.run.app/generate-comms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentUid, dataContext })
+        });
+        if (!agentResponse.ok) {
+            throw new Error(`Python Proxy Failed: ${agentResponse.statusText}`);
+        }
+        const aiPayload = await agentResponse.json();
+        const execDuration = Date.now() - execStart;
+        console.log(`Communications generated successfully in ${execDuration}ms. Python natively managed DB writes.`);
+        return { success: true, aiInsights: aiPayload.comms };
+    }
+    catch (e) {
+        console.error('[generateStudentCommunications] Python Pipeline Execution Failed', e);
         throw new https_1.HttpsError('internal', `Python Architecture Failed: ${e.message}`);
     }
 });

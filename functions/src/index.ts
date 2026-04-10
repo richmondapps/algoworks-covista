@@ -54,6 +54,44 @@ export const generateStudentInsights = onCall({ cors: true }, async (request) =>
 });
 
 /**
+ * Cloud Function to explicitly command the disconnected Communications Agent explicitly via Vertex AI gemini-3.1-pro-preview
+ */
+export const generateStudentCommunications = onCall({ cors: true }, async (request) => {
+  const { studentUid, dataContext } = request.data;
+  if (!studentUid) {
+    throw new HttpsError('invalid-argument', 'Missing student UID');
+  }
+
+  try {
+    console.log(`Generating isolated communications for student: ${studentUid}`);
+
+    const execStart = Date.now();
+    const agentResponse = await fetch(
+      'https://python-data-agent-1033582308599.us-central1.run.app/generate-comms',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentUid, dataContext })
+      },
+    );
+    
+    if (!agentResponse.ok) {
+       throw new Error(`Python Proxy Failed: ${agentResponse.statusText}`);
+    }
+
+    const aiPayload = await agentResponse.json();
+    const execDuration = Date.now() - execStart;
+    
+    console.log(`Communications generated successfully in ${execDuration}ms. Python natively managed DB writes.`);
+
+    return { success: true, aiInsights: aiPayload.comms };
+  } catch (e: any) {
+    console.error('[generateStudentCommunications] Python Pipeline Execution Failed', e);
+    throw new HttpsError('internal', `Python Architecture Failed: ${e.message}`);
+  }
+});
+
+/**
  * Background trigger to generate insights on save
  */
 export const syncAiInsightsOnUpdate = onDocumentUpdated('salesforce_opportunities/{studentId}', async (event) => {

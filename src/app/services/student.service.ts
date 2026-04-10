@@ -228,6 +228,17 @@ export class StudentService {
     });
   }
 
+  async generateCommunications(student: Student) {
+    const callable = httpsCallable<{ studentUid: string, dataContext: any }, any>(this.functions, 'generateStudentCommunications');
+    try {
+      const response = await callable({ studentUid: student.id, dataContext: student });
+      return response.data;
+    } catch (e) {
+      console.error('Failed to command decoupled comms agent', e);
+      throw e;
+    }
+  }
+
   async queryDocumentInfo(studentUid: string, fileName: string, query: string) {
     const callable = httpsCallable<{ studentUid: string, fileName: string, query: string }, any>(this.functions, 'queryStudentDocument');
     try {
