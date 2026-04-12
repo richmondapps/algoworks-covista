@@ -36,7 +36,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.queryStudentDocument = exports.aggregateChecklistsOnUpdate = exports.syncAiInsightsOnUpdate = exports.generateStudentInsights = void 0;
+exports.queryStudentDocument = exports.aggregateChecklistsOnUpdate = exports.syncAiInsightsOnUpdate = void 0;
 const google_auth_library_1 = require("google-auth-library");
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -47,76 +47,107 @@ const vertexai_1 = require("@google-cloud/vertexai");
 admin.initializeApp();
 const db = admin.firestore();
 /**
- * Cloud Function to generate Next Best Action insights via Vertex AI gemini-3.1-pro-preview
+ * Fields written by the Python agent or used as UI/bookkeeping flags.
+ * Changes to these fields do NOT represent upstream ingestion changes and must
+ * never re-trigger AI orchestration (recursion guard).
  */
-exports.generateStudentInsights = (0, https_1.onCall)({ cors: true }, async (request) => {
-    const { studentUid, dataContext } = request.data;
-    if (!studentUid) {
-        throw new https_1.HttpsError('invalid-argument', 'Missing student UID');
-    }
-    try {
-        console.log(`Generating insights for student: ${studentUid}`);
-        const execStart = Date.now();
-        const agentResponse = await fetch('https://python-data-agent-1033582308599.us-central1.run.app/generate-insights', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ studentUid, dataContext })
-        });
-        if (!agentResponse.ok) {
-            throw new Error(`Python Proxy Failed: ${agentResponse.statusText}`);
-        }
-        const aiPayload = await agentResponse.json();
-        const execDuration = Date.now() - execStart;
-        console.log(`Insights generated successfully in ${execDuration}ms`);
-        // Append generated AI payload directly to the student record in Firestore
-        await db.collection('salesforce_opportunities').doc(studentUid).set({ aiInsights: aiPayload }, { merge: true });
-        return { success: true, aiInsights: aiPayload };
-    }
-    catch (e) {
-        console.error('[generateStudentInsights] Python Pipeline Execution Failed', e);
-        throw new https_1.HttpsError('internal', `Python Architecture Failed: ${e.message}`);
-    }
-});
+const DERIVED_FIELDS = [
+    // Written by Python agent
+    'agentTrace',
+    'emailDraft',
+    'smsDraft',
+    'engagementRisk',
+    'readinessRisk',
+    'metrics',
+    'nextBestActions',
+    'generatedAt',
+    'aiInsights', // legacy AI container
+    // UI / bookkeeping flags
+    'isGeneratingAi',
+    'syncTimestamp',
+    'lastAiError',
+];
+function stripDerived(doc) {
+    if (!doc)
+        return {};
+    const clean = Object.assign({}, doc);
+    for (const f of DERIVED_FIELDS)
+        delete clean[f];
+    return clean;
+}
 /**
- * Background trigger to generate insights on save
+ * Background trigger — orchestrates AI recomputation when upstream student
+ * data changes in Firestore (via BQ sync, Airflow, Pub/Sub, or manual
+ * "Regenerate" button in the Angular UI which writes { isGeneratingAi: true }).
+ *
+ * Recursion guard: derived-only writes (AI write-back, UI flags) are detected
+ * via DERIVED_FIELDS blacklist and silently skipped to prevent infinite loops.
+ *
+ * TODO: When the Python agent is decoupled into separate core_agent and
+ * comms_agent microservices, add a detectRouteFlags(before, after) helper
+ * here to send { route: ['comms_agent'] } for notes-only changes, etc.
  */
-exports.syncAiInsightsOnUpdate = (0, firestore_1.onDocumentUpdated)('salesforce_opportunities/{studentId}', async (event) => {
-    var _a, _b, _c, _d;
+exports.syncAiInsightsOnUpdate = (0, firestore_1.onDocumentUpdated)({ document: 'salesforce_opportunities/{studentId}', retry: false }, async (event) => {
+    var _a, _b;
     const studentUid = event.params.studentId;
-    console.log(`Update triggered for studentId: ${studentUid}`);
     const beforeData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
     const afterData = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
     if (!beforeData || !afterData) {
-        console.log(`No data found`);
+        console.log(`[syncAiInsightsOnUpdate] No data found for ${studentUid}`);
         return;
     }
-    // check if ai insights triggered this update to avoid loops
-    if (((_c = beforeData.aiInsights) === null || _c === void 0 ? void 0 : _c.generatedAt) !== ((_d = afterData.aiInsights) === null || _d === void 0 ? void 0 : _d.generatedAt) ||
-        JSON.stringify(beforeData.aiInsights) !== JSON.stringify(afterData.aiInsights)) {
-        console.log(`Skipping update loop`);
+    // --- Recursion guard ---
+    const upstreamChanged = JSON.stringify(stripDerived(beforeData)) !==
+        JSON.stringify(stripDerived(afterData));
+    // Explicit force: UI writes { isGeneratingAi: true } to trigger regenerate
+    const forceRegenerate = beforeData.isGeneratingAi !== true && afterData.isGeneratingAi === true;
+    if (!upstreamChanged && !forceRegenerate) {
+        console.log(`[recursionGuard] No upstream change and no force regenerate. Skipping ${studentUid}.`);
         return;
     }
-    console.log(`Triggering insight generation for: ${studentUid}`);
+    console.log(`[trigger] Proceeding for ${studentUid} — upstreamChanged=${upstreamChanged}, forceRegenerate=${forceRegenerate}`);
     try {
+        // Re-fetch the latest full snapshot so the agent always works with
+        // the most current state, regardless of write ordering.
+        const latestDoc = await db.collection('salesforce_opportunities').doc(studentUid).get();
+        const latestData = latestDoc.data();
+        if (!latestData) {
+            console.warn(`[trigger] Document disappeared before AI call: ${studentUid}`);
+            return;
+        }
         const targetHttp = 'https://python-data-agent-1033582308599.us-central1.run.app';
         const auth = new google_auth_library_1.GoogleAuth();
         const client = await auth.getIdTokenClient(targetHttp);
         const response = await client.request({
             url: `${targetHttp}/generate-insights`,
             method: 'POST',
-            data: { studentUid, dataContext: afterData }
+            data: { studentUid, dataContext: latestData },
         });
         if (!response.status || response.status >= 400) {
-            console.error(`Execution failure: ${response.status}`);
+            console.error(`[trigger] Python agent returned error status: ${response.status}`);
         }
         else {
             const aiPayload = response.data;
-            await db.collection('salesforce_opportunities').doc(studentUid).set({ aiInsights: aiPayload, isGeneratingAi: false }, { merge: true });
-            console.log(`Insights updated`);
+            await db.collection('salesforce_opportunities').doc(studentUid).set(Object.assign(Object.assign({}, aiPayload), { isGeneratingAi: false }), { merge: true });
+            console.log(`[trigger] Insights updated for ${studentUid}`);
         }
     }
     catch (err) {
-        console.error(`Fetch exception:`, err);
+        console.error(`[syncAiInsightsOnUpdate] Python agent failure for ${studentUid}:`, err);
+        // Reset flag so the UI doesn't stay stuck on the loading spinner.
+        // This write only touches DERIVED_FIELDS so the guard will skip it.
+        try {
+            await db.collection('salesforce_opportunities').doc(studentUid).set({
+                isGeneratingAi: false,
+                lastAiError: {
+                    message: err instanceof Error ? err.message : String(err),
+                    at: new Date().toISOString(),
+                },
+            }, { merge: true });
+        }
+        catch (cleanupErr) {
+            console.error(`[syncAiInsightsOnUpdate] Failed to reset isGeneratingAi flag:`, cleanupErr);
+        }
     }
 });
 const firestore_2 = require("firebase-functions/v2/firestore");
