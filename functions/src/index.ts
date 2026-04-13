@@ -45,10 +45,12 @@ function stripDerived(doc: Record<string, any> | undefined): Record<string, any>
  *
  * Recursion guard: derived-only writes (AI write-back, UI flags) are detected
  * via DERIVED_FIELDS blacklist and silently skipped to prevent infinite loops.
+ * Additionally, an explicit forceRegenerate path fires when isGeneratingAi
+ * flips from false/undefined → true.
  *
- * TODO: When the Python agent is decoupled into separate core_agent and
- * comms_agent microservices, add a detectRouteFlags(before, after) helper
- * here to send { route: ['comms_agent'] } for notes-only changes, etc.
+ * On success: writes heavy AI payload to ai_outputs/latest subcollection,
+ * copies lightweight readinessLevel + engagementLevel to root doc for
+ * dashboard filtering, and keeps aiInsights on root for backward compat.
  */
 export const syncAiInsightsOnUpdate = onDocumentUpdated(
   { document: 'salesforce_opportunities/{studentId}', retry: false },
@@ -105,13 +107,33 @@ export const syncAiInsightsOnUpdate = onDocumentUpdated(
 
       if (!response.status || response.status >= 400) {
         console.error(`[trigger] Python agent returned error status: ${response.status}`);
-      } else {
-        const aiPayload = response.data;
         await db.collection('salesforce_opportunities').doc(studentUid).set(
-          { ...aiPayload, isGeneratingAi: false },
+          { isGeneratingAi: false, lastAiError: `Python agent returned ${response.status}` },
           { merge: true },
         );
-        console.log(`[trigger] Insights updated for ${studentUid}`);
+      } else {
+        const aiPayload = response.data;
+
+        // Write heavy AI output to ai_outputs/latest subcollection
+        await db.collection('salesforce_opportunities')
+          .doc(studentUid)
+          .collection('ai_outputs')
+          .doc('latest')
+          .set(aiPayload, { merge: false });
+
+        // Write lightweight summary fields + backward-compat aiInsights to root
+        await db.collection('salesforce_opportunities').doc(studentUid).set(
+          {
+            aiInsights: aiPayload,  // backward compat — remove once UI migrates to subcollection
+            readinessLevel: aiPayload?.readinessRisk?.level ?? null,
+            engagementLevel: aiPayload?.engagementRisk?.level ?? null,
+            isGeneratingAi: false,
+            lastAiError: null,
+          },
+          { merge: true },
+        );
+
+        console.log(`[trigger] ai_outputs/latest written and root updated for ${studentUid}`);
       }
     } catch (err) {
       console.error(`[syncAiInsightsOnUpdate] Python agent failure for ${studentUid}:`, err);
@@ -169,12 +191,13 @@ export const aggregateChecklistsOnUpdate = onDocumentWritten('salesforce_opportu
           if (id === 'class_participation') requirements.assignmentByCensusDay = satisfied; 
       });
       
-      // Update parent, naturally invoking syncAiInsightsOnUpdate
+      // Update parent with aggregated requirements + sync metadata
       await admin.firestore().collection('salesforce_opportunities').doc(studentUid).set({
-          requirements
+          requirements,
+          syncTimestamp: Date.now()
       }, { merge: true });
-      
-      console.log(`Requirements updated`);
+
+      console.log(`[aggregateChecklistsOnUpdate] Requirements updated for ${studentUid}`);
   } catch (err) {
       console.error(`Failed to sync requirements.`, err);
   }

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { StudentService } from '../../services/student.service';
-import { Student, RecommendedAction } from '../../models/student';
+import { Student, RecommendedAction, AiOutputsLatest, PersonalizedChecklist, StudentActivityLog } from '../../models/student';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { computed, signal } from '@angular/core';
 import { getFunctions, httpsCallable } from '@angular/fire/functions';
@@ -190,8 +190,35 @@ export class OpportunityDetailComponent {
       const s = this.student();
       if (s) {
         this.loadDocuments(s.studentUid);
+        this.loadSubcollections(s.id);
       }
     });
+  }
+
+  // ---------------------------------------------------------------
+  // Subcollection signals (loaded lazily on detail page only)
+  // ---------------------------------------------------------------
+  aiOutputs = signal<AiOutputsLatest | null>(null);
+  checklists = signal<PersonalizedChecklist[]>([]);
+  activityLogs = signal<StudentActivityLog[]>([]);
+  isLoadingSubcollections = signal(false);
+
+  async loadSubcollections(studentId: string) {
+    this.isLoadingSubcollections.set(true);
+    try {
+      const [outputs, checklists, logs] = await Promise.all([
+        this.studentService.loadAiOutputs(studentId),
+        this.studentService.loadChecklists(studentId),
+        this.studentService.loadActivityLogs(studentId),
+      ]);
+      this.aiOutputs.set(outputs);
+      this.checklists.set(checklists);
+      this.activityLogs.set(logs);
+    } catch (e) {
+      console.error('[opportunity-detail] Failed to load subcollections:', e);
+    } finally {
+      this.isLoadingSubcollections.set(false);
+    }
   }
 
   async loadDocuments(uid: string) {
@@ -233,6 +260,7 @@ export class OpportunityDetailComponent {
     // Clear existing AI insights to show loading state
     if (student.id) {
       await this.studentService.clearAiInsights(student.id);
+      this.aiOutputs.set(null);
     }
 
     this.isGeneratingAi.set(true);
@@ -247,7 +275,7 @@ export class OpportunityDetailComponent {
       if (step === 1) {
         mockTrace[0].status = 'Success';
         mockTrace[0].duration = '120ms';
-        mockTrace.push(          { agentName: 'Data Agent (Firestore)', action: 'Querying Historical Records & Engagement Rules', status: step >= 2 ? 'Success' : 'Running...', duration: step >= 2 ? '145ms' : '' },);
+        mockTrace.push({ agentName: 'Data Agent (Firestore)', action: 'Querying Historical Records & Engagement Rules', status: step >= 2 ? 'Success' : 'Running...', duration: step >= 2 ? '145ms' : '' });
       } else if (step === 2) {
         mockTrace[1].status = 'Success';
         mockTrace[1].duration = '1450ms';
@@ -260,6 +288,9 @@ export class OpportunityDetailComponent {
     try {
       const response: any = await this.studentService.generateAiInsights(student);
       clearInterval(interval);
+      // Reload ai_outputs/latest subcollection after generation
+      const latestOutputs = await this.studentService.loadAiOutputs(student.id);
+      this.aiOutputs.set(latestOutputs);
       if (response && response.aiInsights && response.aiInsights.agentTrace) {
         this.transientAgentTrace.set(response.aiInsights.agentTrace);
       }

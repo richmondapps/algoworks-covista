@@ -1,0 +1,211 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://covista.walden.edu/schemas/student-state-v1",
+  "title": "Student State Model — Firestore Canonical Schema",
+  "description": "Defines the canonical shape of a student record in Firestore (salesforce_opportunities/{student_id}). This is a projection of the BQ data contract v17.5 into the operational store, with an additional ai_outputs subcollection for derived AI fields.",
+  "type": "object",
+
+  "rootDocument": {
+    "collection": "salesforce_opportunities",
+    "documentId": "{student_id}",
+    "description": "Lightweight, indexable fields only. Heavy AI payloads live in ai_outputs/latest subcollection.",
+    "properties": {
+      "student_id": { "type": "string", "description": "Salesforce Opportunity ID. Maps to Firestore doc ID.", "source": "r2c_student_profile" },
+      "student_name": { "type": "string", "description": "Full legal name.", "source": "r2c_student_profile" },
+      "institution": { "type": "string", "description": "Institution code.", "source": "r2c_student_profile" },
+      "program": { "type": "string", "description": "Program code (e.g. MSN-NP).", "source": "r2c_student_profile" },
+      "program_name": { "type": "string", "description": "Human-readable program name.", "source": "r2c_student_profile" },
+      "term_code": { "type": "string", "description": "Academic term code.", "source": "r2c_student_profile" },
+      "term_desc": { "type": "string", "description": "Academic term description.", "source": "r2c_student_profile" },
+      "status_stage": { "type": "string", "description": "Enrollment lifecycle stage.", "source": "r2c_student_profile" },
+      "enrollment_specialist_name": { "type": "string", "description": "Assigned ES full name.", "source": "r2c_student_profile" },
+
+      "program_start_date": { "type": ["string", "null"], "format": "date", "description": "ISO date of first class day.", "source": "r2c_student_profile" },
+      "reserve_date": { "type": ["string", "null"], "format": "date", "description": "ISO date student reserved their seat.", "source": "r2c_student_profile" },
+      "census_date": { "type": ["string", "null"], "format": "date", "description": "ISO date of census cutoff.", "source": "r2c_student_profile" },
+      "funding_type": { "type": "string", "description": "FAFSA / employer / self-pay.", "source": "r2c_student_profile" },
+
+      "time_to_program_start_days": { "type": ["number", "null"], "description": "Computed: days until program_start_date.", "source": "derived" },
+      "time_since_reserve_days": { "type": ["number", "null"], "description": "Computed: days since reserve_date.", "source": "derived" },
+
+      "requirements": {
+        "type": "object",
+        "description": "Aggregated checklist summary flags. Maintained by aggregateChecklistsOnUpdate Cloud Function.",
+        "source": "derived/Cloud Function",
+        "properties": {
+          "orientationStarted": { "type": "boolean" },
+          "wwowOrientationStarted": { "type": "boolean" },
+          "courseRegistration": { "type": "boolean" },
+          "firstAssignmentSubmitted": { "type": "boolean" },
+          "assignmentByCensusDay": { "type": "boolean" },
+          "fafsaSubmitted": { "type": "boolean" },
+          "fundingPlan": { "type": "boolean" },
+          "officialTranscriptsReceived": { "type": "boolean" },
+          "nursingLicenseReceived": { "type": "boolean" }
+        }
+      },
+
+      "readinessLevel": {
+        "type": ["string", "null"],
+        "enum": ["High", "Medium", "Low", null],
+        "description": "Root-level copy of AI readiness risk level. Written by syncAiInsightsOnUpdate for dashboard filtering.",
+        "source": "derived/AI"
+      },
+      "engagementLevel": {
+        "type": ["string", "null"],
+        "enum": ["High", "Medium", "Low", null],
+        "description": "Root-level copy of AI engagement risk level. Written by syncAiInsightsOnUpdate for dashboard filtering.",
+        "source": "derived/AI"
+      },
+
+      "isGeneratingAi": {
+        "type": "boolean",
+        "description": "Set to true by UI/service to kick off AI recompute. Cloud Function watches this field. Set back to false when AI has finished writing ai_outputs/latest.",
+        "source": "UI/Cloud Function"
+      },
+      "lastAiError": {
+        "type": ["string", "null"],
+        "description": "Last error message from AI generation pipeline. Null on success.",
+        "source": "Cloud Function"
+      },
+      "syncTimestamp": {
+        "type": ["number", "null"],
+        "description": "Unix ms timestamp of last BQ→Firestore sync. Used as recursion guard.",
+        "source": "ingestion pipeline"
+      },
+      "lastUpdatedByPipelineAt": {
+        "type": ["string", "null"],
+        "format": "date-time",
+        "description": "ISO timestamp of last successful BQ ingestion.",
+        "source": "ingestion pipeline"
+      }
+    }
+  },
+
+  "subcollections": {
+    "personalized_checklists": {
+      "path": "salesforce_opportunities/{student_id}/personalized_checklists/{checklist_id}",
+      "description": "One document per checklist item. Written by ingestion pipeline. Aggregated by aggregateChecklistsOnUpdate Cloud Function.",
+      "documentSchema": {
+        "type": "object",
+        "required": ["checklist_id", "student_id", "item_name", "is_satisfied"],
+        "properties": {
+          "checklist_id": { "type": "string", "description": "Identifies the checklist item (e.g. fafsa_submission, initial_portal_login)." },
+          "student_id": { "type": "string" },
+          "item_name": { "type": "string", "description": "Human-readable label." },
+          "category": { "type": "string", "description": "Grouping (Funding, Orientation, Contingency, etc.)." },
+          "is_satisfied": { "type": "boolean" },
+          "due_date": { "type": ["string", "null"], "format": "date" },
+          "completed_at": { "type": ["string", "null"], "format": "date-time" },
+          "source": { "type": "string", "description": "r2c_student_profile field or rule that drives this item." }
+        }
+      }
+    },
+
+    "student_activity_logs": {
+      "path": "salesforce_opportunities/{student_id}/student_activity_logs/{log_id}",
+      "description": "Raw event ledger from r2c_student_activity_log. Append-only. Read by AI agent for context.",
+      "documentSchema": {
+        "type": "object",
+        "required": ["log_id", "student_id", "activity_category", "activity_name", "activity_datetime"],
+        "properties": {
+          "log_id": { "type": "string", "description": "Unique event ID." },
+          "student_id": { "type": "string" },
+          "term_code": { "type": "string" },
+          "activity_category": {
+            "type": "string",
+            "enum": ["Enrollment", "Financial Aid", "Academic", "Engagement", "SystemEvent"],
+            "description": "High-level category. See Activity Dictionary in student-state.md."
+          },
+          "activity_name": { "type": "string", "description": "Specific event name (e.g. email_opened, portal_login)." },
+          "activity_datetime": { "type": ["string", "null"], "format": "date-time" },
+          "communication_type": { "type": ["string", "null"], "enum": ["Phone", "Email", "Text", "Chat", "File Review", null] },
+          "task_notes": { "type": ["string", "null"] },
+          "task_comments": { "type": ["string", "null"] },
+          "interaction_direction": { "type": ["string", "null"], "enum": ["inbound", "outbound", null] },
+          "case_number": { "type": ["string", "null"] },
+          "case_status": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "ai_outputs": {
+      "path": "salesforce_opportunities/{student_id}/ai_outputs/latest",
+      "description": "Single document named 'latest'. Written by Python AI agent. Loaded only on student detail page to avoid dashboard over-fetch.",
+      "documentId": "latest",
+      "documentSchema": {
+        "type": "object",
+        "required": ["generatedAt"],
+        "properties": {
+          "generatedAt": { "type": "string", "format": "date-time", "description": "ISO timestamp of when this payload was generated." },
+          "overviewSummary": { "type": "string", "description": "3-4 sentence holistic narrative." },
+          "readinessRisk": {
+            "type": "object",
+            "properties": {
+              "level": { "type": "string", "enum": ["High", "Medium", "Low"] },
+              "trendDirection": { "type": "string", "enum": ["up", "down", "stable"] },
+              "trendNote": { "type": "string" }
+            }
+          },
+          "engagementRisk": {
+            "type": "object",
+            "properties": {
+              "level": { "type": "string", "enum": ["High", "Medium", "Low"] },
+              "trendDirection": { "type": "string", "enum": ["up", "down", "stable"] },
+              "trendNote": { "type": "string" }
+            }
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "timeSinceReserve": { "type": "string" },
+              "timeToProgramStart": { "type": "string" },
+              "timeToCensus": { "type": "string" }
+            }
+          },
+          "nextBestActions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": { "type": "string" },
+                "urgent": { "type": "boolean" },
+                "points": { "type": "array", "items": { "type": "string" } },
+                "buttonText": { "type": "string" }
+              }
+            }
+          },
+          "emailDraft": {
+            "type": "object",
+            "properties": {
+              "subject": { "type": "string" },
+              "bodyText": { "type": "string" },
+              "bullets": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "smsDraft": { "type": "string" },
+          "agentTrace": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "agentName": { "type": "string" },
+                "action": { "type": "string" },
+                "status": { "type": "string" },
+                "duration": { "type": "string" },
+                "timestamp": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "ownershipMatrix": {
+    "ingestion_pipeline": ["student_name", "institution", "program", "term_code", "status_stage", "program_start_date", "reserve_date", "census_date", "funding_type", "lastUpdatedByPipelineAt", "personalized_checklists/*", "student_activity_logs/*"],
+    "cloud_functions": ["requirements", "readinessLevel", "engagementLevel", "isGeneratingAi", "lastAiError", "syncTimestamp"],
+    "python_ai_agent": ["ai_outputs/latest"],
+    "angular_ui": ["isGeneratingAi (write only to trigger)"]
+  }
+}

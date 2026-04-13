@@ -1,7 +1,7 @@
 import { Injectable, inject, signal, NgZone } from '@angular/core';
-import { Firestore, collection, collectionData, doc, setDoc, query, orderBy, where, getDocs, writeBatch, onSnapshot, deleteField } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, doc, setDoc, query, orderBy, where, getDocs, writeBatch, onSnapshot, deleteField, getDoc, collectionGroup } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
-import { Student } from '../models/student';
+import { Student, AiOutputsLatest, PersonalizedChecklist, StudentActivityLog } from '../models/student';
 
 const COLLECTION_NAME = 'salesforce_opportunities'; // Fully Migrated to V17.3 Data Contract
 
@@ -198,19 +198,57 @@ export class StudentService {
     await setDoc(studentDoc, { aiInsights: deleteField() }, { merge: true });
   }
 
+  // ---------------------------------------------------------------
+  // Subcollection: ai_outputs/latest
+  // ---------------------------------------------------------------
+  async loadAiOutputs(studentId: string): Promise<AiOutputsLatest | null> {
+    const latestRef = doc(this.firestore, `${COLLECTION_NAME}/${studentId}/ai_outputs/latest`);
+    const snap = await getDoc(latestRef);
+    return snap.exists() ? (snap.data() as AiOutputsLatest) : null;
+  }
+
+  // ---------------------------------------------------------------
+  // Subcollection: personalized_checklists
+  // ---------------------------------------------------------------
+  async loadChecklists(studentId: string): Promise<PersonalizedChecklist[]> {
+    const ref = collection(this.firestore, `${COLLECTION_NAME}/${studentId}/personalized_checklists`);
+    const snap = await getDocs(ref);
+    return snap.docs.map(d => ({ checklist_id: d.id, ...d.data() } as PersonalizedChecklist));
+  }
+
+  // ---------------------------------------------------------------
+  // Subcollection: student_activity_logs (last 100 events, most recent first)
+  // ---------------------------------------------------------------
+  async loadActivityLogs(studentId: string): Promise<StudentActivityLog[]> {
+    const ref = collection(this.firestore, `${COLLECTION_NAME}/${studentId}/student_activity_logs`);
+    const q = query(ref, orderBy('activity_datetime', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ log_id: d.id, ...d.data() } as StudentActivityLog));
+  }
+
+  // ---------------------------------------------------------------
+  // Trigger AI generation via isGeneratingAi signal field
+  // ---------------------------------------------------------------
+  async triggerAiGeneration(studentId: string): Promise<void> {
+    const studentDoc = doc(this.firestore, `${COLLECTION_NAME}/${studentId}`);
+    await setDoc(studentDoc, { isGeneratingAi: true, syncTimestamp: Date.now() }, { merge: true });
+  }
+
   async generateAiInsights(student: Student) {
     return new Promise(async (resolve, reject) => {
       try {
         const studentDoc = doc(this.firestore, `${COLLECTION_NAME}/${student.id}`);
-        // 1. Trigger the background AI Generation natively via Firestore Events to bypass CORS
+        // 1. Trigger via isGeneratingAi signal field
         await setDoc(studentDoc, { isGeneratingAi: true, syncTimestamp: Date.now() }, { merge: true });
 
-        // 2. Await the structural completion payload via snapshot observer
-        const unsubscribe = onSnapshot(studentDoc, (snapshot) => {
+        // 2. Watch root doc — when isGeneratingAi flips false, load the subcollection result
+        const unsubscribe = onSnapshot(studentDoc, async (snapshot) => {
           const data = snapshot.data();
-          if (data && data['isGeneratingAi'] === false && data['aiInsights']) {
+          if (data && data['isGeneratingAi'] === false) {
             unsubscribe();
-            resolve({ aiInsights: data['aiInsights'] });
+            // Load heavy payload from ai_outputs/latest subcollection
+            const aiOutputs = await this.loadAiOutputs(student.id);
+            resolve({ aiInsights: aiOutputs ?? data['aiInsights'] });
           }
         }, (error) => {
           unsubscribe();

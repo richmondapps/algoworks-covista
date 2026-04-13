@@ -5,6 +5,53 @@ export interface ChecklistItem {
     dueDate: string; // ISO string for ease
 }
 
+// ---------------------------------------------------------------
+// Subcollection: personalized_checklists/{checklist_id}
+// ---------------------------------------------------------------
+export interface PersonalizedChecklist {
+    checklist_id: string;
+    student_id: string;
+    item_name: string;
+    category: string;
+    is_satisfied: boolean;
+    due_date?: string | null;
+    completed_at?: string | null;
+    source?: string;
+}
+
+// ---------------------------------------------------------------
+// Subcollection: student_activity_logs/{log_id}
+// ---------------------------------------------------------------
+export interface StudentActivityLog {
+    log_id: string;
+    student_id: string;
+    term_code?: string;
+    activity_category: 'Enrollment' | 'Financial Aid' | 'Academic' | 'Engagement' | 'SystemEvent' | string;
+    activity_name: string;
+    activity_datetime: string | null;
+    communication_type?: 'Phone' | 'Email' | 'Text' | 'Chat' | 'File Review' | null;
+    task_notes?: string | null;
+    task_comments?: string | null;
+    interaction_direction?: 'inbound' | 'outbound' | null;
+    case_number?: string | null;
+    case_status?: string | null;
+}
+
+// ---------------------------------------------------------------
+// Subcollection: ai_outputs/latest
+// ---------------------------------------------------------------
+export interface AiOutputsLatest {
+    generatedAt: string;
+    overviewSummary?: string;
+    readinessRisk?: { level: string; trendDirection?: string; trendNote?: string };
+    engagementRisk?: { level: string; trendDirection?: string; trendNote?: string };
+    metrics?: { timeSinceReserve: string; timeToProgramStart: string; timeToCensus: string };
+    nextBestActions: { title: string; urgent: boolean; points: string[]; buttonText: string }[];
+    emailDraft?: { subject?: string; bodyText: string; bullets: string[] };
+    smsDraft?: string;
+    agentTrace?: { agentName: string; action: string; status: string; duration: string; timestamp: string }[];
+}
+
 export interface RecommendedAction {
     id: string;
     title: string;
@@ -123,12 +170,17 @@ export interface Student {
     }[];
     timeSinceReserveDays?: number;
     timeUntilClassStartDays?: number;
+    /** Root-level AI summary fields — written by Cloud Function for dashboard filtering */
+    readinessLevel?: 'High' | 'Medium' | 'Low' | null;
     engagementLevel: 'High' | 'Medium' | 'Low';
     riskIndicator: 'High' | 'Medium' | 'Low';
     recommendedActions: RecommendedAction[];
     stats: StudentStats;
     actionRequired: boolean; // For pub/sub filtering
-    aiInsights?: AiInsights;
+    isGeneratingAi?: boolean;
+    lastAiError?: string | null;
+    syncTimestamp?: number | null;
+    aiInsights?: AiInsights;  // backward compat — use aiOutputs for new code
     notes?: StudentNote[];
     communications?: CommunicationLog[];
 }
