@@ -128,13 +128,13 @@ async function syncBigQuery() {
         await clBatch.commit();
     }
 
-    // 6. Write student_activity_logs subcollection per student (idempotent by log_id)
-    console.log('[Node Ingester] Writing student_activity_logs subcollections...');
+    // 6. Write activity_logs subcollection per student (idempotent by log_id)
+    console.log('[Node Ingester] Writing activity_logs subcollections...');
     for (const [studentId, logs] of Object.entries(activityMap)) {
         let logBatch = db.batch();
         let logCount = 0;
         for (const log of logs) {
-            const ref = db.collection(COLLECTION).doc(studentId).collection('student_activity_logs').doc(String(log.log_id));
+            const ref = db.collection(COLLECTION).doc(studentId).collection('activity_logs').doc(String(log.log_id));
             logBatch.set(ref, log, { merge: true });
             logCount++;
             if (logCount % 400 === 0) {

@@ -20,7 +20,7 @@ export interface PersonalizedChecklist {
 }
 
 // ---------------------------------------------------------------
-// Subcollection: student_activity_logs/{log_id}
+// Subcollection: activity_logs/{log_id}
 // ---------------------------------------------------------------
 export interface StudentActivityLog {
     log_id: string;
@@ -38,7 +38,7 @@ export interface StudentActivityLog {
 }
 
 // ---------------------------------------------------------------
-// Subcollection: ai_outputs/latest
+// Subcollection: ai_insights/latest
 // ---------------------------------------------------------------
 export interface AiOutputsLatest {
     generatedAt: string;

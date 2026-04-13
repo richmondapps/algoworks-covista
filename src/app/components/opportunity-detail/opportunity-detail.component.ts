@@ -288,7 +288,7 @@ export class OpportunityDetailComponent {
     try {
       const response: any = await this.studentService.generateAiInsights(student);
       clearInterval(interval);
-      // Reload ai_outputs/latest subcollection after generation
+      // Reload ai_insights/latest subcollection after generation
       const latestOutputs = await this.studentService.loadAiOutputs(student.id);
       this.aiOutputs.set(latestOutputs);
       if (response && response.aiInsights && response.aiInsights.agentTrace) {

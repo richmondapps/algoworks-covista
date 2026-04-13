@@ -48,7 +48,7 @@ function stripDerived(doc: Record<string, any> | undefined): Record<string, any>
  * Additionally, an explicit forceRegenerate path fires when isGeneratingAi
  * flips from false/undefined → true.
  *
- * On success: writes heavy AI payload to ai_outputs/latest subcollection,
+ * On success: writes heavy AI payload to ai_insights/latest subcollection,
  * copies lightweight readinessLevel + engagementLevel to root doc for
  * dashboard filtering, and keeps aiInsights on root for backward compat.
  */
@@ -114,10 +114,10 @@ export const syncAiInsightsOnUpdate = onDocumentUpdated(
       } else {
         const aiPayload = response.data;
 
-        // Write heavy AI output to ai_outputs/latest subcollection
+        // Write heavy AI output to ai_insights/latest subcollection
         await db.collection('salesforce_opportunities')
           .doc(studentUid)
-          .collection('ai_outputs')
+          .collection('ai_insights')
           .doc('latest')
           .set(aiPayload, { merge: false });
 
@@ -133,7 +133,7 @@ export const syncAiInsightsOnUpdate = onDocumentUpdated(
           { merge: true },
         );
 
-        console.log(`[trigger] ai_outputs/latest written and root updated for ${studentUid}`);
+        console.log(`[trigger] ai_insights/latest written and root updated for ${studentUid}`);
       }
     } catch (err) {
       console.error(`[syncAiInsightsOnUpdate] Python agent failure for ${studentUid}:`, err);

@@ -115,7 +115,7 @@ def generate_insights():
             logs_ref = (
                 db.collection('salesforce_opportunities')
                   .document(student_uid)
-                  .collection('student_activity_logs')
+                  .collection('activity_logs')
                   .order_by('activity_datetime', direction=firestore.Query.DESCENDING)
                   .limit(50)
             )
@@ -136,7 +136,7 @@ def generate_insights():
     if student_uid:
         try:
             db.collection('salesforce_opportunities').document(student_uid) \
-              .collection('ai_outputs').document('latest').set(core_payload)
+              .collection('ai_insights').document('latest').set(core_payload)
 
             # Copy lightweight summary fields to root doc for dashboard filtering
             db.collection('salesforce_opportunities').document(student_uid).update({
@@ -156,7 +156,7 @@ def generate_insights():
             try:
                 # Merge comms output into the existing ai_outputs/latest document
                 db.collection('salesforce_opportunities').document(uid) \
-                  .collection('ai_outputs').document('latest').update({
+                  .collection('ai_insights').document('latest').update({
                       "emailDraft": comms_payload.get("emailDraft"),
                       "smsDraft": comms_payload.get("smsDraft"),
                   })
@@ -308,7 +308,7 @@ def health_check():
 def write_activity_logs():
     """
     Writes r2c_student_activity_log rows as individual documents to
-    salesforce_opportunities/{student_id}/student_activity_logs/{log_id}.
+    salesforce_opportunities/{student_id}/activity_logs/{log_id}.
     Idempotent: uses log_id as document ID so re-runs are safe.
     """
     req_data = request.json or {}
@@ -326,7 +326,7 @@ def write_activity_logs():
         log_id = log.get('log_id') or log.get('logId')
         if not log_id:
             continue
-        doc_ref = parent_ref.collection('student_activity_logs').document(str(log_id))
+        doc_ref = parent_ref.collection('activity_logs').document(str(log_id))
         batch.set(doc_ref, log, merge=True)
         count += 1
         if count % 400 == 0:

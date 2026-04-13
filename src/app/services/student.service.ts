@@ -199,10 +199,10 @@ export class StudentService {
   }
 
   // ---------------------------------------------------------------
-  // Subcollection: ai_outputs/latest
+  // Subcollection: ai_insights/latest
   // ---------------------------------------------------------------
   async loadAiOutputs(studentId: string): Promise<AiOutputsLatest | null> {
-    const latestRef = doc(this.firestore, `${COLLECTION_NAME}/${studentId}/ai_outputs/latest`);
+    const latestRef = doc(this.firestore, `${COLLECTION_NAME}/${studentId}/ai_insights/latest`);
     const snap = await getDoc(latestRef);
     return snap.exists() ? (snap.data() as AiOutputsLatest) : null;
   }
@@ -217,10 +217,10 @@ export class StudentService {
   }
 
   // ---------------------------------------------------------------
-  // Subcollection: student_activity_logs (last 100 events, most recent first)
+  // Subcollection: activity_logs (last 100 events, most recent first)
   // ---------------------------------------------------------------
   async loadActivityLogs(studentId: string): Promise<StudentActivityLog[]> {
-    const ref = collection(this.firestore, `${COLLECTION_NAME}/${studentId}/student_activity_logs`);
+    const ref = collection(this.firestore, `${COLLECTION_NAME}/${studentId}/activity_logs`);
     const q = query(ref, orderBy('activity_datetime', 'desc'));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ log_id: d.id, ...d.data() } as StudentActivityLog));
@@ -246,7 +246,7 @@ export class StudentService {
           const data = snapshot.data();
           if (data && data['isGeneratingAi'] === false) {
             unsubscribe();
-            // Load heavy payload from ai_outputs/latest subcollection
+            // Load heavy payload from ai_insights/latest subcollection
             const aiOutputs = await this.loadAiOutputs(student.id);
             resolve({ aiInsights: aiOutputs ?? data['aiInsights'] });
           }
