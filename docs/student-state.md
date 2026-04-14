@@ -27,10 +27,10 @@ Firestore — salesforce_opportunities/{student_id}
 ├── /personalized_checklists/    ← subcollection
 │     one doc per checklist item
 │
-├── /student_activity_logs/      ← subcollection
+├── /activity_logs/              ← subcollection
 │     raw event ledger from BQ
 │
-└── /ai_outputs/latest           ← subcollection
+└── /ai_insights/latest          ← subcollection
       heavy AI outputs (email, SMS, NBA, traces)
               │
               ▼ written back by Python AI agent
@@ -78,7 +78,7 @@ Contains only lightweight, filterable fields needed to hydrate the main dashboar
 
 ### Derived summary fields — source: AI agent (lightweight copy)
 
-These are the **only** AI fields stored at the root. They are lightweight summaries copied from `ai_outputs/latest` to support dashboard filtering and the recursion guard. Full content lives in the `ai_outputs` subcollection.
+These are the **only** AI fields stored at the root. They are lightweight summaries copied from `ai_insights/latest` to support dashboard filtering and the recursion guard. Full content lives in the `ai_insights` subcollection.
 
 | Field | Type | Values | Description |
 |---|---|---|---|
@@ -123,9 +123,9 @@ One document per checklist item. Written by the ingestion pipeline. The Cloud Fu
 
 ---
 
-## Subcollection: `student_activity_logs`
+## Subcollection: `activity_logs`
 
-**Path:** `salesforce_opportunities/{student_id}/student_activity_logs/{log_id}`
+**Path:** `salesforce_opportunities/{student_id}/activity_logs/{log_id}`
 
 Raw event ledger replicated from `r2c_student_activity_log` in BigQuery. Each event is a separate document. Only loaded when an ES opens the student detail page.
 
@@ -201,9 +201,9 @@ Raw event ledger replicated from `r2c_student_activity_log` in BigQuery. Each ev
 
 ---
 
-## Subcollection: `ai_outputs`
+## Subcollection: `ai_insights`
 
-**Path:** `salesforce_opportunities/{student_id}/ai_outputs/latest`
+**Path:** `salesforce_opportunities/{student_id}/ai_insights/latest`
 
 Heavy AI-generated content. Single document keyed `latest`. Only loaded when an ES opens the student detail page. Written exclusively by the Python AI agent via the Cloud Functions orchestration trigger (`syncAiInsightsOnUpdate`). Never sourced from BQ. Never manually set.
 
@@ -272,7 +272,7 @@ Heavy AI-generated content. Single document keyed `latest`. Only loaded when an 
 }
 ```
 
-### Subcollection — `student_activity_logs/evt_001`
+### Subcollection — `activity_logs/evt_001`
 
 ```json
 {
@@ -292,7 +292,7 @@ Heavy AI-generated content. Single document keyed `latest`. Only loaded when an 
 }
 ```
 
-### Subcollection — `ai_outputs/latest`
+### Subcollection — `ai_insights/latest`
 
 ```json
 {

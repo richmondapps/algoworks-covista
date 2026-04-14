@@ -10,8 +10,8 @@
     "root_document": "Lightweight, indexable fields only. Loaded on every dashboard row fetch.",
     "subcollections": {
       "personalized_checklists": "One document per checklist item. Written by the ingestion pipeline, aggregated by Cloud Functions into root.",
-      "student_activity_logs": "Raw event ledger from r2c_student_activity_log. Loaded only on student detail page.",
-      "ai_outputs": "Heavy AI-generated content. Loaded only on student detail page."
+      "activity_logs": "Raw event ledger from r2c_student_activity_log. Loaded only on student detail page.",
+      "ai_insights": "Heavy AI-generated content. Loaded only on student detail page."
     }
   },
 
@@ -43,13 +43,13 @@
         "type": "string",
         "source": "derived",
         "enum": ["High", "Medium", "Low"],
-        "description": "Lightweight readiness risk summary. Stored at root for dashboard filtering. Full explanation is in ai_outputs subcollection."
+        "description": "Lightweight readiness risk summary. Stored at root for dashboard filtering. Full explanation is in ai_insights subcollection."
       },
       "engagementLevel": {
         "type": "string",
         "source": "derived",
         "enum": ["High", "Medium", "Low"],
-        "description": "Lightweight engagement risk summary. Stored at root for dashboard filtering. Full explanation is in ai_outputs subcollection."
+        "description": "Lightweight engagement risk summary. Stored at root for dashboard filtering. Full explanation is in ai_insights subcollection."
       },
 
       "isGeneratingAi": {
@@ -104,8 +104,8 @@
       }
     },
 
-    "student_activity_logs": {
-      "firestore_path": "salesforce_opportunities/{student_id}/student_activity_logs/{log_id}",
+    "activity_logs": {
+      "firestore_path": "salesforce_opportunities/{student_id}/activity_logs/{log_id}",
       "description": "Raw event ledger replicated from r2c_student_activity_log in BigQuery. Only loaded when an ES opens the student detail page. Each event is a separate document.",
       "source": "r2c_student_activity_log",
       "document_schema": {
@@ -146,8 +146,8 @@
       }
     },
 
-    "ai_outputs": {
-      "firestore_path": "salesforce_opportunities/{student_id}/ai_outputs/latest",
+    "ai_insights": {
+      "firestore_path": "salesforce_opportunities/{student_id}/ai_insights/latest",
       "description": "Heavy AI-generated content. Single document keyed 'latest'. Only loaded when an ES opens the student detail page. Written exclusively by the Python AI agent via the Cloud Functions orchestration trigger. Never sourced from BQ. Never manually set.",
       "source": "derived",
       "document_schema": {
