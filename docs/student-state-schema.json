@@ -1,0 +1,231 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Covista Student State Model",
+  "description": "Canonical reference for the unified student state in Firestore. Defines the shape, source, and ownership of every field consumed by the Angular UI, Python AI agents, and Cloud Functions orchestration triggers. Does NOT contain ingestion logic, recompute logic, or agent logic.",
+  "version": "1.0.0",
+
+  "firestore_path": "salesforce_opportunities/{student_id}",
+
+  "architecture": {
+    "root_document": "Lightweight, indexable fields only. Loaded on every dashboard row fetch.",
+    "subcollections": {
+      "personalized_checklists": "One document per checklist item. Written by the ingestion pipeline, aggregated by Cloud Functions into root.",
+      "activity_logs": "Raw event ledger from r2c_student_activity_log. Loaded only on student detail page.",
+      "ai_insights": "Heavy AI-generated content. Loaded only on student detail page."
+    }
+  },
+
+  "root_document": {
+    "type": "object",
+    "description": "Stored at salesforce_opportunities/{student_id}. Contains only lightweight, filterable fields needed to hydrate the main ES dashboard. Heavy AI outputs are in subcollections.",
+    "required": ["student_id", "student_name"],
+
+    "properties": {
+
+      "student_id":                 { "type": "string",  "source": "r2c_student_profile", "description": "Primary student identifier." },
+      "student_name":               { "type": "string",  "source": "r2c_student_profile", "description": "Full display name." },
+      "institution":                { "type": "string",  "source": "r2c_student_profile", "description": "Institution code." },
+      "program":                    { "type": "string",  "source": "r2c_student_profile", "description": "Program code (e.g. MSEL)." },
+      "program_name":               { "type": "string",  "source": "r2c_student_profile", "description": "Program full name (e.g. MS Early Ed)." },
+      "term_code":                  { "type": "string",  "source": "r2c_student_profile", "description": "Academic term code (e.g. 2026-T1)." },
+      "term_desc":                  { "type": "string",  "source": "r2c_student_profile", "description": "Academic term description (e.g. Spring 2026)." },
+      "status_stage":               { "type": "string",  "source": "r2c_student_profile", "description": "Current enrollment stage (e.g. Enrolled, Reserved)." },
+      "enrollment_specialist_name": { "type": "string",  "source": "r2c_student_profile", "description": "Assigned Enrollment Specialist full name." },
+      "funding_type":               { "type": "string",  "source": "r2c_student_profile", "description": "Funding type (e.g. Federal, Private)." },
+      "program_start_date":         { "type": "string",  "source": "r2c_student_profile", "format": "date-time", "description": "Program start date." },
+      "reserve_date":               { "type": "string",  "source": "r2c_student_profile", "format": "date-time", "description": "Date student reserved their seat." },
+      "census_date":                { "type": "string",  "source": "r2c_student_profile", "format": "date-time", "description": "Census date. All activity must be <= census_date." },
+      "time_to_program_start_days": { "type": "integer", "source": "r2c_student_profile", "description": "Days until program start. Computed at ingestion time." },
+      "time_since_reserve_days":    { "type": "integer", "source": "r2c_student_profile", "description": "Days since reserve date. Computed at ingestion time." },
+      "last_updated_at":            { "type": "string",  "source": "r2c_student_profile", "format": "date-time", "description": "Timestamp of last profile update in the source system." },
+
+      "readinessLevel": {
+        "type": "string",
+        "source": "derived",
+        "enum": ["High", "Medium", "Low"],
+        "description": "Lightweight readiness risk summary. Stored at root for dashboard filtering. Full explanation is in ai_insights subcollection."
+      },
+      "engagementLevel": {
+        "type": "string",
+        "source": "derived",
+        "enum": ["High", "Medium", "Low"],
+        "description": "Lightweight engagement risk summary. Stored at root for dashboard filtering. Full explanation is in ai_insights subcollection."
+      },
+
+      "isGeneratingAi": {
+        "type": "boolean",
+        "source": "system",
+        "description": "True while AI orchestration is running. Writing true from ANY source (UI, pipeline, Pub/Sub) triggers a full recompute via the Firestore background trigger."
+      },
+      "syncTimestamp": {
+        "type": "integer",
+        "source": "system",
+        "description": "Unix millisecond timestamp of the last BQ sync. Used by the recursion guard as a derived field (changes do not re-trigger AI)."
+      },
+      "last_updated_at_system": {
+        "type": "string",
+        "source": "system",
+        "format": "date-time",
+        "description": "Timestamp of the last write to this document by the orchestration layer."
+      },
+      "lastAiError": {
+        "type": "object",
+        "source": "system",
+        "description": "Populated when the last AI generation failed. Cleared on next successful generation.",
+        "properties": {
+          "message": { "type": "string" },
+          "at":      { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+
+  "subcollections": {
+
+    "personalized_checklists": {
+      "firestore_path": "salesforce_opportunities/{student_id}/personalized_checklists/{checklist_id}",
+      "description": "One document per checklist item. Written by the ingestion pipeline. Cloud Function aggregateChecklistsOnUpdate reads all items and patches a requirements summary to the root document, which then triggers AI recomputation.",
+      "source": "ingestion_pipeline",
+      "known_document_ids": [
+        "initial_portal_login",
+        "fafsa_submission",
+        "course_registration",
+        "wwow_login",
+        "contingencies",
+        "logged_into_course",
+        "class_participation"
+      ],
+      "document_schema": {
+        "type": "object",
+        "properties": {
+          "is_satisfied": { "type": "boolean", "description": "Whether this checklist item has been completed." },
+          "updated_at":   { "type": "string",  "format": "date-time" }
+        }
+      }
+    },
+
+    "activity_logs": {
+      "firestore_path": "salesforce_opportunities/{student_id}/activity_logs/{log_id}",
+      "description": "Raw event ledger replicated from r2c_student_activity_log in BigQuery. Only loaded when an ES opens the student detail page. Each event is a separate document.",
+      "source": "r2c_student_activity_log",
+      "document_schema": {
+        "type": "object",
+        "required": ["log_id", "student_id", "term_code"],
+        "properties": {
+          "log_id":             { "type": "string",  "description": "Unique event identifier." },
+          "student_id":         { "type": "string" },
+          "term_code":          { "type": "string" },
+          "activity_category":  { "type": "string",  "enum": ["student_event", "task_history", "case", "contingency", "system_event"] },
+          "activity_name":      { "type": "string",  "description": "Specific event type. See Activity Dictionary in student-state.md." },
+          "activity_datetime":  { "type": "string",  "format": "date-time" },
+          "actor":              { "type": ["string", "null"], "enum": ["student", "enrollment_specialist", "system", null] },
+          "source_system":      { "type": "string" },
+          "last_updated_timestamp": { "type": "string", "format": "date-time" },
+          "communication_type": { "type": ["string", "null"] },
+          "task_notes":         { "type": ["string", "null"] },
+          "task_comments":      { "type": ["string", "null"] },
+          "task_status":        { "type": ["string", "null"] },
+          "case_number":        { "type": ["string", "null"] },
+          "case_subject":       { "type": ["string", "null"] },
+          "case_type":          { "type": ["string", "null"] },
+          "case_subtype":       { "type": ["string", "null"] },
+          "case_status":        { "type": ["string", "null"], "enum": ["open", "in_progress", "pending", "resolved", "closed", null] },
+          "case_closed_reason": { "type": ["string", "null"] },
+          "case_closed_datetime":      { "type": ["string", "null"], "format": "date-time" },
+          "case_created_date":         { "type": ["string", "null"], "format": "date" },
+          "case_comments":             { "type": ["string", "null"] },
+          "course_identification":     { "type": ["string", "null"] },
+          "course_level":              { "type": ["string", "null"] },
+          "course_status":             { "type": ["string", "null"] },
+          "is_accredited":             { "type": ["boolean", "null"] },
+          "contingency_document_flag": { "type": ["boolean", "null"] },
+          "institution_name":          { "type": ["string", "null"] },
+          "institution_name_text":     { "type": ["string", "null"] },
+          "contingency_description":   { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "ai_insights": {
+      "firestore_path": "salesforce_opportunities/{student_id}/ai_insights/latest",
+      "description": "Heavy AI-generated content. Single document keyed 'latest'. Only loaded when an ES opens the student detail page. Written exclusively by the Python AI agent via the Cloud Functions orchestration trigger. Never sourced from BQ. Never manually set.",
+      "source": "derived",
+      "document_schema": {
+        "type": "object",
+        "properties": {
+          "overviewSummary": {
+            "type": "string",
+            "description": "AI-generated holistic narrative combining readiness and engagement. Addressed to the ES, not the student."
+          },
+          "readinessRisk": {
+            "type": "object",
+            "properties": {
+              "level":          { "type": "string", "enum": ["High", "Medium", "Low"] },
+              "trendDirection": { "type": "string", "enum": ["up", "down", "stable"] },
+              "trendNote":      { "type": "string" }
+            }
+          },
+          "engagementRisk": {
+            "type": "object",
+            "properties": {
+              "level":          { "type": "string", "enum": ["High", "Medium", "Low"] },
+              "trendDirection": { "type": "string", "enum": ["up", "down", "stable"] },
+              "trendNote":      { "type": "string" }
+            }
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "timeSinceReserve":   { "type": "string", "description": "e.g. '63 days'" },
+              "timeToProgramStart": { "type": "string", "description": "e.g. '9 days'" },
+              "timeToCensus":       { "type": "string", "description": "e.g. '20 days'" }
+            }
+          },
+          "nextBestActions": {
+            "type": "array",
+            "description": "Prioritized recommended actions for the ES. All instructions target the ES, not the student.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title":      { "type": "string" },
+                "urgent":     { "type": "boolean" },
+                "points":     { "type": "array", "items": { "type": "string" } },
+                "buttonText": { "type": "string", "enum": ["Review Requirement", "Complete Task >"] }
+              }
+            }
+          },
+          "emailDraft": {
+            "type": "object",
+            "properties": {
+              "bodyText": { "type": "string", "description": "Two-paragraph body. No greeting or salutation." },
+              "bullets":  { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "smsDraft": {
+            "type": "string",
+            "description": "SMS text addressed directly to the student. Max 140 characters."
+          },
+          "agentTrace": {
+            "type": "array",
+            "description": "Execution trace of AI agents for debugging and observability.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "agentName":  { "type": "string" },
+                "action":     { "type": "string" },
+                "status":     { "type": "string" },
+                "duration":   { "type": "string" },
+                "timestamp":  { "type": "string" }
+              }
+            }
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of when this AI generation completed."
+          }
+        }
+      }
+    }
+  }
+}
