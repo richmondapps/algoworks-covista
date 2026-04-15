@@ -108,35 +108,69 @@ def generate_insights():
     req_data = request.json
     student_uid = req_data.get('studentUid')
     data_context = req_data.get('dataContext', {})
-    
+
+    # Enrich context with subcollection activity logs (last 50 events)
+    if student_uid:
+        try:
+            logs_ref = (
+                db.collection('salesforce_opportunities')
+                  .document(student_uid)
+                  .collection('activity_logs')
+                  .order_by('activity_datetime', direction=firestore.Query.DESCENDING)
+                  .limit(50)
+            )
+            logs = [doc.to_dict() for doc in logs_ref.stream()]
+            data_context['recentActivityLogs'] = logs
+        except Exception as e:
+            print(f"[generate-insights] Could not load activity logs for enrichment: {e}")
+
     # -------------------------------------------------------------
     # PHASE 1: Immediate Synchronous Execution for Core UI Matrix
     # -------------------------------------------------------------
     core_payload = generate_core_insights(data_context)
-    
+
     # Inject generation timestamp for UI freshness tracking
     core_payload["generatedAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    
+
+    # Write Phase 1 payload immediately to ai_outputs/latest subcollection
+    if student_uid:
+        try:
+            db.collection('salesforce_opportunities').document(student_uid) \
+              .collection('ai_insights').document('latest').set(core_payload)
+
+            # Copy lightweight summary fields to root doc for dashboard filtering
+            db.collection('salesforce_opportunities').document(student_uid).update({
+                "readinessLevel": core_payload.get("readinessRisk", {}).get("level"),
+                "engagementLevel": core_payload.get("engagementRisk", {}).get("level"),
+            })
+        except Exception as e:
+            print(f"[generate-insights] Failed to write ai_outputs/latest: {e}")
+
     # -------------------------------------------------------------
     # PHASE 2: Detached Background Execution for Heavy Comms payload
     # -------------------------------------------------------------
     def generate_and_save_comms(uid, context):
         comms_payload = generate_communications(context)
-        print(f"[Comms Agent] Background Generation Complete for UID: {uid}. Merging into Firestore.")
+        print(f"[Comms Agent] Background Generation Complete for UID: {uid}. Merging into ai_outputs/latest.")
         if uid and comms_payload:
-            # Safely overlay ONLY the specific Comms vectors using dot-notation string maps!
-            print(f"[Comms Agent] Successfully captured valid Comms payload! Injecting to database...")
             try:
+                # Merge comms output into the existing ai_outputs/latest document
+                db.collection('salesforce_opportunities').document(uid) \
+                  .collection('ai_insights').document('latest').update({
+                      "emailDraft": comms_payload.get("emailDraft"),
+                      "smsDraft": comms_payload.get("smsDraft"),
+                  })
+                # Also keep aiInsights on root for backward compat (legacy UI reads)
                 db.collection('salesforce_opportunities').document(uid).update({
                     "aiInsights.emailDraft": comms_payload.get("emailDraft"),
-                    "aiInsights.smsDraft": comms_payload.get("smsDraft")
+                    "aiInsights.smsDraft": comms_payload.get("smsDraft"),
                 })
             except Exception as er:
-                print(f"[Comms Agent] FAILED TO INJECT COMMS INTO FIRESTORE: {er}")
+                print(f"[Comms Agent] FAILED TO INJECT COMMS: {er}")
 
     # Spawning the background worker
     threading.Thread(target=generate_and_save_comms, args=(student_uid, data_context)).start()
-    
+
     # Immediately return the Phase 1 trace to unblock the Enrollment Specialist's UI
     core_payload["agentTrace"] = [
         {
@@ -264,7 +298,77 @@ def sync_bq_to_firestore():
 
 @app.route('/', methods=['GET'])
 def health_check():
-    return jsonify({"status": "Python BigQuery Agent Online", "version": "1.5.0"})
+    return jsonify({"status": "Python BigQuery Agent Online", "version": "1.6.0"})
+
+
+# ------------------------------------------------------------------
+# Phase 2: Activity Log Subcollection Writer
+# ------------------------------------------------------------------
+@app.route('/write-activity-logs', methods=['POST'])
+def write_activity_logs():
+    """
+    Writes r2c_student_activity_log rows as individual documents to
+    salesforce_opportunities/{student_id}/activity_logs/{log_id}.
+    Idempotent: uses log_id as document ID so re-runs are safe.
+    """
+    req_data = request.json or {}
+    student_id = req_data.get('studentId')
+    logs = req_data.get('logs', [])
+
+    if not student_id or not isinstance(logs, list):
+        return jsonify({"status": "error", "message": "studentId and logs[] required"}), 400
+
+    batch = db.batch()
+    count = 0
+    parent_ref = db.collection('salesforce_opportunities').document(student_id)
+
+    for log in logs:
+        log_id = log.get('log_id') or log.get('logId')
+        if not log_id:
+            continue
+        doc_ref = parent_ref.collection('activity_logs').document(str(log_id))
+        batch.set(doc_ref, log, merge=True)
+        count += 1
+        if count % 400 == 0:
+            batch.commit()
+            batch = db.batch()
+
+    if count % 400 != 0:
+        batch.commit()
+
+    print(f"[Activity Logs] Wrote {count} logs for student {student_id}")
+    return jsonify({"status": "success", "logs_written": count})
+
+
+# ------------------------------------------------------------------
+# Phase 2: Personalized Checklist Subcollection Writer
+# ------------------------------------------------------------------
+@app.route('/write-checklists', methods=['POST'])
+def write_checklists():
+    """
+    Writes checklist items as individual documents to
+    salesforce_opportunities/{student_id}/personalized_checklists/{checklist_id}.
+    """
+    req_data = request.json or {}
+    student_id = req_data.get('studentId')
+    items = req_data.get('items', [])
+
+    if not student_id or not isinstance(items, list):
+        return jsonify({"status": "error", "message": "studentId and items[] required"}), 400
+
+    batch = db.batch()
+    parent_ref = db.collection('salesforce_opportunities').document(student_id)
+
+    for item in items:
+        checklist_id = item.get('checklist_id') or item.get('checklistId')
+        if not checklist_id:
+            continue
+        doc_ref = parent_ref.collection('personalized_checklists').document(str(checklist_id))
+        batch.set(doc_ref, item, merge=True)
+
+    batch.commit()
+    print(f"[Checklists] Wrote {len(items)} checklist items for student {student_id}")
+    return jsonify({"status": "success", "items_written": len(items)})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))

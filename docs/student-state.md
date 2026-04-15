@@ -1,361 +1,336 @@
-# Student State Model — v1.0
+# Student State Model — Firestore Architecture (v1, April 2026)
 
-## What this document is
-
-This is the canonical data contract for the unified student state in the Covista R2C system. It defines the shape, source, and ownership of every field consumed by downstream components: the Angular ES dashboard, the Python AI agents, and the Cloud Functions orchestration triggers.
-
-This document does **not** contain ingestion logic, recompute logic, or agent logic.
+> **Source of truth** for the shape of a student record in the operational Firestore store.  
+> Schema contract: [`docs/student-state-schema.json`](./student-state-schema.json)  
+> BQ source: `covista_demo` — `r2c_student_profile` + `r2c_student_activity_log` (v17.5)
 
 ---
 
-## Architecture
+## Architecture Overview
 
 ```
-Salesforce / SIS / Banner
+BigQuery (r2c_student_profile / r2c_student_activity_log)
         │
+        │  Cloud Scheduler → /sync-bq-to-firestore  (ingestion pipeline)
         ▼
-BigQuery (source of truth — read only)
-├── r2c_student_profile
-└── r2c_student_activity_log
-        │
-        ▼  ingestion pipeline (BQ → Firestore)
-Firestore — salesforce_opportunities/{student_id}
-│
-├── [root document]              ← lightweight, indexable fields
-│     profile + timing + risk summary + system flags
-│
-├── /personalized_checklists/    ← subcollection
-│     one doc per checklist item
-│
-├── /activity_logs/              ← subcollection
-│     raw event ledger from BQ
-│
-└── /ai_insights/latest          ← subcollection
-      heavy AI outputs (email, SMS, NBA, traces)
-              │
-              ▼ written back by Python AI agent
-Angular UI  ←→  Cloud Functions  ←→  Python AI Agent (Vertex AI / Gemini)
+Firestore: salesforce_opportunities/{student_id}          ← root doc (lightweight)
+        ├── /personalized_checklists/{checklist_id}       ← one doc per checklist item
+        ├── /student_activity_logs/{log_id}               ← raw event ledger
+        └── /ai_outputs/latest                            ← heavy AI payload
+                │
+                │  Firestore trigger: syncAiInsightsOnUpdate (isGeneratingAi → true)
+                ▼
+        Python AI Agent (Cloud Run — Vertex AI / Gemini 2.5 Flash)
+                │
+                │  writes results back to ai_outputs/latest
+                │  copies readinessLevel + engagementLevel → root doc
+                ▼
+        Angular UI
+        ├── Dashboard list-view  → reads ROOT doc only (fast)
+        └── Student detail-view  → additionally loads subcollections + ai_outputs/latest
 ```
-
-### Why subcollections?
-
-Firestore does not support partial reads. If email drafts, agent traces, and next best actions were stored in the root document, every dashboard row load would pull the full AI payload for every student — causing catastrophic data sizes and unacceptable read latency at scale.
-
-**Rule:** The root document contains only what the dashboard list view needs. Everything else loads on demand when an ES opens a student's detail page.
-
-### Note on current BQ tables
-
-The BQ dataset (`covista_demo`) currently contains prototype tables: `student_core`, `student_courses`, and `student_contingencies`. The data contract v17.5 defines the target tables (`r2c_student_profile`, `r2c_student_activity_log`) that will replace them. This schema is aligned with the **target contract**.
 
 ---
 
-## Root Document
+## Root Document Fields
 
-**Path:** `salesforce_opportunities/{student_id}`
+`salesforce_opportunities/{student_id}`
 
-Contains only lightweight, filterable fields needed to hydrate the main dashboard.
-
-### Profile fields — source: `r2c_student_profile`
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `student_id` | string | yes | Primary identifier |
-| `student_name` | string | yes | Full display name |
-| `institution` | string | no | Institution code |
-| `program` | string | no | Program code (e.g. MSEL) |
-| `program_name` | string | no | Program full name |
-| `term_code` | string | no | Term code (e.g. 2026-T1) |
-| `term_desc` | string | no | Term description (e.g. Spring 2026) |
-| `status_stage` | string | no | Enrollment stage (e.g. Enrolled, Reserved) |
-| `enrollment_specialist_name` | string | no | Assigned ES full name |
-| `funding_type` | string | no | Funding type (e.g. Federal, Private) |
-| `program_start_date` | timestamp | no | Program start date |
-| `reserve_date` | timestamp | no | Date student reserved their seat |
-| `census_date` | timestamp | no | Census date — all activity must be ≤ this |
-| `time_to_program_start_days` | integer | no | Days until program start, computed at ingestion |
-| `time_since_reserve_days` | integer | no | Days since reserve, computed at ingestion |
-| `last_updated_at` | timestamp | no | Last update in the source system |
-
-### Derived summary fields — source: AI agent (lightweight copy)
-
-These are the **only** AI fields stored at the root. They are lightweight summaries copied from `ai_insights/latest` to support dashboard filtering and the recursion guard. Full content lives in the `ai_insights` subcollection.
-
-| Field | Type | Values | Description |
-|---|---|---|---|
-| `readinessLevel` | string | High / Medium / Low | Readiness risk summary for dashboard |
-| `engagementLevel` | string | High / Medium / Low | Engagement risk summary for dashboard |
-
-### System fields — source: orchestration layer
+### Profile (from BQ `r2c_student_profile`)
 
 | Field | Type | Description |
 |---|---|---|
-| `isGeneratingAi` | boolean | `true` while AI is running. Writing `true` from **any source** (UI button, BQ sync, Pub/Sub, Airflow) triggers a full recompute via `syncAiInsightsOnUpdate`. |
-| `syncTimestamp` | integer | Unix ms of last BQ sync. Treated as derived — does not re-trigger AI. |
-| `lastAiError.message` | string | Error message if last generation failed |
-| `lastAiError.at` | timestamp | When the error occurred |
+| `student_id` | string | Salesforce Opportunity ID. Firestore document ID. |
+| `student_name` | string | Full legal name. |
+| `institution` | string | Institution code. |
+| `program` | string | Program code (e.g. `MSN-NP`). |
+| `program_name` | string | Human-readable program name. |
+| `term_code` | string | Academic term code. |
+| `term_desc` | string | Term description. |
+| `status_stage` | string | Enrollment lifecycle stage. |
+| `enrollment_specialist_name` | string | Assigned ES. |
+| `program_start_date` | date \| null | ISO date of first class day. |
+| `reserve_date` | date \| null | ISO date student reserved their seat. |
+| `census_date` | date \| null | ISO date of census cutoff. |
+| `funding_type` | string | FAFSA / employer / self-pay. |
+
+### Timing (derived)
+
+| Field | Type | Description |
+|---|---|---|
+| `time_to_program_start_days` | number \| null | Days until program_start_date. |
+| `time_since_reserve_days` | number \| null | Days since reserve_date. |
+
+### Requirements Summary (maintained by `aggregateChecklistsOnUpdate` CF)
+
+| Field | Type | Description |
+|---|---|---|
+| `requirements.orientationStarted` | boolean | Portal login completed. |
+| `requirements.wwowOrientationStarted` | boolean | WWOW orientation started. |
+| `requirements.courseRegistration` | boolean | Student is registered. |
+| `requirements.firstAssignmentSubmitted` | boolean | First assignment posted. |
+| `requirements.assignmentByCensusDay` | boolean | Assignment before census. |
+| `requirements.fafsaSubmitted` | boolean | FAFSA submitted. |
+| `requirements.fundingPlan` | boolean | Funding plan approved. |
+| `requirements.officialTranscriptsReceived` | boolean | TRF on file. |
+| `requirements.nursingLicenseReceived` | boolean | Nursing license on file. |
+
+### AI Summary Fields (root — for dashboard filtering only)
+
+| Field | Type | Description | Owner |
+|---|---|---|---|
+| `readinessLevel` | "High" \| "Medium" \| "Low" \| null | Copy of AI readiness risk. Dashboard filter key. | `syncAiInsightsOnUpdate` CF |
+| `engagementLevel` | "High" \| "Medium" \| "Low" \| null | Copy of AI engagement risk. Dashboard filter key. | `syncAiInsightsOnUpdate` CF |
+
+### System / Orchestration Fields
+
+| Field | Type | Description | Owner |
+|---|---|---|---|
+| `isGeneratingAi` | boolean | **Signal field.** Set `true` by UI to trigger AI recompute. CF sets `false` when done. | UI (write) / CF (clear) |
+| `lastAiError` | string \| null | Last pipeline error. Null on success. | CF |
+| `syncTimestamp` | number \| null | Unix ms timestamp of last BQ→Firestore sync. Recursion guard. | Ingestion pipeline |
+| `lastUpdatedByPipelineAt` | ISO datetime \| null | Timestamp of last BQ ingestion commit. | Ingestion pipeline |
 
 ---
 
 ## Subcollection: `personalized_checklists`
 
-**Path:** `salesforce_opportunities/{student_id}/personalized_checklists/{checklist_id}`
+Path: `salesforce_opportunities/{student_id}/personalized_checklists/{checklist_id}`
 
-One document per checklist item. Written by the ingestion pipeline. The Cloud Function `aggregateChecklistsOnUpdate` reads all items and patches a requirements summary to the root document, which then triggers AI recomputation.
-
-### Known document IDs
-
-| `checklist_id` | Maps to |
-|---|---|
-| `initial_portal_login` | Portal login completed |
-| `fafsa_submission` | FAFSA submitted + funding plan |
-| `course_registration` | Course registration complete |
-| `wwow_login` | WWOW orientation started |
-| `contingencies` | Official transcripts + nursing license |
-| `logged_into_course` | First assignment submitted |
-| `class_participation` | Assignment by census day |
-
-### Document schema
+Written by ingestion pipeline. Aggregated by `aggregateChecklistsOnUpdate` Cloud Function into root `requirements`.
 
 | Field | Type | Description |
 |---|---|---|
-| `is_satisfied` | boolean | Whether this checklist item is complete |
-| `updated_at` | timestamp | Last update |
+| `checklist_id` | string | Key (e.g. `fafsa_submission`, `initial_portal_login`). |
+| `student_id` | string | Parent student ID. |
+| `item_name` | string | Human-readable label. |
+| `category` | string | Funding / Orientation / Contingency / Academic. |
+| `is_satisfied` | boolean | Completion flag. |
+| `due_date` | date \| null | Target completion date. |
+| `completed_at` | datetime \| null | Actual completion time. |
+| `source` | string | BQ field or rule that drives this item. |
+
+**Known checklist IDs:**
+
+| checklist_id | Maps to `requirements.*` | Category |
+|---|---|---|
+| `initial_portal_login` | `orientationStarted` | Orientation |
+| `wwow_login` | `wwowOrientationStarted` | Orientation |
+| `course_registration` | `courseRegistration` | Academic |
+| `logged_into_course` | `firstAssignmentSubmitted` | Academic |
+| `class_participation` | `assignmentByCensusDay` | Academic |
+| `fafsa_submission` | `fafsaSubmitted` + `fundingPlan` | Funding |
+| `contingencies` | `officialTranscriptsReceived` + `nursingLicenseReceived` | Contingency |
 
 ---
 
-## Subcollection: `activity_logs`
+## Subcollection: `student_activity_logs`
 
-**Path:** `salesforce_opportunities/{student_id}/activity_logs/{log_id}`
+Path: `salesforce_opportunities/{student_id}/student_activity_logs/{log_id}`
 
-Raw event ledger replicated from `r2c_student_activity_log` in BigQuery. Each event is a separate document. Only loaded when an ES opens the student detail page.
+Raw event ledger from `r2c_student_activity_log`. Append-only. Read by AI agent for context. **Do not mutate existing documents.**
+
+| Field | Type | Description |
+|---|---|---|
+| `log_id` | string | Unique event ID (BQ `log_id`). |
+| `student_id` | string | Parent student ID. |
+| `term_code` | string | Academic term. |
+| `activity_category` | string | See Activity Dictionary below. |
+| `activity_name` | string | Specific event name. |
+| `activity_datetime` | datetime \| null | When event occurred. |
+| `communication_type` | Phone/Email/Text/Chat/File Review \| null | Channel used. |
+| `task_notes` | string \| null | ES notes. |
+| `task_comments` | string \| null | Additional comments. |
+| `interaction_direction` | inbound/outbound \| null | Direction of contact. |
+| `case_number` | string \| null | Salesforce case number. |
+| `case_status` | string \| null | open/in_progress/pending/resolved/closed. |
 
 ### Activity Dictionary
 
-| `activity_category` | `activity_name` |
-|---|---|
-| `student_event` | `initial_portal_login` |
-| `student_event` | `fafsa_submission` |
-| `student_event` | `alternate_funding_submission` |
-| `student_event` | `first_course_registration` |
-| `student_event` | `wwow_login` |
-| `student_event` | `logged_into_course` |
-| `student_event` | `discussion_board_submission` |
-| `student_event` | `course_drop` |
-| `task_history` | `phone_call` |
-| `task_history` | `email` |
-| `task_history` | `text` |
-| `task_history` | `chat` |
-| `task_history` | `file_review` |
-| `case` | `case_opened` |
-| `case` | `case_updated` |
-| `case` | `case_closed` |
-| `contingency` | `contingency` |
-| `system_event` | `reserved` |
-
-### Case Type / Subtype Taxonomy
-
-| `case_type` | `case_subtype` |
-|---|---|
-| CCT | Login Credentials |
-| CCT | Student Portal |
-| Course Registration Help | Add Course |
-| Course Registration Help | Drop Course |
-| Course Registration Help | Transcript Request Inquiry (TRF) |
-| Student Issue | Portal Issues |
-| Student Issue | University Credentials Missing/Not Created |
-
-### Document schema
-
-| Field | Type | Notes |
+| activity_category | activity_name examples | Description |
 |---|---|---|
-| `log_id` | string | Required |
-| `student_id` | string | Required |
-| `term_code` | string | Required |
-| `activity_category` | string | Required. See Activity Dictionary above |
-| `activity_name` | string | Required. See Activity Dictionary above |
-| `activity_datetime` | timestamp | Must be ≤ `census_date` |
-| `actor` | string / null | `student`, `enrollment_specialist`, `system` |
-| `source_system` | string | Originating system (e.g. Salesforce, SIS) |
-| `last_updated_timestamp` | timestamp | Used for incremental ingestion |
-| `communication_type` | string / null | Present on `task_history`. Phone, Email, Text, Chat, File Review |
-| `task_notes` | string / null | Required on `task_history` events |
-| `task_comments` | string / null | Required on `task_history` events |
-| `task_status` | string / null | Required on `task_history` events |
-| `case_number` | string / null | Present on `case` events |
-| `case_subject` | string / null | |
-| `case_type` | string / null | See taxonomy above |
-| `case_subtype` | string / null | See taxonomy above |
-| `case_status` | string / null | `open`, `in_progress`, `pending`, `resolved`, `closed` |
-| `case_closed_reason` | string / null | |
-| `case_closed_datetime` | timestamp / null | |
-| `case_created_date` | date / null | Must be ≤ `census_date` |
-| `case_comments` | string / null | |
-| `course_identification` | string / null | Present on course-related events |
-| `course_level` | string / null | |
-| `course_status` | string / null | |
-| `is_accredited` | boolean / null | |
-| `contingency_document_flag` | boolean / null | Include only where `true` |
-| `institution_name` | string / null | |
-| `institution_name_text` | string / null | |
-| `contingency_description` | string / null | |
+| `Enrollment` | `seat_reserved`, `enrollment_status_change`, `program_start_confirmed` | Enrollment lifecycle milestones. |
+| `Financial Aid` | `fafsa_submitted`, `fafsa_approved`, `funding_plan_set`, `award_letter_sent` | Financial aid events. |
+| `Academic` | `portal_login`, `wwow_started`, `course_registered`, `first_discussion_post`, `assignment_submitted` | Academic activity inside the LMS. |
+| `Engagement` | `email_sent`, `email_opened`, `email_clicked`, `sms_sent`, `sms_clicked`, `call_attempt`, `call_connected` | Outreach channel events. |
+| `SystemEvent` | `ai_generated`, `sync_completed`, `checklist_aggregated` | Internal pipeline events. |
 
 ---
 
-## Subcollection: `ai_insights`
+## Subcollection: `ai_outputs`
 
-**Path:** `salesforce_opportunities/{student_id}/ai_insights/latest`
+Path: `salesforce_opportunities/{student_id}/ai_outputs/latest`
 
-Heavy AI-generated content. Single document keyed `latest`. Only loaded when an ES opens the student detail page. Written exclusively by the Python AI agent via the Cloud Functions orchestration trigger (`syncAiInsightsOnUpdate`). Never sourced from BQ. Never manually set.
-
-### Document schema
+**Single document named `latest`.** Written exclusively by the Python AI agent (Cloud Run). Loaded **only** on the Student Detail page — never fetched for the dashboard list view.
 
 | Field | Type | Description |
 |---|---|---|
-| `overviewSummary` | string | Holistic narrative for the ES. Combines readiness + engagement. |
-| `readinessRisk.level` | High / Medium / Low | Full readiness assessment |
-| `readinessRisk.trendDirection` | up / down / stable | 7-day trajectory |
-| `readinessRisk.trendNote` | string | Latest readiness activity |
-| `engagementRisk.level` | High / Medium / Low | Full engagement assessment |
-| `engagementRisk.trendDirection` | up / down / stable | 7-day trajectory |
-| `engagementRisk.trendNote` | string | Latest engagement activity |
-| `metrics.timeSinceReserve` | string | e.g. "63 days" |
-| `metrics.timeToProgramStart` | string | e.g. "9 days" |
-| `metrics.timeToCensus` | string | e.g. "20 days" |
-| `nextBestActions` | array | Prioritized action items for the ES |
-| `nextBestActions[].title` | string | Action commanding the ES |
-| `nextBestActions[].urgent` | boolean | High-priority flag |
-| `nextBestActions[].points` | string[] | Step-by-step ES instructions |
-| `nextBestActions[].buttonText` | string | `"Review Requirement"` or `"Complete Task >"` |
-| `emailDraft.bodyText` | string | Two-paragraph body, no greeting |
-| `emailDraft.bullets` | string[] | Actionable items for the email |
-| `smsDraft` | string | Max 140 chars, addressed to student |
-| `agentTrace` | array | Agent execution trace for debugging |
-| `generatedAt` | timestamp | When this generation completed |
+| `generatedAt` | ISO datetime | When this AI payload was generated. |
+| `overviewSummary` | string | 3-4 sentence holistic narrative for the ES. |
+| `readinessRisk.level` | High/Medium/Low | Current readiness risk level. |
+| `readinessRisk.trendDirection` | up/down/stable | Trajectory over last 7 days. |
+| `readinessRisk.trendNote` | string | Supporting note. |
+| `engagementRisk.level` | High/Medium/Low | Current engagement risk level. |
+| `engagementRisk.trendDirection` | up/down/stable | Trajectory. |
+| `engagementRisk.trendNote` | string | Supporting note. |
+| `metrics.timeSinceReserve` | string | e.g. "5 days" |
+| `metrics.timeToProgramStart` | string | e.g. "14 days" |
+| `metrics.timeToCensus` | string | e.g. "21 days" |
+| `nextBestActions` | array | Array of NBA items (title, urgent, points[], buttonText). |
+| `emailDraft.subject` | string | AI-generated email subject. |
+| `emailDraft.bodyText` | string | AI-generated email body. |
+| `emailDraft.bullets` | string[] | Actionable bullets to paste in. |
+| `smsDraft` | string | AI-generated SMS under 140 chars. |
+| `agentTrace` | array | Pipeline trace for transparency (agentName, action, status, duration, timestamp). |
 
 ---
 
-## Example State Document
+## AI Generation Flow
 
-### Root document — `salesforce_opportunities/A00302996`
+```
+1. UI sets  isGeneratingAi = true  on root doc
+          (via StudentService.triggerAiGeneration)
+
+2. Cloud Function syncAiInsightsOnUpdate fires
+   Guard:  before.isGeneratingAi !== true  &&  after.isGeneratingAi === true
+   → calls Python Agent /generate-insights (POST)
+
+3. Python Agent:
+   a. Reads root doc + student_activity_logs + personalized_checklists for context
+   b. Calls Vertex AI (Gemini 2.5 Flash) — core insights (sync) + comms (background thread)
+   c. Writes  ai_outputs/latest  subcollection document
+   d. Returns lightweight summary to Cloud Function
+
+4. Cloud Function:
+   a. Writes  readinessLevel + engagementLevel  to root doc
+   b. Writes  aiInsights  (backward-compat) to root doc
+   c. Sets    isGeneratingAi = false
+   d. Clears  lastAiError
+
+5. UI snapshot listener detects  isGeneratingAi === false
+   → loads  ai_outputs/latest  for detail view
+   → updates dashboard root card from root fields
+```
+
+---
+
+## Ownership Matrix
+
+| System | Owns these fields |
+|---|---|
+| **Ingestion Pipeline** (BQ → Firestore) | `student_name`, `institution`, `program`, `term_*`, `status_stage`, `program_start_date`, `reserve_date`, `census_date`, `funding_type`, `lastUpdatedByPipelineAt`, all `personalized_checklists/*`, all `student_activity_logs/*` |
+| **Cloud Functions** | `requirements`, `readinessLevel`, `engagementLevel`, `isGeneratingAi`, `lastAiError`, `syncTimestamp` |
+| **Python AI Agent** | `ai_outputs/latest` |
+| **Angular UI** | `isGeneratingAi` (write `true` only to trigger) |
+
+---
+
+## Example: Root Document
 
 ```json
 {
-  "student_id": "A00302996",
-  "student_name": "Amy Collins",
-  "institution": "Covista University",
-  "program": "MSEL",
-  "program_name": "MS Early Ed",
-  "term_code": "2026-T1",
+  "student_id": "OPP-001-2026-MSN",
+  "student_name": "Jordan Rivera",
+  "institution": "WALU",
+  "program": "MSN-NP",
+  "program_name": "Master of Science in Nursing — Nurse Practitioner",
+  "term_code": "2026SP",
   "term_desc": "Spring 2026",
   "status_stage": "Enrolled",
-  "enrollment_specialist_name": "Jennifer Lawson",
-  "funding_type": "Federal",
-  "program_start_date": "2026-04-15T04:00:00.000Z",
-  "reserve_date": "2026-02-01T04:00:00.000Z",
-  "census_date": "2026-04-25T04:00:00.000Z",
-  "time_to_program_start_days": 9,
-  "time_since_reserve_days": 63,
-  "last_updated_at": "2026-04-05T22:48:53.425Z",
+  "enrollment_specialist_name": "Priya Mehta",
+  "program_start_date": "2026-05-01",
+  "reserve_date": "2026-02-14",
+  "census_date": "2026-05-22",
+  "funding_type": "FAFSA",
+  "time_to_program_start_days": 18,
+  "time_since_reserve_days": 58,
+  "requirements": {
+    "orientationStarted": true,
+    "wwowOrientationStarted": true,
+    "courseRegistration": true,
+    "firstAssignmentSubmitted": false,
+    "assignmentByCensusDay": false,
+    "fafsaSubmitted": true,
+    "fundingPlan": false,
+    "officialTranscriptsReceived": false,
+    "nursingLicenseReceived": true
+  },
   "readinessLevel": "Medium",
-  "engagementLevel": "Medium",
+  "engagementLevel": "High",
   "isGeneratingAi": false,
-  "syncTimestamp": 1775500472437
+  "lastAiError": null,
+  "syncTimestamp": 1744571200000,
+  "lastUpdatedByPipelineAt": "2026-04-13T09:15:00Z"
 }
 ```
 
-### Subcollection — `personalized_checklists/fafsa_submission`
+## Example: `personalized_checklists/fafsa_submission`
 
 ```json
 {
+  "checklist_id": "fafsa_submission",
+  "student_id": "OPP-001-2026-MSN",
+  "item_name": "FAFSA Submission",
+  "category": "Funding",
   "is_satisfied": true,
-  "updated_at": "2026-03-15T10:00:00.000Z"
+  "due_date": "2026-04-01",
+  "completed_at": "2026-03-28T14:22:00Z",
+  "source": "r2c_student_profile.funding_plan_status"
 }
 ```
 
-### Subcollection — `activity_logs/evt_001`
+## Example: `student_activity_logs/evt-0042`
 
 ```json
 {
-  "log_id": "evt_001",
-  "student_id": "A00302996",
-  "term_code": "2026-T1",
-  "activity_category": "task_history",
-  "activity_name": "phone_call",
-  "activity_datetime": "2026-02-10T14:30:00.000Z",
-  "actor": "enrollment_specialist",
-  "source_system": "Salesforce",
-  "communication_type": "Phone",
-  "task_notes": "Welcome call completed. Student confirmed attendance.",
-  "task_comments": "Student excited, no concerns raised.",
-  "task_status": "Completed",
-  "last_updated_timestamp": "2026-02-10T14:35:00.000Z"
+  "log_id": "evt-0042",
+  "student_id": "OPP-001-2026-MSN",
+  "term_code": "2026SP",
+  "activity_category": "Engagement",
+  "activity_name": "email_opened",
+  "activity_datetime": "2026-04-10T11:04:00Z",
+  "communication_type": "Email",
+  "interaction_direction": "inbound",
+  "task_notes": null,
+  "task_comments": null,
+  "case_number": null,
+  "case_status": null
 }
 ```
 
-### Subcollection — `ai_insights/latest`
+## Example: `ai_outputs/latest`
 
 ```json
 {
-  "overviewSummary": "Amy is enrolled in MS Early Ed starting April 15th with 9 days remaining. Federal funding is in place but onboarding checklist completion is unconfirmed. Proactive outreach is recommended before program start.",
-  "readinessRisk": {
-    "level": "Medium",
-    "trendDirection": "stable",
-    "trendNote": "No checklist activity recorded in the last 7 days."
-  },
-  "engagementRisk": {
-    "level": "Medium",
-    "trendDirection": "stable",
-    "trendNote": "Last contact was a phone call on Feb 10. No recent inbound activity."
-  },
-  "metrics": {
-    "timeSinceReserve": "63 days",
-    "timeToProgramStart": "9 days",
-    "timeToCensus": "20 days"
-  },
+  "generatedAt": "2026-04-13T09:20:15Z",
+  "overviewSummary": "Jordan is tracking well for May 1 start. FAFSA submitted but award letter still pending — funding risk is moderate. Transcript contingency remains open. Engagement is strong: email opened within 2 hours of last outreach.",
+  "readinessRisk": { "level": "Medium", "trendDirection": "stable", "trendNote": "Transcript contingency unresolved for 12 days." },
+  "engagementRisk": { "level": "Low", "trendDirection": "down", "trendNote": "Email opened within 2 hours on Apr 10." },
+  "metrics": { "timeSinceReserve": "58 days", "timeToProgramStart": "18 days", "timeToCensus": "39 days" },
   "nextBestActions": [
     {
-      "title": "Confirm Federal Financial Aid Status",
+      "title": "Funding — FAFSA Submitted, Awaiting Award",
       "urgent": true,
       "points": [
-        "Verify the student's federal financial aid package is finalized and scheduled for disbursement.",
-        "Confirm there are no outstanding holds preventing disbursement."
+        "Check FAFSA status: https://studentaid.gov/help/check-fafsa-status",
+        "Confirm student portal shows award letter status",
+        "FAFSA process can take several business days"
       ],
       "buttonText": "Review Requirement"
-    },
-    {
-      "title": "Initiate Proactive Outreach to Student",
-      "urgent": false,
-      "points": [
-        "Contact the student to offer support and confirm readiness for program start.",
-        "Reinforce important dates and available resources."
-      ],
-      "buttonText": "Complete Task >"
     }
   ],
   "emailDraft": {
-    "bodyText": "We're so excited to welcome you to the MS Early Ed program at Covista University! With your program starting on April 15th, Jennifer Lawson and the entire team are here to ensure you have a smooth transition.",
+    "subject": "Quick update on your enrollment — action needed",
+    "bodyText": "Your FAFSA has been received and is under review. To keep your May 1 start on track, your official transcripts still need to be submitted.",
     "bullets": [
-      "Confirm your financial aid disbursement status in your student portal.",
-      "Review the orientation schedule and materials available online."
+      "Submit official transcripts from your previous institution",
+      "Check your student portal for your financial aid status"
     ]
   },
-  "smsDraft": "Hi Amy! Just 9 days until your MS Early Ed program starts at Covista! So excited for you. Let us know if you need anything!",
+  "smsDraft": "Hi Jordan! Quick reminder: your official transcript is still needed before May 1. Reply HELP or call us anytime.",
   "agentTrace": [
-    {
-      "agentName": "Student Success Agent",
-      "action": "Generate Core Risk Profile",
-      "status": "Success",
-      "duration": "1.2s",
-      "timestamp": "2026-04-06T18:35:00.000Z"
-    },
-    {
-      "agentName": "Communications Agent",
-      "action": "Synthesize Custom Outreach",
-      "status": "Success",
-      "duration": "2.1s",
-      "timestamp": "2026-04-06T18:35:02.100Z"
-    }
-  ],
-  "generatedAt": "2026-04-06T18:35:02.708835Z"
+    { "agentName": "Student Success Agent", "action": "Generate Core Risk Profile", "status": "Success", "duration": "1420ms", "timestamp": "2026-04-13T09:20:10Z" },
+    { "agentName": "Communications Agent", "action": "Synthesize Custom Outreach (Detached)", "status": "Success", "duration": "3850ms", "timestamp": "2026-04-13T09:20:14Z" }
+  ]
 }
 ```
