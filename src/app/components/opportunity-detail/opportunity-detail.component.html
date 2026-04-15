@@ -41,33 +41,35 @@
             </a>
             </div>
             
-            <button class="sf-outline-btn" style="border: 2px solid #5533FF; color: #5533FF; background: #ffffff; border-radius: 6px; padding: 8px 16px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;" (click)="openFeedbackCapture()" [disabled]="!student.aiInsights">
-                <span class="material-icons" style="font-size: 16px;">draw</span>
-                Provide Annotated Feedback
-            </button>
         </div>
 
         @if (student.aiInsights?.readinessRisk) {
-        <div class="metrics-row">
-            <div class="metric-card">
-                <div class="icon-circle purple"><span class="material-icons">schedule</span></div>
-                <div class="data">
-                    <span>Time Since Reserve</span>
-                    <strong>{{ student.aiInsights!.metrics?.timeSinceReserve || '-' }}</strong>
+        <div class="metrics-row risk-indicators-row">
+            <div class="metric-card risk-card-indicator" [ngClass]="student.aiInsights!.readinessRisk?.level?.toLowerCase() || 'medium'">
+                <div class="risk-header">
+                    <span>Readiness Level</span>
+                    <strong>{{ student.aiInsights!.readinessRisk?.level || 'Medium' }}</strong>
+                </div>
+                <div class="trend-info">
+                    <span class="material-icons trend-icon" 
+                          [ngClass]="student.aiInsights!.readinessRisk?.trendDirection === 'increasing' ? 'trend-up' : (student.aiInsights!.readinessRisk?.trendDirection === 'decreasing' ? 'trend-down' : 'trend-flat')">
+                        {{ student.aiInsights!.readinessRisk?.trendDirection === 'increasing' ? 'trending_up' : (student.aiInsights!.readinessRisk?.trendDirection === 'decreasing' ? 'trending_down' : 'trending_flat') }}
+                    </span>
+                    <span class="trend-note">{{ student.aiInsights!.readinessRisk?.trendNote || 'Stable activity based on recent actions' }}</span>
                 </div>
             </div>
-            <div class="metric-card">
-                <div class="icon-circle blue"><span class="material-icons">event</span></div>
-                <div class="data">
-                    <span>Time to Program Start</span>
-                    <strong>{{ student.aiInsights!.metrics?.timeToProgramStart || '-' }}</strong>
+
+            <div class="metric-card risk-card-indicator" [ngClass]="student.aiInsights!.engagementRisk?.level?.toLowerCase() || 'medium'">
+                <div class="risk-header">
+                    <span>Engagement Level</span>
+                    <strong>{{ student.aiInsights!.engagementRisk?.level || 'Medium' }}</strong>
                 </div>
-            </div>
-            <div class="metric-card">
-                <div class="icon-circle purple"><span class="material-icons">flag</span></div>
-                <div class="data">
-                    <span>Time to Census</span>
-                    <strong>{{ student.aiInsights!.metrics?.timeToCensus || '-' }}</strong>
+                <div class="trend-info">
+                    <span class="material-icons trend-icon" 
+                          [ngClass]="student.aiInsights!.engagementRisk?.trendDirection === 'increasing' ? 'trend-up' : (student.aiInsights!.engagementRisk?.trendDirection === 'decreasing' ? 'trend-down' : 'trend-flat')">
+                        {{ student.aiInsights!.engagementRisk?.trendDirection === 'increasing' ? 'trending_up' : (student.aiInsights!.engagementRisk?.trendDirection === 'decreasing' ? 'trending_down' : 'trending_flat') }}
+                    </span>
+                    <span class="trend-note">{{ student.aiInsights!.engagementRisk?.trendNote || 'Stable activity based on recent actions' }}</span>
                 </div>
             </div>
         </div>
@@ -88,12 +90,15 @@
                         <div class="h-left"><span class="material-icons icon">my_location</span> AI-Generated Next Best Actions</div>
                     </div>
                     <ul class="nba-list">
-                        @for (action of student.aiInsights!.nextBestActions || []; track action.title) {
+                        @for (action of sortedNextBestActions(); track action.title) {
                         <li class="nba-item">
                             <span class="material-icons check-icon">check_circle</span>
                             <div class="text-content">
                                 <h4 style="display: flex; align-items: center; gap: 6px;">
                                     {{ action.title }}
+                                    @if(action.urgent) {
+                                        <span class="priority-pill">Priority</span>
+                                    }
                                 </h4>
                                 <p>{{ action.points[0] }}</p>
                             </div>
