@@ -1,375 +1,412 @@
+"""Flask application — infrastructure layer for the Covista AI agent pipeline.
+
+Infrastructure responsibility: compose domain agents via the orchestrator,
+manage I/O (Firestore, HTTP), and expose Flask endpoints consumed by the
+Cloud Functions trigger and admin tooling.
+
+Architecture layers:
+    Domain (agents/): Pure business logic — no Flask, no Firestore.
+    Orchestration (orchestration/): Pipeline sequencing — no Firestore.
+    Infrastructure (this file): I/O, composition, and HTTP routing.
+"""
+
+from __future__ import annotations
+
 import os
-import json
 import threading
+from typing import Any
+
+import google.auth
 import vertexai
-import re
-import datetime
-from vertexai.preview.generative_models import GenerativeModel
-from flask import Flask, request, jsonify
+from flask import Flask, Response, jsonify, request
 from google.cloud import bigquery, firestore
+
+from agents.communications_agent import CommunicationsAgent
+from agents.nba_agent import NBAAgent
+from agents.readiness_agent import ReadinessAgent
+from agents.risk_agent import RiskAgent
+from orchestration.orchestrator import AgentOrchestrator, DerivedOutput
+
+# ---------------------------------------------------------------------------
+# Project / environment configuration
+# ---------------------------------------------------------------------------
 
 app = Flask(__name__)
 
-import google.auth
-_, auth_project = google.auth.default()
-project_id = auth_project or os.environ.get("GOOGLE_CLOUD_PROJECT", "dev-wu-agenticai-app-proj")
-dataset_id = "covista_demo"
-table_id = "engagement_rules"
+_, _auth_project = google.auth.default()
+PROJECT_ID: str = _auth_project or os.environ.get(
+    "GOOGLE_CLOUD_PROJECT", "dev-wu-agenticai-app-proj"
+)
+DATASET_ID: str = "covista_demo"
 
-bq_client = bigquery.Client(project=project_id)
-db = firestore.Client(project=project_id)
+bq_client: bigquery.Client = bigquery.Client(project=PROJECT_ID)
+db: firestore.Client = firestore.Client(project=PROJECT_ID)
 
-vertexai.init(project=project_id, location="us-central1")
-model_name = "gemini-2.5-flash"
+vertexai.init(project=PROJECT_ID, location="us-central1")
 
-def generate_core_insights(data_context):
-    model = GenerativeModel(model_name)
-    prompt = f"""
-    You are an expert academic advisor AI (Student Success Agent).
-    CRITICAL INSTRUCTION 1: You are an assistant talking to the ES. Therefore, in the 'overview' and 'nextBestActions' sections, you must NEVER address the student directly.
-    CRITICAL INSTRUCTION 3: Review the student's checklist. IF they completed 100%, DO NOT invent missing tasks. Pivot to keeping them engaged.
-    CRITICAL INSTRUCTION 4: For 'trendDirection', evaluate their trajectory over the last 7 days. If they are new, return 'stable'. Provide a 'trendNote' supporting this trajectory based on the latest physical activity logged.
-    
-    Reply ONLY in strictly valid JSON formatted exactly like this:
-    {{
-      "overviewSummary": "A unified holistic narrative summarizing BOTH their academic/onboarding readiness AND their communication/activity engagement together in 3-4 cohesive sentences.",
-      "readinessRisk": {{
-          "level": "High, Medium, or Low",
-          "trendDirection": "up, down, or stable",
-          "trendNote": "Short supporting note identifying their latest Readiness activity."
-      }},
-      "engagementRisk": {{
-          "level": "High, Medium, or Low",
-          "trendDirection": "up, down, or stable",
-          "trendNote": "Short supporting note identifying their latest Engagement activity."
-      }},
-      "metrics": {{
-          "timeSinceReserve": "Number and Days (e.g., '5 days')",
-          "timeToProgramStart": "Number and Days (e.g., '14 days')",
-          "timeToCensus": "Number and Days (e.g., '21 days')"
-      }},
-      "nextBestActions": [
-          {{
-              "title": "Action title explicitly commanding the ES",
-              "urgent": true,
-              "points": ["Instructions for the ES, NOT the student."],
-              "buttonText": "Review Requirement"
-          }}
-      ]
-    }}
-
-    CRITICAL INSTRUCTION: For 'buttonText', DO NOT use words like "Send Email" or "Email Student". Set it EXACTLY to "Review Requirement" or "Complete Task >".
-
-    STUDENT DATA:
-    {json.dumps(data_context)}
-    """
-    response = model.generate_content(
-        prompt,
-        generation_config={"response_mime_type": "application/json", "temperature": 0.2}
-    )
-    try:
-        raw_text = response.text.replace('```json', '').replace('```', '')
-        return json.loads(raw_text.strip())
-    except:
-        print("[Core Insights] FAILED TO PARSE:", response.text)
-        return {}
-
-def generate_communications(data_context):
-    model = GenerativeModel(model_name)
-    prompt = f"""
-    You are an expert academic advisor AI (Communications Agent). Given the raw student data context, generate personalized outreach drafts TO THE STUDENT.
-    CRITICAL: Ensure your drafts reflect recent 'notes' sentiment (e.g., extremely empathetic if health/death, excited if normal).
-    
-    Reply ONLY in strictly valid JSON formatted exactly like this:
-    {{
-      "emailDraft": {{
-          "bodyText": "A friendly, customized 2 paragraph body text. DO NOT include any greeting or salutation.",
-          "bullets": ["Specific actionable task 1"]
-      }},
-      "smsDraft": "Short, friendly text STRICTLY addressed directly TO THE STUDENT. Under 140 chars."
-    }}
-
-    STUDENT DATA:
-    {json.dumps(data_context)}
-    """
-    response = model.generate_content(
-        prompt,
-        generation_config={"response_mime_type": "application/json", "temperature": 0.2}
-    )
-    try:
-        raw_text = response.text.replace('```json', '').replace('```', '')
-        return json.loads(raw_text.strip())
-    except:
-        print("[Comms Agent] FAILED TO PARSE:", response.text)
-        return {}
-
-@app.route('/generate-insights', methods=['POST'])
-def generate_insights():
-    req_data = request.json
-    student_uid = req_data.get('studentUid')
-    data_context = req_data.get('dataContext', {})
-
-    # Enrich context with subcollection activity logs (last 50 events)
-    if student_uid:
-        try:
-            logs_ref = (
-                db.collection('salesforce_opportunities')
-                  .document(student_uid)
-                  .collection('activity_logs')
-                  .order_by('activity_datetime', direction=firestore.Query.DESCENDING)
-                  .limit(50)
-            )
-            logs = [doc.to_dict() for doc in logs_ref.stream()]
-            data_context['recentActivityLogs'] = logs
-        except Exception as e:
-            print(f"[generate-insights] Could not load activity logs for enrichment: {e}")
-
-    # -------------------------------------------------------------
-    # PHASE 1: Immediate Synchronous Execution for Core UI Matrix
-    # -------------------------------------------------------------
-    core_payload = generate_core_insights(data_context)
-
-    # Inject generation timestamp for UI freshness tracking
-    core_payload["generatedAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-
-    # Write Phase 1 payload immediately to ai_outputs/latest subcollection
-    if student_uid:
-        try:
-            db.collection('salesforce_opportunities').document(student_uid) \
-              .collection('ai_insights').document('latest').set(core_payload)
-
-            # Copy lightweight summary fields to root doc for dashboard filtering
-            db.collection('salesforce_opportunities').document(student_uid).update({
-                "readinessLevel": core_payload.get("readinessRisk", {}).get("level"),
-                "engagementLevel": core_payload.get("engagementRisk", {}).get("level"),
-            })
-        except Exception as e:
-            print(f"[generate-insights] Failed to write ai_outputs/latest: {e}")
-
-    # -------------------------------------------------------------
-    # PHASE 2: Detached Background Execution for Heavy Comms payload
-    # -------------------------------------------------------------
-    def generate_and_save_comms(uid, context):
-        comms_payload = generate_communications(context)
-        print(f"[Comms Agent] Background Generation Complete for UID: {uid}. Merging into ai_outputs/latest.")
-        if uid and comms_payload:
-            try:
-                # Merge comms output into the existing ai_outputs/latest document
-                db.collection('salesforce_opportunities').document(uid) \
-                  .collection('ai_insights').document('latest').update({
-                      "emailDraft": comms_payload.get("emailDraft"),
-                      "smsDraft": comms_payload.get("smsDraft"),
-                  })
-                # Also keep aiInsights on root for backward compat (legacy UI reads)
-                db.collection('salesforce_opportunities').document(uid).update({
-                    "aiInsights.emailDraft": comms_payload.get("emailDraft"),
-                    "aiInsights.smsDraft": comms_payload.get("smsDraft"),
-                })
-            except Exception as er:
-                print(f"[Comms Agent] FAILED TO INJECT COMMS: {er}")
-
-    # Spawning the background worker
-    threading.Thread(target=generate_and_save_comms, args=(student_uid, data_context)).start()
-
-    # Immediately return the Phase 1 trace to unblock the Enrollment Specialist's UI
-    core_payload["agentTrace"] = [
-        {
-            "agentName": "Student Success Agent",
-            "action": "Generate Core Risk Profile",
-            "status": "Success",
-            "duration": "Python Local Thread",
-            "timestamp": "Now"
-        },
-        {
-            "agentName": "Communications Agent",
-            "action": "Synthesize Custom Outreach (Detached)",
-            "status": "Processing in Background...",
-            "duration": "Awaiting Callback",
-            "timestamp": "Now"
-        }
+# Production pipeline: Readiness → Risk → NBA → Communications.
+# Stateless singletons — safe to share across requests.
+_orchestrator: AgentOrchestrator = AgentOrchestrator(
+    agents=[
+        ReadinessAgent(),
+        RiskAgent(),
+        NBAAgent(),
+        CommunicationsAgent(),
     ]
-    
-    return jsonify(core_payload)
+)
 
-# ------------------------------------------------------------------
-# Phase 1: Operational Ingestion Bridge (BigQuery -> Firestore)
-# ------------------------------------------------------------------
-@app.route('/sync-bq-to-firestore', methods=['POST'])
-def sync_bq_to_firestore():
-    print("[Ingestion Bridge] Starting Comprehensive BigQuery to Firestore sync...")
-    
-    # 1. Fetch Student Courses and group by Student ID
-    course_query = f"SELECT student_id, course_id, is_accredited, course_registration_status, first_login_at, first_discussion_post_at FROM `{project_id}.{dataset_id}.student_courses`"
-    course_rows = bq_client.query(course_query).result()
-    course_map = {}
-    for row in course_rows:
+
+# ---------------------------------------------------------------------------
+# AI insights endpoint
+# ---------------------------------------------------------------------------
+
+@app.route("/generate-insights", methods=["POST"])
+def generate_insights() -> Response:
+    """Orchestrate the four-phase AI pipeline for a single student.
+
+    Enriches the state with recent activity logs from the Firestore
+    activity_logs subcollection, then delegates all agent sequencing to
+    AgentOrchestrator.  The full DerivedOutput is returned synchronously.
+    Firestore persistence runs in a background thread.
+
+    Pipeline order (managed by orchestrator):
+        1. Readiness Agent  — checklist + timing evaluation.
+        2. Risk Agent       — engagement risk + overview summary.
+        3. NBA Agent        — Next Best Actions grounded in 1 + 2.
+        4. Communications   — email/SMS drafts aligned with top NBA.
+
+    Returns:
+        JSON response matching the ai_insights/latest schema defined in
+        docs/student-state-schema.json.
+    """
+    req_data: dict[str, Any] = request.json
+    student_uid: str | None = req_data.get("studentUid")
+    state: dict[str, Any] = req_data.get("dataContext", {})
+
+    # Enrich state with recent activity logs so agents have behavioural
+    # context for engagement and risk assessment.
+    if student_uid:
+        state = _enrich_with_activity_logs(
+            student_uid=student_uid,
+            state=state,
+        )
+
+    derived: DerivedOutput = _orchestrator.run(state=state)
+
+    # Persist to Firestore without blocking the HTTP response.
+    thread = threading.Thread(
+        target=_persist_derived,
+        args=(student_uid, derived),
+    )
+    thread.start()
+
+    return jsonify(derived)
+
+
+def _enrich_with_activity_logs(
+    student_uid: str,
+    state: dict[str, Any],
+) -> dict[str, Any]:
+    """Load the last 50 activity log events and inject them into state.
+
+    Reads from the activity_logs subcollection ordered by datetime
+    descending.  Returns the original state unchanged on any Firestore
+    error, so a missing subcollection never blocks the pipeline.
+
+    Args:
+        student_uid: Firestore document ID for the student.
+        state: Current student state dict to enrich.
+
+    Returns:
+        Copy of state with 'recentActivityLogs' key populated, or the
+        original state dict when the read fails.
+    """
+    try:
+        logs_ref = (
+            db.collection("salesforce_opportunities")
+            .document(student_uid)
+            .collection("activity_logs")
+            .order_by(
+                "activity_datetime",
+                direction=firestore.Query.DESCENDING,
+            )
+            .limit(50)
+        )
+        logs: list[dict[str, Any]] = [
+            doc.to_dict() for doc in logs_ref.stream()
+        ]
+        return {**state, "recentActivityLogs": logs}
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"[generate-insights] Could not load activity logs "
+            f"for {student_uid}: {exc}"
+        )
+        return state
+
+
+def _persist_derived(
+    student_uid: str | None,
+    derived: DerivedOutput,
+) -> None:
+    """Write the derived AI output to Firestore after pipeline completion.
+
+    Executed in a background thread so the /generate-insights response
+    is not blocked by the write.
+
+    Firestore writes per docs/student-state-schema.json:
+    1. Heavy AI payload → ai_insights/latest subcollection.
+    2. Lightweight risk summaries (readinessLevel, engagementLevel)
+       → root document, for dashboard filtering and the recursion guard.
+
+    Args:
+        student_uid: Firestore document ID for the student.  No-op when
+            None (e.g. when called without a studentUid in the request).
+        derived: Complete DerivedOutput from the orchestrator.
+    """
+    if not student_uid:
+        return
+
+    doc_ref = db.collection("salesforce_opportunities").document(student_uid)
+
+    # 1. Heavy payload — canonical subcollection per the schema contract.
+    try:
+        doc_ref.collection("ai_insights").document("latest").set(
+            derived, merge=True
+        )
+        print(
+            f"[Orchestrator] ai_insights/latest updated for {student_uid}."
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"[Orchestrator] ai_insights write failed for {student_uid}: {exc}"
+        )
+
+    # 2. Root-level summary fields — required for dashboard list filtering
+    #    and the recursion guard (derived fields do not re-trigger AI).
+    readiness_level: str | None = (
+        derived.get("readinessRisk", {}).get("level")  # type: ignore[union-attr]
+    )
+    engagement_level: str | None = (
+        derived.get("engagementRisk", {}).get("level")  # type: ignore[union-attr]
+    )
+    summary: dict[str, str] = {
+        k: v
+        for k, v in {
+            "readinessLevel": readiness_level,
+            "engagementLevel": engagement_level,
+        }.items()
+        if v is not None
+    }
+    if summary:
+        try:
+            doc_ref.set(summary, merge=True)
+            print(
+                f"[Orchestrator] Root risk levels updated for {student_uid}."
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(
+                f"[Orchestrator] Root doc update failed for {student_uid}: {exc}"
+            )
+
+
+# ---------------------------------------------------------------------------
+# Ingestion bridge endpoint  (BigQuery → Firestore)
+# ---------------------------------------------------------------------------
+
+@app.route("/sync-bq-to-firestore", methods=["POST"])
+def sync_bq_to_firestore() -> Response:
+    """Sync the full student dataset from BigQuery to Firestore.
+
+    Reads from three BigQuery tables (student_core, student_courses,
+    student_contingencies) and batch-writes hydrated documents to the
+    salesforce_opportunities Firestore collection.
+
+    Returns:
+        JSON response with sync status and number of records synced,
+        or an error message with HTTP 500 on failure.
+    """
+    print("[Ingestion Bridge] Starting BigQuery to Firestore sync...")
+
+    course_map = _fetch_course_map()
+    cont_map = _fetch_contingency_map()
+
+    core_query: str = f"""
+        SELECT
+            student_id, full_name, institution_code, program_code,
+            program_start_date, reserve_date, trf_form_on_file,
+            enrollment_status, funding_plan_status,
+            wwow_orientation_started_at, etl_updated_at
+        FROM `{PROJECT_ID}.{DATASET_ID}.student_core`
+    """
+
+    try:
+        rows = bq_client.query(query=core_query).result()
+        synced_count, batch = _write_student_rows(
+            rows=rows,
+            course_map=course_map,
+            cont_map=cont_map,
+        )
+        print(
+            f"[Ingestion Bridge] Successfully synced {synced_count} "
+            f"records to Firestore."
+        )
+        return jsonify({"status": "Success", "records_synced": synced_count})
+
+    except Exception as exc:  # noqa: BLE001
+        print(f"[Ingestion Bridge] Failed to sync data: {exc}")
+        return jsonify({"status": "Failed", "error": str(exc)}), 500
+
+
+def _fetch_course_map() -> dict[str, list[dict[str, Any]]]:
+    """Fetch all student courses from BigQuery and group by student ID.
+
+    Returns:
+        Mapping of student_id -> list of course dicts.
+    """
+    query: str = (
+        f"SELECT student_id, course_id, is_accredited, "
+        f"course_registration_status, first_login_at, "
+        f"first_discussion_post_at "
+        f"FROM `{PROJECT_ID}.{DATASET_ID}.student_courses`"
+    )
+    course_map: dict[str, list[dict[str, Any]]] = {}
+    for row in bq_client.query(query=query).result():
         student_id = str(row.student_id)
-        if student_id not in course_map:
-            course_map[student_id] = []
-        course_map[student_id].append({
+        course_map.setdefault(student_id, []).append({
             "courseId": row.course_id,
             "isAccredited": row.is_accredited,
             "registrationStatus": row.course_registration_status,
-            "firstLoginAt": row.first_login_at.isoformat() if row.first_login_at else None,
-            "firstDiscussionPostAt": row.first_discussion_post_at.isoformat() if row.first_discussion_post_at else None
+            "firstLoginAt": (
+                row.first_login_at.isoformat()
+                if row.first_login_at else None
+            ),
+            "firstDiscussionPostAt": (
+                row.first_discussion_post_at.isoformat()
+                if row.first_discussion_post_at else None
+            ),
         })
+    return course_map
 
-    # 2. Fetch Student Contingencies and group by Student ID
-    cont_query = f"SELECT student_id, contingency_id, institution_name, contingency_type, contingency_status FROM `{project_id}.{dataset_id}.student_contingencies`"
-    cont_rows = bq_client.query(cont_query).result()
-    cont_map = {}
-    for row in cont_rows:
+
+def _fetch_contingency_map() -> dict[str, list[dict[str, Any]]]:
+    """Fetch all student contingencies from BigQuery and group by student ID.
+
+    Returns:
+        Mapping of student_id -> list of contingency dicts.
+    """
+    query: str = (
+        f"SELECT student_id, contingency_id, institution_name, "
+        f"contingency_type, contingency_status "
+        f"FROM `{PROJECT_ID}.{DATASET_ID}.student_contingencies`"
+    )
+    cont_map: dict[str, list[dict[str, Any]]] = {}
+    for row in bq_client.query(query=query).result():
         student_id = str(row.student_id)
-        if student_id not in cont_map:
-            cont_map[student_id] = []
-        cont_map[student_id].append({
+        cont_map.setdefault(student_id, []).append({
             "id": row.contingency_id,
             "institutionName": row.institution_name,
             "type": row.contingency_type,
-            "status": row.contingency_status
+            "status": row.contingency_status,
         })
+    return cont_map
 
-    # 3. Query the unified `student_core` landing table
-    core_query = f"""
-        SELECT 
-            student_id, full_name, institution_code, program_code, 
-            program_start_date, reserve_date, trf_form_on_file, 
-            enrollment_status, funding_plan_status, 
-            wwow_orientation_started_at, etl_updated_at
-        FROM `{project_id}.{dataset_id}.student_core`
+
+def _write_student_rows(
+    rows: Any,
+    course_map: dict[str, list[dict[str, Any]]],
+    cont_map: dict[str, list[dict[str, Any]]],
+) -> tuple[int, Any]:
+    """Batch-write student core rows to Firestore.
+
+    Commits every 500 documents to stay within Firestore batch limits.
+
+    Args:
+        rows: BigQuery RowIterator of student_core results.
+        course_map: Pre-fetched course data keyed by student ID.
+        cont_map: Pre-fetched contingency data keyed by student ID.
+
+    Returns:
+        Tuple of (total records synced, final uncommitted batch).
     """
-    
-    try:
-        query_job = bq_client.query(core_query)
-        rows = query_job.result()
-        
-        synced_count = 0
-        batch = db.batch()
-        
-        for row in rows:
-            student_id = str(row.student_id)
-            
-            # Construct the exact nested Firestore JSON contract
-            student_payload = {
-                "id": student_id,
-                "name": row.full_name,
-                "program": row.program_code,
-                "institution": row.institution_code,
-                "status": row.enrollment_status,
-                
-                # Coerce Dates to ISO Strings for Angular compatibility
-                "programStartDate": row.program_start_date.isoformat() if row.program_start_date else None,
-                "reserveDate": row.reserve_date.isoformat() if row.reserve_date else None,
-                
-                "requirements": {
-                    "officialTranscriptsReceived": row.trf_form_on_file,
-                    "fundingPlan": True if row.funding_plan_status == "Approved" else False,
-                    "orientationStarted": True if row.wwow_orientation_started_at else False,
-                    "dynamicTranscripts": [
-                        {"name": "Official Transcript - University of Texas", "valid": True},
-                        {"name": "Official Transcript - Austin Community College", "valid": row.trf_form_on_file}
-                    ]
-                },
-                
-                # Inject mapped nested arrays
-                "courseActivity": course_map.get(student_id, []),
-                "contingencies": cont_map.get(student_id, []),
-                
-                "lastUpdatedByPipelineAt": row.etl_updated_at.isoformat() if row.etl_updated_at else None
-            }
-            
-            doc_ref = db.collection('salesforce_opportunities').document(student_id)
-            batch.set(doc_ref, student_payload, merge=True)
-            synced_count += 1
-            
-            if synced_count % 500 == 0:
-                batch.commit()
-                batch = db.batch()
-                
-        if synced_count % 500 != 0:
-            batch.commit()
-            
-        print(f"[Ingestion Bridge] Successfully synced {synced_count} fully-hydrated student records to Firestore.")
-        return jsonify({"status": "Success", "records_synced": synced_count})
-        
-    except Exception as e:
-        print("[Ingestion Bridge] Failed to sync data:", e)
-        return jsonify({"status": "Failed", "error": str(e)}), 500
-
-@app.route('/', methods=['GET'])
-def health_check():
-    return jsonify({"status": "Python BigQuery Agent Online", "version": "1.6.0"})
-
-
-# ------------------------------------------------------------------
-# Phase 2: Activity Log Subcollection Writer
-# ------------------------------------------------------------------
-@app.route('/write-activity-logs', methods=['POST'])
-def write_activity_logs():
-    """
-    Writes r2c_student_activity_log rows as individual documents to
-    salesforce_opportunities/{student_id}/activity_logs/{log_id}.
-    Idempotent: uses log_id as document ID so re-runs are safe.
-    """
-    req_data = request.json or {}
-    student_id = req_data.get('studentId')
-    logs = req_data.get('logs', [])
-
-    if not student_id or not isinstance(logs, list):
-        return jsonify({"status": "error", "message": "studentId and logs[] required"}), 400
+    _BATCH_SIZE: int = 500
 
     batch = db.batch()
-    count = 0
-    parent_ref = db.collection('salesforce_opportunities').document(student_id)
+    synced_count: int = 0
 
-    for log in logs:
-        log_id = log.get('log_id') or log.get('logId')
-        if not log_id:
-            continue
-        doc_ref = parent_ref.collection('activity_logs').document(str(log_id))
-        batch.set(doc_ref, log, merge=True)
-        count += 1
-        if count % 400 == 0:
+    for row in rows:
+        student_id = str(row.student_id)
+        payload: dict[str, Any] = {
+            "id": student_id,
+            "name": row.full_name,
+            "program": row.program_code,
+            "institution": row.institution_code,
+            "status": row.enrollment_status,
+            "programStartDate": (
+                row.program_start_date.isoformat()
+                if row.program_start_date else None
+            ),
+            "reserveDate": (
+                row.reserve_date.isoformat()
+                if row.reserve_date else None
+            ),
+            "requirements": {
+                "officialTranscriptsReceived": row.trf_form_on_file,
+                "fundingPlan": row.funding_plan_status == "Approved",
+                "orientationStarted": bool(row.wwow_orientation_started_at),
+                "dynamicTranscripts": [
+                    {
+                        "name": "Official Transcript - University of Texas",
+                        "valid": True,
+                    },
+                    {
+                        "name": (
+                            "Official Transcript - Austin Community College"
+                        ),
+                        "valid": row.trf_form_on_file,
+                    },
+                ],
+            },
+            "courseActivity": course_map.get(student_id, []),
+            "contingencies": cont_map.get(student_id, []),
+            "lastUpdatedByPipelineAt": (
+                row.etl_updated_at.isoformat()
+                if row.etl_updated_at else None
+            ),
+        }
+        doc_ref = db.collection("salesforce_opportunities").document(
+            student_id
+        )
+        batch.set(doc_ref, payload, merge=True)
+        synced_count += 1
+
+        if synced_count % _BATCH_SIZE == 0:
             batch.commit()
             batch = db.batch()
 
-    if count % 400 != 0:
+    if synced_count % _BATCH_SIZE != 0:
         batch.commit()
 
-    print(f"[Activity Logs] Wrote {count} logs for student {student_id}")
-    return jsonify({"status": "success", "logs_written": count})
+    return synced_count, batch
 
 
-# ------------------------------------------------------------------
-# Phase 2: Personalized Checklist Subcollection Writer
-# ------------------------------------------------------------------
-@app.route('/write-checklists', methods=['POST'])
-def write_checklists():
+# ---------------------------------------------------------------------------
+# Health check
+# ---------------------------------------------------------------------------
+
+@app.route("/", methods=["GET"])
+def health_check() -> Response:
+    """Return service health status.
+
+    Returns:
+        JSON with service status string and version.
     """
-    Writes checklist items as individual documents to
-    salesforce_opportunities/{student_id}/personalized_checklists/{checklist_id}.
-    """
-    req_data = request.json or {}
-    student_id = req_data.get('studentId')
-    items = req_data.get('items', [])
+    return jsonify({"status": "Python BigQuery Agent Online", "version": "2.0.0"})
 
-    if not student_id or not isinstance(items, list):
-        return jsonify({"status": "error", "message": "studentId and items[] required"}), 400
 
-    batch = db.batch()
-    parent_ref = db.collection('salesforce_opportunities').document(student_id)
-
-    for item in items:
-        checklist_id = item.get('checklist_id') or item.get('checklistId')
-        if not checklist_id:
-            continue
-        doc_ref = parent_ref.collection('personalized_checklists').document(str(checklist_id))
-        batch.set(doc_ref, item, merge=True)
-
-    batch.commit()
-    print(f"[Checklists] Wrote {len(items)} checklist items for student {student_id}")
-    return jsonify({"status": "success", "items_written": len(items)})
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
+    port: int = int(os.environ.get("PORT", "8080"))
+    app.run(host="0.0.0.0", port=port)
