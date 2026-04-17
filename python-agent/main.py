@@ -232,10 +232,19 @@ def sync_bq_to_firestore() -> Response:
 
     core_query: str = f"""
         SELECT
-            student_id, full_name, institution_code, program_code,
-            program_start_date, reserve_date, trf_form_on_file,
-            enrollment_status, funding_plan_status,
-            wwow_orientation_started_at, etl_updated_at
+            student_id,
+            student_name,
+            institution,
+            program,
+            program_start_date,
+            reserve_date,
+            status_stage,
+            funding_type,
+            time_since_reserve_days,
+            time_to_program_start_days,
+            census_date,
+            enrollment_specialist_name,
+            last_updated_at
         FROM `{PROJECT_ID}.{DATASET_ID}.student_core`
     """
 
@@ -337,10 +346,10 @@ def _write_student_rows(
         student_id = str(row.student_id)
         payload: dict[str, Any] = {
             "id": student_id,
-            "name": row.full_name,
-            "program": row.program_code,
-            "institution": row.institution_code,
-            "status": row.enrollment_status,
+            "name": row.student_name,
+            "program": row.program,
+            "institution": row.institution,
+            "status": row.status_stage,
             "programStartDate": (
                 row.program_start_date.isoformat()
                 if row.program_start_date else None
@@ -349,28 +358,25 @@ def _write_student_rows(
                 row.reserve_date.isoformat()
                 if row.reserve_date else None
             ),
+            "fundingType": row.funding_type,
+            "timeSinceReserveDays": row.time_since_reserve_days,
+            "timeToProgramStartDays": row.time_to_program_start_days,
+            "censusDate": (
+                row.census_date.isoformat()
+                if row.census_date else None
+            ),
+            "enrollmentSpecialist": row.enrollment_specialist_name,
             "requirements": {
-                "officialTranscriptsReceived": row.trf_form_on_file,
-                "fundingPlan": row.funding_plan_status == "Approved",
-                "orientationStarted": bool(row.wwow_orientation_started_at),
-                "dynamicTranscripts": [
-                    {
-                        "name": "Official Transcript - University of Texas",
-                        "valid": True,
-                    },
-                    {
-                        "name": (
-                            "Official Transcript - Austin Community College"
-                        ),
-                        "valid": row.trf_form_on_file,
-                    },
-                ],
+                "officialTranscriptsReceived": None,
+                "fundingPlan": row.funding_type == "Approved" if row.funding_type else None,
+                "orientationStarted": None,
+                "dynamicTranscripts": [],
             },
             "courseActivity": course_map.get(student_id, []),
             "contingencies": cont_map.get(student_id, []),
             "lastUpdatedByPipelineAt": (
-                row.etl_updated_at.isoformat()
-                if row.etl_updated_at else None
+                row.last_updated_at.isoformat()
+                if row.last_updated_at else None
             ),
         }
         doc_ref = db.collection("salesforce_opportunities").document(
