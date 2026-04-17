@@ -96,6 +96,45 @@ COLUMNS = [
 
 # Explicitly excluded: dw_etl_chg_hash, etl_created_at (internal DE use only)
 
+# Fields that have mixed types in source (BOOLEAN/STRING) — normalize to STRING
+_FORCE_STRING_FIELDS = {"is_accredited", "fafsa_interest_in_federal_aid"}
+
+# Explicit schema for load jobs — prevents autodetect from guessing wrong types
+DEST_SCHEMA = [
+    bigquery.SchemaField("log_id", "STRING", mode="REQUIRED"),
+    bigquery.SchemaField("student_id", "STRING", mode="REQUIRED"),
+    bigquery.SchemaField("term_code", "STRING"),
+    bigquery.SchemaField("activity_category", "STRING"),
+    bigquery.SchemaField("activity_name", "STRING"),
+    bigquery.SchemaField("activity_datetime", "TIMESTAMP"),
+    bigquery.SchemaField("communication_type", "STRING"),
+    bigquery.SchemaField("task_notes", "STRING"),
+    bigquery.SchemaField("task_comments", "STRING"),
+    bigquery.SchemaField("task_status", "STRING"),
+    bigquery.SchemaField("case_number", "STRING"),
+    bigquery.SchemaField("case_subject", "STRING"),
+    bigquery.SchemaField("case_record_type", "STRING"),
+    bigquery.SchemaField("case_type", "STRING"),
+    bigquery.SchemaField("case_subtype", "STRING"),
+    bigquery.SchemaField("case_status", "STRING"),
+    bigquery.SchemaField("case_closed_reason", "STRING"),
+    bigquery.SchemaField("case_closed_datetime", "TIMESTAMP"),
+    bigquery.SchemaField("case_created_date", "DATE"),
+    bigquery.SchemaField("case_comments", "STRING"),
+    bigquery.SchemaField("actor", "STRING"),
+    bigquery.SchemaField("source_system", "STRING"),
+    bigquery.SchemaField("last_updated_timestamp", "TIMESTAMP"),
+    bigquery.SchemaField("course_identification", "STRING"),
+    bigquery.SchemaField("course_level", "STRING"),
+    bigquery.SchemaField("course_status", "STRING"),
+    bigquery.SchemaField("is_accredited", "STRING"),
+    bigquery.SchemaField("contingency_requirement", "STRING"),
+    bigquery.SchemaField("contingency_institution_name", "STRING"),
+    bigquery.SchemaField("contingency_status", "STRING"),
+    bigquery.SchemaField("fafsa_interest_in_federal_aid", "STRING"),
+    bigquery.SchemaField("fafsa_intend_to_fund", "STRING"),
+    bigquery.SchemaField("_mirrored_at", "TIMESTAMP"),
+]
 # ── DDL for destination table ───────────────────────────────────────────
 DEST_DDL = f"""
 CREATE TABLE IF NOT EXISTS `{DEST_FQN}` (
@@ -125,11 +164,11 @@ CREATE TABLE IF NOT EXISTS `{DEST_FQN}` (
     course_identification STRING,
     course_level STRING,
     course_status STRING,
-    is_accredited BOOLEAN,
+    is_accredited STRING,
     contingency_requirement STRING,
     contingency_institution_name STRING,
     contingency_status STRING,
-    fafsa_interest_in_federal_aid BOOLEAN,
+    fafsa_interest_in_federal_aid STRING,
     fafsa_intend_to_fund STRING,
     _mirrored_at TIMESTAMP
 )
@@ -213,12 +252,37 @@ def build_source_query(limit: int | None = None, incremental: bool = False,
         except Exception as e:
             print(f"[Mirror] Could not read max timestamp, doing full sync: {e}")
 
-    query += "\nORDER BY student_id, activity_datetime"
-
+    # Skip ORDER BY for full sync — unnecessary for WRITE_TRUNCATE and very expensive
+    # on large tables (788K+ rows). Only sort for limited/test runs.
     if limit:
-        query += f"\nLIMIT {int(limit)}"
+        query += f"\nORDER BY student_id, activity_datetime\nLIMIT {int(limit)}"
 
     return query
+
+
+def _write_chunk(dest_client, table_ref, rows, write_disposition, incremental):
+    """Write a chunk of rows to the destination table."""
+    job_config = bigquery.LoadJobConfig(
+        write_disposition=write_disposition,
+        schema=DEST_SCHEMA,
+    )
+    if write_disposition == bigquery.WriteDisposition.WRITE_APPEND:
+        job_config.schema_update_options = [
+            bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION,
+            bigquery.SchemaUpdateOption.ALLOW_FIELD_RELAXATION,
+        ]
+    job = dest_client.load_table_from_json(rows, table_ref, job_config=job_config)
+    job.result()
+
+
+def _delete_existing_ids(dest_client, rows):
+    """Delete existing log_ids from dest before incremental insert."""
+    log_ids = [r.get("log_id") for r in rows if r.get("log_id")]
+    for i in range(0, len(log_ids), 1000):
+        chunk = log_ids[i : i + 1000]
+        ids_str = ", ".join(f"'{lid}'" for lid in chunk)
+        del_query = f"DELETE FROM `{DEST_FQN}` WHERE log_id IN ({ids_str})"
+        dest_client.query(del_query).result()
 
 
 def mirror(limit: int | None = None, incremental: bool = False, dry_run: bool = False):
@@ -237,54 +301,59 @@ def mirror(limit: int | None = None, incremental: bool = False, dry_run: bool = 
     # 2. Ensure destination table exists
     ensure_dest_table(dest_client)
 
-    # 3. Read from source
+    # 3. Read from source using streaming iteration (memory-efficient)
     print(f"[Mirror] Reading from {SOURCE_FQN}...")
-    source_rows = list(source_client.query(query).result())
-    print(f"[Mirror] Fetched {len(source_rows)} rows from source.")
+    query_job = source_client.query(query)
+    result_iter = query_job.result()
 
-    if not source_rows:
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    table_ref = dest_client.dataset(DEST_DATASET).table(DEST_TABLE)
+
+    CHUNK_SIZE = 50_000
+    total_written = 0
+    chunk = []
+    first_chunk = True
+
+    for row in result_iter:
+        record = {col: _serialize_value(row.get(col)) for col in COLUMNS}
+        # Normalize mixed-type fields to STRING
+        for f in _FORCE_STRING_FIELDS:
+            if record.get(f) is not None:
+                record[f] = str(record[f])
+        record["_mirrored_at"] = now
+        chunk.append(record)
+
+        if len(chunk) >= CHUNK_SIZE:
+            disposition = (
+                bigquery.WriteDisposition.WRITE_TRUNCATE
+                if first_chunk and not incremental
+                else bigquery.WriteDisposition.WRITE_APPEND
+            )
+            if incremental:
+                _delete_existing_ids(dest_client, chunk)
+            _write_chunk(dest_client, table_ref, chunk, disposition, incremental)
+            total_written += len(chunk)
+            print(f"[Mirror]   ...wrote chunk ({total_written:,} rows so far)")
+            chunk = []
+            first_chunk = False
+
+    # Write remaining rows
+    if chunk:
+        disposition = (
+            bigquery.WriteDisposition.WRITE_TRUNCATE
+            if first_chunk and not incremental
+            else bigquery.WriteDisposition.WRITE_APPEND
+        )
+        if incremental:
+            _delete_existing_ids(dest_client, chunk)
+        _write_chunk(dest_client, table_ref, chunk, disposition, incremental)
+        total_written += len(chunk)
+
+    if total_written == 0:
         print("[Mirror] No rows to mirror. Done.")
         return
 
-    # 4. Write to destination using MERGE (upsert on log_id) to be idempotent
-    # Build rows for insertion with _mirrored_at timestamp
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    rows_to_insert = []
-    for row in source_rows:
-        record = {col: _serialize_value(row.get(col)) for col in COLUMNS}
-        record["_mirrored_at"] = now
-        rows_to_insert.append(record)
-
-    # Use load job for efficiency (handles batching automatically)
-    table_ref = dest_client.dataset(DEST_DATASET).table(DEST_TABLE)
-    job_config = bigquery.LoadJobConfig(
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE
-        if not incremental
-        else bigquery.WriteDisposition.WRITE_APPEND,
-    )
-    if incremental:
-        job_config.schema_update_options = [
-            bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION,
-        ]
-
-    # For incremental: delete matching log_ids first, then insert (poor-man's upsert)
-    if incremental and source_rows:
-        log_ids = [r.get("log_id") for r in source_rows if r.get("log_id")]
-        if log_ids:
-            # Batch delete in chunks of 1000
-            for i in range(0, len(log_ids), 1000):
-                chunk = log_ids[i : i + 1000]
-                ids_str = ", ".join(f"'{lid}'" for lid in chunk)
-                del_query = f"DELETE FROM `{DEST_FQN}` WHERE log_id IN ({ids_str})"
-                dest_client.query(del_query).result()
-
-    # Load rows
-    print(f"[Mirror] Writing {len(rows_to_insert)} rows to {DEST_FQN}...")
-    job = dest_client.load_table_from_json(
-        rows_to_insert, table_ref, job_config=job_config
-    )
-    job.result()
-    print(f"[Mirror] Done! {len(rows_to_insert)} rows written to {DEST_FQN}")
+    print(f"[Mirror] Done! {total_written:,} rows written to {DEST_FQN}")
 
     # 5. Quick validation
     count_query = f"SELECT COUNT(*) AS cnt FROM `{DEST_FQN}`"
