@@ -40,3 +40,6 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Adtalem BQ credentials (do NOT commit)
+.adtalem_credentials.json
