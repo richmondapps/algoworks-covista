@@ -1,7 +1,8 @@
 {
   "projects": {
     "dev": "algoworks-dev",
-    "client": "dev-wu-agenticai-app-proj"
+    "client": "dev-wu-agenticai-app-proj",
+    "qa": "qa-wu-agenticai-app-proj"
   },
   "targets": {
     "algoworks-dev": {

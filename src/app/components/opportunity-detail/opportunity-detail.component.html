@@ -1,242 +1,876 @@
 @if (student(); as student) {
-<div class="detail-page sf-theme">
-    <div class="top-nav-mock">
-        <button class="action-btn back-btn" routerLink="/dashboard">
-            <span class="material-icons">arrow_back</span>
-        </button>
+  <div class="detail-page sf-theme">
+    <div
+      class="top-nav-mock"
+      style="
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding-bottom: 24px;
+      "
+    >
+      <button
+        class="action-btn back-btn"
+        routerLink="/dashboard"
+        style="margin-top: 4px"
+      >
+        <span class="material-icons">arrow_back</span>
+      </button>
+      <div
+        class="student-header-info"
+        style="display: flex; flex-direction: column"
+      >
+        <h1
+          style="
+            margin: 0 0 6px 0;
+            font-size: 24px;
+            font-weight: 800;
+            color: #1e1e1e;
+          "
+        >
+          {{ student.name }}
+        </h1>
+        <div
+          style="
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-size: 13px;
+            color: #4b5563;
+            font-weight: 600;
+          "
+        >
+          <span
+            style="
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              background: #e0f2fe;
+              color: #0369a1;
+              padding: 4px 10px;
+              border-radius: 16px;
+            "
+            ><span class="material-icons" style="font-size: 14px">badge</span>
+            ID: {{ student.id }}</span
+          >
+          <span
+            style="
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              background: #dcfce7;
+              color: #15803d;
+              padding: 4px 10px;
+              border-radius: 16px;
+            "
+            ><span class="material-icons" style="font-size: 14px">event</span>
+            Start:
+            {{
+              student.programStartDate
+                ? (student.programStartDate | date: "mediumDate" : "UTC")
+                : "TBD"
+            }}</span
+          >
+          <span
+            style="
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              background: #f3e8ff;
+              color: #6b21a8;
+              padding: 4px 10px;
+              border-radius: 16px;
+            "
+            ><span class="material-icons" style="font-size: 14px">school</span>
+            {{ student.program || "Not specified" }}</span
+          >
+        </div>
+      </div>
     </div>
 
-    <!-- New Client Layout: R2C Agentic AI --> 
+    <!-- New Client Layout: R2C Agentic AI -->
     <div class="r2c-agentic-section" id="r2c-capture-target">
-        <div class="r2c-header">
+      <div class="r2c-header">
+        <div>
+          <h2>R2C AI Success Plan</h2>
+          <p>
+            Explore how AI generates next-best actions and personalized
+            communications.
+          </p>
+        </div>
+        <div class="gemini-badge">
+          <span class="material-icons" style="font-size: 16px"
+            >auto_awesome</span
+          >
+          Powered by Gemini
+        </div>
+      </div>
+
+      <div
+        class="action-bar"
+        style="
+          margin-bottom: 24px;
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 6px;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+          "
+        >
+          <div>
+            @if (isGeneratingAi()) {
+              <div
+                style="
+                  background-color: #f59e0b;
+                  color: #ffffff;
+                  padding: 10px 14px;
+                  border-radius: 6px;
+                  font-size: 13px;
+                  font-weight: 700;
+                  display: inline-flex;
+                  align-items: center;
+                  box-shadow:
+                    0 4px 6px rgba(245, 158, 11, 0.2),
+                    0 1px 3px rgba(0, 0, 0, 0.1);
+                "
+              >
+                <span
+                  class="material-icons"
+                  style="
+                    font-size: 18px;
+                    margin-right: 6px;
+                    animation: spin 2s linear infinite;
+                  "
+                  >autorenew</span
+                >
+                COMPUTING LIVE INSIGHTS...
+              </div>
+            } @else if (student.aiInsights?.generatedAt) {
+              <div
+                style="
+                  background-color: #2e844a;
+                  color: #ffffff;
+                  padding: 10px 14px;
+                  border-radius: 6px;
+                  font-size: 13px;
+                  font-weight: 700;
+                  display: inline-flex;
+                  align-items: center;
+                  box-shadow:
+                    0 4px 6px rgba(46, 132, 74, 0.2),
+                    0 1px 3px rgba(0, 0, 0, 0.1);
+                "
+              >
+                <span
+                  class="material-icons"
+                  style="font-size: 18px; margin-right: 6px"
+                  >check_circle</span
+                >
+                LAST UPDATED AT:
+                {{
+                  student.aiInsights?.generatedAt | date: "short" | uppercase
+                }}
+              </div>
+            }
+          </div>
+
+          <a
+            style="
+              color: #0176d3;
+              font-weight: 600;
+              font-size: 12px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            "
+            (click)="!isGeneratingAi() && generateAi(student)"
+            [style.opacity]="isGeneratingAi() ? '0.5' : '1'"
+          >
+            <span class="material-icons" style="font-size: 14px">sync</span>
+            {{
+              isGeneratingAi()
+                ? "Generating via Eventarc..."
+                : student.aiInsights?.generatedAt
+                  ? "Regenerate AI Insights"
+                  : "Run Vertex AI Insights"
+            }}
+          </a>
+        </div>
+      </div>
+
+      @if (insights()?.readinessRisk) {
+        <div
+          class="metrics-row risk-indicators-row"
+          style="
+            margin-bottom: 16px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+          "
+        >
+          <div
+            class="metric-card risk-card-indicator"
+            [ngClass]="
+              formatLevel(insights()!.readinessRisk?.level).toLowerCase()
+            "
+            style="
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              padding: 12px 16px;
+              background: transparent;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span
+                style="
+                  font-size: 13px;
+                  font-weight: 700;
+                  color: #4b5563;
+                  text-transform: uppercase;
+                "
+                >Readiness Level</span
+              >
+              <strong
+                style="
+                  font-size: 13px;
+                  padding: 2px 10px;
+                  border-radius: 16px;
+                  text-transform: uppercase;
+                "
+                [class]="
+                  'pill-' +
+                  formatLevel(insights()!.readinessRisk?.level).toLowerCase()
+                "
+                >{{ formatLevel(insights()!.readinessRisk?.level) }}</strong
+              >
+            </div>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 12px;
+                color: #6b7280;
+                text-align: right;
+              "
+            >
+              <span>{{
+                formatNote(insights()!.readinessRisk?.trendNote, insights()!.readinessRisk?.level)
+              }}</span>
+              <span
+                class="material-icons trend-icon"
+                style="font-size: 18px"
+                [ngClass]="
+                  insights()!.readinessRisk?.trendDirection === 'increasing'
+                    ? 'trend-up'
+                    : insights()!.readinessRisk?.trendDirection === 'decreasing'
+                      ? 'trend-down'
+                      : 'trend-flat'
+                "
+              >
+                {{
+                  insights()!.readinessRisk?.trendDirection === "increasing"
+                    ? "trending_up"
+                    : insights()!.readinessRisk?.trendDirection === "decreasing"
+                      ? "trending_down"
+                      : "trending_flat"
+                }}
+              </span>
+            </div>
+          </div>
+
+          <div
+            class="metric-card risk-card-indicator"
+            [ngClass]="
+              formatLevel(insights()!.engagementRisk?.level).toLowerCase()
+            "
+            style="
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              padding: 12px 16px;
+              background: transparent;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span
+                style="
+                  font-size: 13px;
+                  font-weight: 700;
+                  color: #4b5563;
+                  text-transform: uppercase;
+                "
+                >Engagement Level</span
+              >
+              <strong
+                style="
+                  font-size: 13px;
+                  padding: 2px 10px;
+                  border-radius: 16px;
+                  text-transform: uppercase;
+                "
+                [class]="
+                  'pill-' +
+                  formatLevel(insights()!.engagementRisk?.level).toLowerCase()
+                "
+                >{{ formatLevel(insights()!.engagementRisk?.level) }}</strong
+              >
+            </div>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 12px;
+                color: #6b7280;
+                text-align: right;
+              "
+            >
+              <span>{{
+                formatNote(insights()!.engagementRisk?.trendNote, insights()!.engagementRisk?.level)
+              }}</span>
+              <span
+                class="material-icons trend-icon"
+                style="font-size: 18px"
+                [ngClass]="
+                  insights()!.engagementRisk?.trendDirection === 'increasing'
+                    ? 'trend-up'
+                    : insights()!.engagementRisk?.trendDirection ===
+                        'decreasing'
+                      ? 'trend-down'
+                      : 'trend-flat'
+                "
+              >
+                {{
+                  insights()!.engagementRisk?.trendDirection === "increasing"
+                    ? "trending_up"
+                    : insights()!.engagementRisk?.trendDirection ===
+                        "decreasing"
+                      ? "trending_down"
+                      : "trending_flat"
+                }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="metrics-row"
+          style="
+            margin-bottom: 24px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+          "
+        >
+          <div
+            class="metric-card"
+            style="
+              background: #ffffff;
+              padding: 16px;
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            "
+          >
+            <div
+              style="
+                background: #f3e8ff;
+                padding: 12px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <span
+                class="material-icons"
+                style="color: #a855f7; font-size: 20px"
+                >schedule</span
+              >
+            </div>
             <div>
-                <h2>R2C AI Success Plan</h2>
-                <p>Explore how AI generates next-best actions and personalized communications.</p>
+              <div style="font-size: 11px; color: #6b7280; font-weight: 600">
+                Time Since Reserve
+              </div>
+              <div style="font-size: 18px; color: #111827; font-weight: 800">
+                {{ calculateDaysDiff(student.reserveDate, true) }}
+              </div>
             </div>
-            <div class="gemini-badge">
-                <span class="material-icons" style="font-size: 16px;">auto_awesome</span> Powered by Gemini
+          </div>
+
+          <div
+            class="metric-card"
+            style="
+              background: #ffffff;
+              padding: 16px;
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            "
+          >
+            <div
+              style="
+                background: #e0f2fe;
+                padding: 12px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <span
+                class="material-icons"
+                style="color: #0ea5e9; font-size: 20px"
+                >event_available</span
+              >
             </div>
+            <div>
+              <div style="font-size: 11px; color: #6b7280; font-weight: 600">
+                Time to Program Start
+              </div>
+              <div style="font-size: 18px; color: #111827; font-weight: 800">
+                {{ calculateDaysDiff(student.programStartDate) }}
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="metric-card"
+            style="
+              background: #ffffff;
+              padding: 16px;
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            "
+          >
+            <div
+              style="
+                background: #eff6ff;
+                padding: 12px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <span
+                class="material-icons"
+                style="color: #3b82f6; font-size: 20px"
+                >flag</span
+              >
+            </div>
+            <div>
+              <div style="font-size: 11px; color: #6b7280; font-weight: 600">
+                Time to Census
+              </div>
+              <div style="font-size: 18px; color: #111827; font-weight: 800">
+                {{ calculateDaysDiff(student.censusDate) }}
+              </div>
+            </div>
+          </div>
         </div>
-
-        <div class="action-bar" style="margin-bottom: 24px; display: flex; align-items: flex-end; justify-content: space-between; gap: 6px;">
-            <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
-                <div>
-                    @if (isGeneratingAi()) {
-                    <div style="background-color: #f59e0b; color: #ffffff; padding: 10px 14px; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);">
-                        <span class="material-icons" style="font-size: 18px; margin-right: 6px; animation: spin 2s linear infinite;">autorenew</span>
-                            COMPUTING LIVE INSIGHTS...
-                    </div>
-                } @else if (student.aiInsights?.generatedAt) {
-                    <div style="background-color: #2e844a; color: #ffffff; padding: 10px 14px; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; box-shadow: 0 4px 6px rgba(46, 132, 74, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);">
-                        <span class="material-icons" style="font-size: 18px; margin-right: 6px;">check_circle</span>
-                        LAST UPDATED AT: {{ student.aiInsights?.generatedAt | date:'short' | uppercase }}
-                    </div>
-                }
-            </div>
-            
-            <a style="color: #0176d3; font-weight: 600; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;"
-                (click)="!isGeneratingAi() && generateAi(student)" [style.opacity]="isGeneratingAi() ? '0.5' : '1'">
-                <span class="material-icons" style="font-size: 14px;">sync</span>
-                {{ isGeneratingAi() ? 'Generating via Eventarc...' : (student.aiInsights?.generatedAt ? 'Regenerate AI Insights' : 'Run Vertex AI Insights') }}
-            </a>
-            </div>
-            
-        </div>
-
-        @if (student.aiInsights?.readinessRisk) {
-        <div class="metrics-row risk-indicators-row">
-            <div class="metric-card risk-card-indicator" [ngClass]="student.aiInsights!.readinessRisk?.level?.toLowerCase() || 'medium'">
-                <div class="risk-header">
-                    <span>Readiness Level</span>
-                    <strong>{{ student.aiInsights!.readinessRisk?.level || 'Medium' }}</strong>
-                </div>
-                <div class="trend-info">
-                    <span class="material-icons trend-icon" 
-                          [ngClass]="student.aiInsights!.readinessRisk?.trendDirection === 'increasing' ? 'trend-up' : (student.aiInsights!.readinessRisk?.trendDirection === 'decreasing' ? 'trend-down' : 'trend-flat')">
-                        {{ student.aiInsights!.readinessRisk?.trendDirection === 'increasing' ? 'trending_up' : (student.aiInsights!.readinessRisk?.trendDirection === 'decreasing' ? 'trending_down' : 'trending_flat') }}
-                    </span>
-                    <span class="trend-note">{{ student.aiInsights!.readinessRisk?.trendNote || 'Stable activity based on recent actions' }}</span>
-                </div>
-            </div>
-
-            <div class="metric-card risk-card-indicator" [ngClass]="student.aiInsights!.engagementRisk?.level?.toLowerCase() || 'medium'">
-                <div class="risk-header">
-                    <span>Engagement Level</span>
-                    <strong>{{ student.aiInsights!.engagementRisk?.level || 'Medium' }}</strong>
-                </div>
-                <div class="trend-info">
-                    <span class="material-icons trend-icon" 
-                          [ngClass]="student.aiInsights!.engagementRisk?.trendDirection === 'increasing' ? 'trend-up' : (student.aiInsights!.engagementRisk?.trendDirection === 'decreasing' ? 'trend-down' : 'trend-flat')">
-                        {{ student.aiInsights!.engagementRisk?.trendDirection === 'increasing' ? 'trending_up' : (student.aiInsights!.engagementRisk?.trendDirection === 'decreasing' ? 'trending_down' : 'trending_flat') }}
-                    </span>
-                    <span class="trend-note">{{ student.aiInsights!.engagementRisk?.trendNote || 'Stable activity based on recent actions' }}</span>
-                </div>
-            </div>
-        </div>
-
         <div class="content-grid-2col">
-            <div class="left-risk">
-                <div class="risk-card" style="background: #ffffff; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                    <div class="risk-title">
-                        <div class="left-t"><span class="material-icons" style="color: #6366f1;">analytics</span> AI Overview Summary</div>
-                    </div>
-                    <p style="color: #374151; font-size: 13px; line-height: 1.5;">{{ student.aiInsights!.overviewSummary || 'System is actively calibrating a holistic summary matrix across both readiness parameters and active engagement metrics to provide a unified student success strategy.' }}</p>
+          <div class="left-risk">
+            <div
+              class="risk-card"
+              style="
+                background: #ffffff;
+                border: 1px solid #e5e7eb;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+              "
+            >
+              <div class="risk-title">
+                <div class="left-t">
+                  <span class="material-icons" style="color: #6366f1"
+                    >analytics</span
+                  >
+                  AI Overview Summary
                 </div>
+              </div>
+              <p style="color: #374151; font-size: 13px; line-height: 1.5">
+                {{
+                  formatSummary(insights()!.overviewSummary, student)
+                }}
+              </p>
+            </div>
+          </div>
+
+          <div
+            class="right-nba"
+            style="
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 16px;
+              align-items: stretch;
+            "
+          >
+            <div class="nba-card">
+              <div class="nba-header">
+                <div class="h-left">
+                  <span class="material-icons icon">my_location</span>
+                  AI-Generated Next Best Actions
+                </div>
+              </div>
+              <ul class="nba-list">
+                @for (action of sortedNextBestActions(); track action.title) {
+                  <li class="nba-item">
+                    <span class="material-icons check-icon">check_circle</span>
+                    <div class="text-content">
+                      <h4 style="display: flex; align-items: center; gap: 6px">
+                        {{ action.title }}
+                        @if (action.urgent) {
+                          <span class="priority-pill">Priority</span>
+                        }
+                      </h4>
+                      <p>{{ action.points[0] }}</p>
+                    </div>
+                  </li>
+                }
+              </ul>
             </div>
 
-            <div class="right-nba" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch;">
-                <div class="nba-card">
-                    <div class="nba-header">
-                        <div class="h-left"><span class="material-icons icon">my_location</span> AI-Generated Next Best Actions</div>
-                    </div>
-                    <ul class="nba-list">
-                        @for (action of sortedNextBestActions(); track action.title) {
-                        <li class="nba-item">
-                            <span class="material-icons check-icon">check_circle</span>
-                            <div class="text-content">
-                                <h4 style="display: flex; align-items: center; gap: 6px;">
-                                    {{ action.title }}
-                                    @if(action.urgent) {
-                                        <span class="priority-pill">Priority</span>
-                                    }
-                                </h4>
-                                <p>{{ action.points[0] }}</p>
-                            </div>
-                        </li>
-                        }
-                    </ul>
+            <div class="nba-card">
+              <div class="nba-header">
+                <div class="h-left" style="color: #1e1e1e">
+                  <span class="material-icons icon" style="color: #6366f1"
+                    >checklist</span
+                  >
+                  Readiness Checklist
                 </div>
-
-                <div class="nba-card">
-                    <div class="nba-header">
-                        <div class="h-left" style="color: #1e1e1e;"><span class="material-icons icon" style="color: #6366f1;">checklist</span> Readiness Checklist</div>
+              </div>
+              <ul class="nba-list">
+                @for (chk of checklists(); track chk.requirement_id) {
+                  <li class="nba-item" style="align-items: center">
+                    <span
+                      class="material-icons"
+                      [ngStyle]="{
+                        color: chk.is_satisfied ? '#10b981' : '#f59e0b',
+                        'font-size': '18px',
+                      }"
+                    >
+                      {{ chk.is_satisfied ? "check_circle" : "pending" }}
+                    </span>
+                    <div class="text-content">
+                      <h4 style="margin: 0">{{ chk.requirement_name }}</h4>
                     </div>
-                    <ul class="nba-list">
-                        <li class="nba-item" style="align-items: center;">
-                            <span class="material-icons" [ngStyle]="{'color': student.requirements.orientationStarted ? '#10b981' : '#f59e0b', 'font-size': '18px'}">
-                                {{ student.requirements.orientationStarted ? 'check_circle' : 'pending' }}
-                            </span>
-                            <div class="text-content">
-                                <h4 style="margin: 0;">Program Orientation</h4>
-                            </div>
-                        </li>
-                        <li class="nba-item" style="align-items: center;">
-                            <span class="material-icons" [ngStyle]="{'color': student.requirements.fundingPlan ? '#10b981' : '#f59e0b', 'font-size': '18px'}">
-                                {{ student.requirements.fundingPlan ? 'check_circle' : 'pending' }}
-                            </span>
-                            <div class="text-content">
-                                <h4 style="margin: 0;">Funding Plan Submission</h4>
-                            </div>
-                        </li>
-                        
-                        @for (transcript of (student.requirements.dynamicTranscripts || [{name: 'Official Transcript - Default University (updating logic)', valid: student.requirements.officialTranscriptsReceived}]); track transcript.name) {
-                            <li class="nba-item" style="align-items: center;">
-                                <span class="material-icons" [ngStyle]="{'color': transcript.valid ? '#10b981' : '#f59e0b', 'font-size': '18px'}">
-                                    {{ transcript.valid ? 'check_circle' : 'pending' }}
-                                </span>
-                                <div class="text-content">
-                                    <h4 style="margin: 0;">{{ transcript.name }}</h4>
-                                </div>
-                            </li>
-                        }
-                    </ul>
-                </div>
+                  </li>
+                }
+              </ul>
             </div>
+          </div>
         </div>
 
-        <div class="sf-section-container" style="margin-bottom: 24px;">
-            <div class="sf-accordions-list">
-                <div class="sf-accordion-item">
-                    <div class="acc-left" (click)="toggleAccordion('history')" style="cursor: pointer;">
-                        <span class="material-icons" style="font-size: 24px; color: #1e1e1e;">{{ accordions()['history'] ? 'expand_more' : 'chevron_right' }}</span>
-                        <span class="acc-title" style="font-size: 14px;">TASK HISTORY AND CASES</span>
-                    </div>
-                </div>
-                @if (accordions()['history']) {
-                <div style="padding: 16px; border-bottom: 1px solid #dddbda; background: #fafafa;">
-                    <div style="font-size: 12px; color: #4b5563; margin-bottom: 8px;"><strong>Audit Traceability payload</strong> mapped directly from programmatic event ingestion.</div>
-                    <pre style="background: #111827; color: #10b981; padding: 12px; border-radius: 6px; font-size: 11px; overflow-x: auto; max-height: 300px;">{{ student.aiInsights?.dataContext | json }}</pre>
-                </div>
-                }
-
-                <div class="sf-accordion-item">
-                    <div class="acc-left" (click)="toggleAccordion('notes')" style="cursor: pointer;">
-                        <span class="material-icons" style="font-size: 24px; color: #1e1e1e;">{{ accordions()['notes'] ? 'expand_more' : 'chevron_right' }}</span>
-                        <span class="acc-title" style="font-size: 14px;">NOTES</span>
-                    </div>
-                </div>
-                @if (accordions()['notes']) {
-                <div style="padding: 16px; border-bottom: 1px solid #dddbda; background: #fff;">
-                    <div class="sf-quick-notes">
-                        <textarea class="sf-notes-area" rows="3" placeholder="Log outreach history or general observation..." [(ngModel)]="newNoteText" style="width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; font-family: inherit; font-size: 13px;"></textarea>
-                        <div class="sf-text-right" style="display: flex; justify-content: flex-end;">
-                            <button class="sf-outline-btn" style="border: 1px solid #0176d3; color: #0176d3; background: #ffffff; border-radius: 16px; padding: 6px 16px; font-weight: 600; margin-top: 8px; cursor: pointer;" (click)="submitNote(student)">Save Note</button>
-                        </div>
-                    </div>
-                    @if (student.notes && student.notes.length) {
-                    <div style="margin-top: 16px;">
-                        @for (n of student.notes.slice().reverse(); track n.timestamp) {
-                        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #eee;">
-                            <div style="font-size: 11px; color: #747474; margin-bottom: 4px;">{{ n.timestamp | date:'short' }} - <strong>{{ n.author }}</strong></div>
-                            <div style="font-size: 13px; color: #1b1b1b; white-space: pre-wrap;">{{ n.text }}</div>
-                        </div>
-                        }
-                    </div>
-                    }
-                </div>
-                }
+        <div class="sf-section-container" style="margin-bottom: 24px">
+          <div class="sf-accordions-list">
+            <div class="sf-accordion-item">
+              <div
+                class="acc-left"
+                (click)="toggleAccordion('history')"
+                style="cursor: pointer"
+              >
+                <span
+                  class="material-icons"
+                  style="font-size: 24px; color: #1e1e1e"
+                  >{{
+                    accordions()["history"] ? "expand_more" : "chevron_right"
+                  }}</span
+                >
+                <span class="acc-title" style="font-size: 14px"
+                  >TASK HISTORY AND CASES
+                  <span
+                    style="
+                      font-weight: 400;
+                      color: #6b7280;
+                      font-size: 12px;
+                      margin-left: 8px;
+                    "
+                    >{{ activitySummary() }}</span
+                  ></span
+                >
+              </div>
             </div>
+            @if (accordions()["history"]) {
+              <div
+                style="
+                  background: #fafafa;
+                  border-bottom: 1px solid #dddbda;
+                  max-height: 400px;
+                  overflow-y: auto;
+                "
+              >
+                <table
+                  class="students-table"
+                  style="margin: 0; width: 100%; table-layout: fixed"
+                >
+                  <thead
+                    style="
+                      position: sticky;
+                      top: 0;
+                      background: #fafafa;
+                      z-index: 1;
+                      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+                    "
+                  >
+                    <tr>
+                      <th style="width: 90px; padding-left: 8px">Date</th>
+                      <th style="width: 110px; padding-left: 8px">Category</th>
+                      <th style="width: 115px; padding-left: 8px">
+                        Activity Type
+                      </th>
+                      <th style="width: auto; padding-left: 8px">
+                        Subject/Notes
+                      </th>
+                      <th style="width: 95px; padding-left: 8px">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @if (activityLogs().length === 0) {
+                      <tr>
+                        <td
+                          colspan="5"
+                          style="
+                            text-align: center;
+                            padding: 24px;
+                            color: #6b7280;
+                          "
+                        >
+                          No activity history recorded for this student.
+                        </td>
+                      </tr>
+                    }
+                    @for (
+                      log of activityLogs();
+                      track log.log_id;
+                      let i = $index
+                    ) {
+                      <tr
+                        [style.background]="i % 2 === 0 ? '#ffffff' : '#f8fafc'"
+                      >
+                        <td
+                          style="
+                            padding-left: 8px;
+                            padding-top: 5px;
+                            padding-right: 2px;
+                            overflow: hidden;
+                            vertical-align: top;
+                          "
+                        >
+                          @if (log.activity_datetime) {
+                            <div
+                              style="
+                                font-weight: 500;
+                                font-size: 13px;
+                                color: #1e293b;
+                              "
+                            >
+                              {{ log.activity_datetime | date: "MMM d, y" }}
+                            </div>
+                            <div
+                              style="
+                                font-size: 11px;
+                                color: #64748b;
+                                margin-top: 2px;
+                              "
+                            >
+                              {{ log.activity_datetime | date: "h:mm a" }}
+                            </div>
+                          } @else {
+                            -
+                          }
+                        </td>
+                        <td
+                          style="
+                            padding-left: 8px;
+                            padding-top: 5px;
+                            padding-right: 2px;
+                            overflow: hidden;
+                            vertical-align: top;
+                          "
+                        >
+                          <span
+                            class="status-badge"
+                            style="
+                              background: #e0e7ff;
+                              color: #3730a3;
+                              font-size: 11px;
+                              padding: 2px 8px;
+                              white-space: normal;
+                              display: inline-block;
+                            "
+                            >{{
+                              formatActivityType(
+                                log.activity_category || "General"
+                              )
+                            }}</span
+                          >
+                        </td>
+                        <td
+                          style="
+                            padding-left: 8px;
+                            padding-top: 5px;
+                            overflow: hidden;
+                            white-space: normal;
+                            word-wrap: break-word;
+                            vertical-align: top;
+                          "
+                        >
+                          {{
+                            formatActivityType(
+                              log.communication_type || log.activity_name || "-"
+                            )
+                          }}
+                        </td>
+                        <td
+                          style="
+                            padding-left: 8px;
+                            padding-top: 5px;
+                            word-break: break-all;
+                            white-space: pre-wrap;
+                            vertical-align: top;
+                          "
+                          [innerHTML]="
+                            formatNotes(
+                              log.case_subject ||
+                                log.task_comments ||
+                                log.task_notes
+                            )
+                          "
+                        ></td>
+                        <td
+                          style="
+                            padding-left: 8px;
+                            padding-top: 5px;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            vertical-align: top;
+                          "
+                        >
+                          {{ log.case_status || log.task_status || "-" }}
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
         </div>
 
         <div class="comms-section">
-            <div class="cs-header"><span class="material-icons icon">forum</span> AI-Generated Communications</div>
-            <div class="comms-grid">
-                <div class="comm-card email-card" [style.opacity]="isGeneratingAi() ? '0.7' : '1'">
-                    <div class="c-top">
-                        Email Draft
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            @if (isGeneratingAi()) {
-                                <span class="material-icons" style="font-size: 16px; animation: spin 2s linear infinite;">autorenew</span>
-                                <span style="font-size: 10px; text-transform: uppercase;">Generating...</span>
-                            } 
-                        </div>
-                    </div>
-                    <div class="subject">
-                        <span>SUBJECT</span>
-                        {{ student.aiInsights!.emailDraft?.subject || 'Important update regarding your enrollment' }}
-                    </div>
-                    <div class="body">
-                        {{ student.aiInsights!.emailDraft?.bodyText }}
-                        @if (student.aiInsights!.emailDraft?.bullets?.length) {
-                            <ul style="margin-top: 12px; padding-left: 20px;">
-                                @for (bullet of student.aiInsights!.emailDraft!.bullets; track bullet) {
-                                    <li>{{ bullet }}</li>
-                                }
-                            </ul>
-                        }
-                    </div>
+          <div class="cs-header">
+            <span class="material-icons icon">forum</span> AI-Generated
+            Communications
+          </div>
+          <div class="comms-grid">
+            <div
+              class="comm-card email-card"
+              [style.opacity]="isGeneratingAi() ? '0.7' : '1'"
+            >
+              <div class="c-top">
+                Email Draft
+                <div style="display: flex; align-items: center; gap: 8px">
+                  @if (isGeneratingAi()) {
+                    <span
+                      class="material-icons"
+                      style="
+                        font-size: 16px;
+                        animation: spin 2s linear infinite;
+                      "
+                      >autorenew</span
+                    >
+                    <span style="font-size: 10px; text-transform: uppercase"
+                      >Generating...</span
+                    >
+                  }
                 </div>
-                
-                <div class="comm-card sms-card" [style.opacity]="isGeneratingAi() ? '0.7' : '1'">
-                    <div class="c-top">
-                        SMS Draft
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            @if (isGeneratingAi()) {
-                                <span class="material-icons" style="font-size: 16px; animation: spin 2s linear infinite;">autorenew</span>
-                            } 
-                        </div>
-                    </div>
-                    <div class="body">
-                        {{ student.aiInsights!.smsDraft }}
-                    </div>
-                </div>
+              </div>
+              <div class="subject">
+                <span>SUBJECT</span>
+                {{
+                  insights()!.emailDraft?.subject ||
+                    "Important update regarding your enrollment"
+                }}
+              </div>
+                <div class="body" style="white-space: pre-wrap" [innerHTML]="formatNotes(insights()!.emailDraft?.body || insights()!.emailDraft?.bodyText || insights()!.emailDraft)">
+                @if (insights()!.emailDraft?.bullets?.length) {
+                  <ul style="margin-top: 12px; padding-left: 20px">
+                    @for (
+                      bullet of insights()!.emailDraft!.bullets;
+                      track bullet
+                    ) {
+                      <li>{{ bullet }}</li>
+                    }
+                  </ul>
+                }
+              </div>
             </div>
+
+            <div
+              class="comm-card sms-card"
+              [style.opacity]="isGeneratingAi() ? '0.7' : '1'"
+            >
+              <div class="c-top">
+                SMS Draft
+                <div style="display: flex; align-items: center; gap: 8px">
+                  @if (isGeneratingAi()) {
+                    <span
+                      class="material-icons"
+                      style="
+                        font-size: 16px;
+                        animation: spin 2s linear infinite;
+                      "
+                      >autorenew</span
+                    >
+                  }
+                </div>
+              </div>
+              <div class="body" style="white-space: pre-wrap" [innerHTML]="formatNotes(insights()!.smsDraft?.body || insights()!.smsDraft)">
+              </div>
+            </div>
+          </div>
         </div>
-        } @else {
-        <div style="background-color: #f9f9f9; border: 1px dashed #ccc; padding: 40px; text-align: center; border-radius: 12px; color: #666; margin-top: 20px;">
-            <p style="margin-bottom: 0px;">This student does not have any intelligent insights natively mapped yet.</p>
+      } @else {
+        <div
+          style="
+            background-color: #f9f9f9;
+            border: 1px dashed #ccc;
+            padding: 40px;
+            text-align: center;
+            border-radius: 12px;
+            color: #666;
+            margin-top: 20px;
+          "
+        >
+          <p style="margin-bottom: 0px">
+            This student does not have any intelligent insights natively mapped
+            yet.
+          </p>
         </div>
-        }
+      }
     </div>
-</div>
+  </div>
 }

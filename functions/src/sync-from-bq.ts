@@ -1,8 +1,11 @@
 import { BigQuery } from '@google-cloud/bigquery';
 import * as admin from 'firebase-admin';
 
+
 // Initialize SDKs natively on Application Default Credentials
-admin.initializeApp({ projectId: 'dev-wu-agenticai-app-proj' });
+if (!admin.apps.length) {
+    admin.initializeApp();
+}
 const db = admin.firestore();
 const bq = new BigQuery({ projectId: 'dev-wu-agenticai-app-proj' });
 
@@ -10,39 +13,50 @@ const DATASET = 'covista_demo';
 const COLLECTION = 'salesforce_opportunities'; // canonical collection per data contract
 
 async function syncBigQuery() {
-    console.log('[Node Ingester] Fetching BigQuery Tables...');
+    console.log('[Node Ingester] Fetching BigQuery Tables with Start Date Constraints...');
 
-    // 1. Fetch Courses
-    const [courses] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_courses\``);
-    const courseMap: any = {};
-    for (const row of courses) {
-        if (!courseMap[row.student_id]) courseMap[row.student_id] = [];
-        courseMap[row.student_id].push({
-            courseId: row.course_id,
-            isAccredited: row.is_accredited,
-            registrationStatus: row.course_registration_status,
-            firstLoginAt: row.first_login_at?.value || null,
-            firstDiscussionPostAt: row.first_discussion_post_at?.value || null
-        });
+    // 1. Fetch Core exactly bounded to future enrollment and limit to 10
+    const [coreRows] = await bq.query(`
+        SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_core\`
+        WHERE program_start_date > CURRENT_DATE() 
+          AND program_start_date <= DATE_ADD(CURRENT_DATE(), INTERVAL 3 MONTH)
+        LIMIT 10
+    `);
+
+    if (!coreRows || coreRows.length === 0) {
+        console.warn('[Node Ingester] No students found matching date constraints!');
+        return;
     }
 
-    // 2. Fetch Contingencies
-    const [contingencies] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_contingencies\``);
-    const contMap: any = {};
-    for (const row of contingencies) {
-        if (!contMap[row.student_id]) contMap[row.student_id] = [];
-        contMap[row.student_id].push({
-            id: row.contingency_id,
-            institutionName: row.institution_name,
-            type: row.contingency_type,
-            status: row.contingency_status
-        });
+    // Isolate IDs for auxiliary IN queries
+    const studentIds = coreRows.map((r: any) => `'${r.student_id}'`).join(',');
+    console.log(`[Node Ingester] Isolated ${coreRows.length} target student models.`);
+
+    // 2. Fetch Profile Logs exactly for the isolated users
+    let profileMap: Record<string, any[]> = {};
+    try {
+        const [profileRows] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_profile_log\` WHERE student_id IN (${studentIds})`);
+        for (const row of profileRows) {
+            const sid = String(row.student_id);
+            if (!profileMap[sid]) profileMap[sid] = [];
+            profileMap[sid].push({
+                audit_id: row.audit_id || null,
+                term_code: row.term_code || null,
+                change_ts: row.change_ts?.value || null,
+                event_type: row.event_type || null,
+                column_name: row.column_name || null,
+                old_value: row.old_value || null,
+                new_value: row.new_value || null
+            });
+        }
+    } catch (e) {
+        console.warn('[Node Ingester] student_profile_log mapping failure:', e);
     }
 
-    // 3. Fetch Activity Logs (r2c_student_activity_log) if available
+    // 3. Fetch Activity Logs using the exact 10 identifiers
     let activityMap: Record<string, any[]> = {};
     try {
-        const [activityRows] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.r2c_student_activity_log\``);
+        const [activityRows] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.r2c_student_activity_log\` WHERE student_id IN (${studentIds})`);
         for (const row of activityRows) {
             const sid = String(row.student_id);
             if (!activityMap[sid]) activityMap[sid] = [];
@@ -56,17 +70,22 @@ async function syncBigQuery() {
                 communication_type: row.communication_type || null,
                 task_notes: row.task_notes || null,
                 task_comments: row.task_comments || null,
-                interaction_direction: row.interaction_direction || null,
+                task_status: row.task_status || null,
                 case_number: row.case_number || null,
+                case_subject: row.case_subject || null,
+                case_record_type: row.case_record_type || null,
+                case_type: row.case_type || null,
                 case_status: row.case_status || null,
+                actor: row.actor || null,
+                source_system: row.source_system || null,
+                last_updated_timestamp: row.last_updated_timestamp?.value || null
             });
         }
     } catch (e) {
         console.warn('[Node Ingester] r2c_student_activity_log not available:', e);
     }
 
-    // 4. Fetch Core and Populate Firestore root docs
-    const [coreRows] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_core\``);
+    // 4. Batch Root Documents
     let batch = db.batch();
     let count = 0;
 
@@ -74,61 +93,47 @@ async function syncBigQuery() {
         const studentId = String(row.student_id);
         const payload = {
             id: studentId,
-            name: row.full_name,
-            program: row.program_code,
-            institution: row.institution_code,
-            status: row.enrollment_status,
+            name: row.student_name,               // Changed from full_name to schema student_name
+            program: row.program,                 // mapped from schema 'program'
+            programName: row.program_name,        // mapped from schema 'program_name'
+            institution: row.institution,         // mapped from schema 'institution'
+            status: row.status_stage,             // mapped from schema 'status_stage'
+            enrollmentSpecialist: row.enrollment_specialist_name,
 
             programStartDate: row.program_start_date?.value || null,
             reserveDate: row.reserve_date?.value || null,
+            censusDate: row.census_date?.value || null,
+            fundingType: row.funding_type || null,
 
-            requirements: {
-                officialTranscriptsReceived: row.trf_form_on_file,
-                fundingPlan: row.funding_plan_status === 'Approved',
-                orientationStarted: !!row.wwow_orientation_started_at,
-            },
-
-            courseActivity: courseMap[studentId] || [],
-            contingencies: contMap[studentId] || [],
+            timeToProgramStartDays: row.time_to_program_start_days || null,
+            timeSinceReserveDays: row.time_since_reserve_days || null,
 
             syncTimestamp: Date.now(),
-            lastUpdatedByPipelineAt: row.etl_updated_at?.value || null
+            lastUpdatedAt: row.last_updated_at?.value || null
         };
 
         const docRef = db.collection(COLLECTION).doc(studentId);
         batch.set(docRef, payload, { merge: true });
         count++;
-
-        if (count % 400 === 0) {
-            await batch.commit();
-            console.log(`[Node Ingester] Committed batch. Total: ${count}`);
-            batch = db.batch();
-        }
     }
 
-    if (count % 400 !== 0) {
-        await batch.commit();
-    }
-
+    await batch.commit();
     console.log(`[Node Ingester] Root docs synced: ${count}`);
 
-    // 5. Write personalized_checklists subcollection per student
+    // 5. Write personalized_checklists subcollection
     console.log('[Node Ingester] Writing personalized_checklists subcollections...');
-    for (const row of await (async () => {
-        const [rows] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_core\``);
-        return rows;
-    })()) {
+    for (const row of coreRows) {
         const studentId = String(row.student_id);
         const checklistItems = buildChecklistItems(studentId, row);
         let clBatch = db.batch();
         for (const item of checklistItems) {
-            const ref = db.collection(COLLECTION).doc(studentId).collection('personalized_checklists').doc(item.checklist_id);
+            const ref = db.collection(COLLECTION).doc(studentId).collection('personalized_checklists').doc(item.requirement_id);
             clBatch.set(ref, item, { merge: true });
         }
         await clBatch.commit();
     }
 
-    // 6. Write activity_logs subcollection per student (idempotent by log_id)
+    // 6. Write activity_logs subcollection
     console.log('[Node Ingester] Writing activity_logs subcollections...');
     for (const [studentId, logs] of Object.entries(activityMap)) {
         let logBatch = db.batch();
@@ -147,7 +152,28 @@ async function syncBigQuery() {
         }
     }
 
-    console.log(`[Node Ingester] Finished! Successfully mapped ${count} records + subcollections into Firestore.`);
+    // 7. Write profile_logs subcollection
+    console.log('[Node Ingester] Writing profile_logs subcollections...');
+    for (const [studentId, profiles] of Object.entries(profileMap)) {
+        let profBatch = db.batch();
+        let profCount = 0;
+        for (const p of profiles) {
+            const fallbackId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
+            const recordId = p.audit_id || fallbackId;
+            const ref = db.collection(COLLECTION).doc(studentId).collection('profile_logs').doc(String(recordId));
+            profBatch.set(ref, p, { merge: true });
+            profCount++;
+            if (profCount % 400 === 0) {
+                await profBatch.commit();
+                profBatch = db.batch();
+            }
+        }
+        if (profCount % 400 !== 0) {
+            await profBatch.commit();
+        }
+    }
+
+    console.log(`[Node Ingester] Finished! Successfully mapped ${count} complete real-DB structures into Firestore.`);
 }
 
 /**
@@ -157,118 +183,53 @@ async function syncBigQuery() {
 function buildChecklistItems(studentId: string, row: any): any[] {
     return [
         {
-            checklist_id: 'initial_portal_login',
+            requirement_id: 'initial_portal_login',
             student_id: studentId,
-            item_name: 'Initial Portal Login',
+            requirement_name: 'Initial Portal Login',
             category: 'Orientation',
             is_satisfied: !!row.wwow_orientation_started_at,
             source: 'student_core.wwow_orientation_started_at',
         },
         {
-            checklist_id: 'wwow_login',
+            requirement_id: 'wwow_login',
             student_id: studentId,
-            item_name: 'WWOW Orientation Login',
+            requirement_name: 'WWOW Orientation Login',
             category: 'Orientation',
             is_satisfied: !!row.wwow_orientation_started_at,
             source: 'student_core.wwow_orientation_started_at',
         },
         {
-            checklist_id: 'fafsa_submission',
+            requirement_id: 'fafsa_submission',
             student_id: studentId,
-            item_name: 'FAFSA Submission',
+            requirement_name: 'FAFSA Submission',
             category: 'Funding',
             is_satisfied: row.funding_plan_status === 'Approved' || row.funding_plan_status === 'Submitted',
             source: 'student_core.funding_plan_status',
         },
         {
-            checklist_id: 'contingencies',
+            requirement_id: 'contingencies',
             student_id: studentId,
-            item_name: 'Official Transcripts / Contingency Documents',
+            requirement_name: 'Official Transcripts / Contingency Documents',
             category: 'Contingency',
             is_satisfied: !!row.trf_form_on_file,
             source: 'student_core.trf_form_on_file',
         },
     ];
 }
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 
-syncBigQuery().catch(console.error);
-
-
-async function syncBigQuery() {
-    console.log('[Node Ingester] Fetching BigQuery Tables...');
-
-    // 1. Fetch Courses
-    const [courses] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_courses\``);
-    const courseMap: any = {};
-    for (const row of courses) {
-        if (!courseMap[row.student_id]) courseMap[row.student_id] = [];
-        courseMap[row.student_id].push({
-            courseId: row.course_id,
-            isAccredited: row.is_accredited,
-            registrationStatus: row.course_registration_status,
-            firstLoginAt: row.first_login_at?.value || null,
-            firstDiscussionPostAt: row.first_discussion_post_at?.value || null
-        });
-    }
-
-    // 2. Fetch Contingencies
-    const [contingencies] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_contingencies\``);
-    const contMap: any = {};
-    for (const row of contingencies) {
-        if (!contMap[row.student_id]) contMap[row.student_id] = [];
-        contMap[row.student_id].push({
-            id: row.contingency_id,
-            institutionName: row.institution_name,
-            type: row.contingency_type,
-            status: row.contingency_status
-        });
-    }
-
-    // 3. Fetch Core and Populate Firestore
-    const [coreRows] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_core\``);
-    let batch = db.batch();
-    let count = 0;
-
-    for (const row of coreRows) {
-        const studentId = String(row.student_id);
-        const payload = {
-            id: studentId,
-            name: row.full_name,
-            program: row.program_code,
-            institution: row.institution_code,
-            status: row.enrollment_status,
-            
-            programStartDate: row.program_start_date?.value || null,
-            reserveDate: row.reserve_date?.value || null,
-            
-            requirements: {
-                officialTranscriptsReceived: row.trf_form_on_file,
-                fundingPlan: row.funding_plan_status === 'Approved',
-                orientationStarted: !!row.wwow_orientation_started_at,
-            },
-            
-            courseActivity: courseMap[studentId] || [],
-            contingencies: contMap[studentId] || [],
-            
-            lastUpdatedByPipelineAt: row.etl_updated_at?.value || null
-        };
-
-        const docRef = db.collection('student_records').doc(studentId);
-        batch.set(docRef, payload, { merge: true });
-        count++;
-
-        if (count % 400 === 0) {
-            await batch.commit();
-            console.log(`[Node Ingester] Committed batch. Total: ${count}`);
-            batch = db.batch();
+export const onBqSyncTrigger = onDocumentWritten(
+    { document: 'system_config/bq_sync_trigger', timeoutSeconds: 300 },
+    async (event) => {
+        // Only run if the document actually received a new write
+        if (!event.data?.after.exists) return;
+        
+        console.log('[Node Ingester] Native Trigger received! Bypassing IAM CORS loop...');
+        try {
+            await syncBigQuery();
+            console.log('[Node Ingester] Background execution complete.');
+        } catch (e: any) {
+            console.error('[Node Ingester] Execution Failure:', e);
         }
     }
-
-    if (count % 400 !== 0) {
-        await batch.commit();
-    }
-    
-    console.log(`[Node Ingester] Finished! Successfully mapped ${count} records into Firestore.`);
-}
-
-syncBigQuery().catch(console.error);
+);

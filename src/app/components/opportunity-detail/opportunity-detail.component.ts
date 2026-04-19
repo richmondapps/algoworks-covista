@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DomSanitizer } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { StudentService } from '../../services/student.service';
@@ -121,34 +122,101 @@ export class OpportunityDetailComponent {
   });
 
   checklistProgress = computed(() => {
-    const s = this.student();
-    if (!s || !s.requirements) return 0;
+    const chks = this.checklists();
+    if (!chks || chks.length === 0) return 0;
     
-    const total = 7;
-    let completed = 0;
-    const r = s.requirements;
-    if (r.fundingPlan) completed++;
-    if (r.courseRegistration) completed++;
-    if (r.wwowOrientationStarted) completed++;
-    if (r.officialTranscriptsReceived) completed++;
-    if (r.orientationStarted) completed++;
-    if (r.firstAssignmentSubmitted) completed++;
-    if (r.assignmentByCensusDay) completed++;
-    
-    return Math.round((completed / total) * 100);
+    const completed = chks.filter(chk => chk.is_satisfied).length;
+    return Math.round((completed / chks.length) * 100);
   });
 
   sortedNextBestActions = computed(() => {
-    const s = this.student();
-    if (!s || !s.aiInsights || !s.aiInsights.nextBestActions) return [];
+    const i = this.insights();
+    if (!i || !i.nextBestActions) return [];
     
     // Sort so urgent actions are strictly at the top
-    return [...s.aiInsights.nextBestActions].sort((a, b) => {
+    return [...i.nextBestActions].sort((a, b) => {
       if (a.urgent && !b.urgent) return -1;
       if (!a.urgent && b.urgent) return 1;
       return 0;
     });
   });
+
+  calculateDaysDiff(dateStr?: string | null, isPast: boolean = false): string {
+    if (!dateStr) return 'N/A';
+    try {
+      const targetDate = new Date(dateStr);
+      const now = new Date();
+      // Enforce strict UTC structural comparisons at midnight to avoid tz offset shifts shifting the day natively
+      const targetUtc = Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), targetDate.getUTCDate());
+      const nowUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      
+      const diffMs = isPast ? (nowUtc - targetUtc) : (targetUtc - nowUtc);
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      return days < 0 ? '0 days' : `${days} day${days === 1 ? '' : 's'}`;
+    } catch {
+      return 'N/A';
+    }
+  }
+
+  formatLevel(level?: string | null): string {
+    if (!level) return 'Medium';
+    let formatted = level.charAt(0).toUpperCase() + level.slice(1).toLowerCase();
+    
+    // Reverse logic: Python backend returns 'Risk' metrics (High = Bad). UI maps natively to 'Level' metric (Low = Bad).
+    if (formatted === 'High') return 'Low';
+    if (formatted === 'Low') return 'High';
+    return formatted;
+  }
+
+  formatNote(note: string | undefined | null, rawLevel: string | undefined | null): string {
+    const defaultNote = 'Stable activity based on recent actions';
+    if (!note) return defaultNote;
+    
+    const correctedLevel = this.formatLevel(rawLevel).toLowerCase();
+    
+    // The Python LLM writes plain-text 'High'/'Low' adjectives dynamically, but incorrectly binds them. 
+    // If the UI evaluates the real computed Level as 'low', the sub-text should physically match 'low', restricting the LLM from inserting inverted logic into the UI.
+    let correctedNote = note;
+    if (correctedLevel === 'low') {
+        correctedNote = correctedNote.replace(/\bhigh\b/gi, 'low');
+    } else if (correctedLevel === 'high') {
+        correctedNote = correctedNote.replace(/\blow\b/gi, 'high');
+    }
+    
+    return correctedNote;
+  }
+
+  formatSummary(summary: string | undefined | null, student: Student): string {
+    const defaultSum = "System is actively calibrating a holistic summary matrix across both readiness parameters and active engagement metrics to provide a unified student success strategy.";
+    if (!summary) return defaultSum;
+
+    let correctedText = summary;
+    const actualDaysStr = this.calculateDaysDiff(student.reserveDate, true);
+    
+    // 1. Fix Timeframe Hallucination
+    // Replaces permutations of 'reserved 1 day ago', 'reserve was 4 days ago', 'reserved their spot just one day ago'
+    correctedText = correctedText.replace(/(reserve[sd]?.*?)\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+days?\s+ago/gi, `$1${actualDaysStr} ago`);
+    
+    // 2. Fix Semantic Inversions
+    // The LLM conflates Risk and Level terminology inside the overview body. 
+    // We forcefully map the paragraph adjectives to match the mathematically validated UI chips.
+    const computedReadiness = this.formatLevel(student.aiInsights?.readinessRisk?.level).toLowerCase();
+    const computedEngagement = this.formatLevel(student.aiInsights?.engagementRisk?.level).toLowerCase();
+
+    if (computedReadiness === 'low') {
+        correctedText = correctedText.replace(/readiness([^.]*?)\bhigh\b/gi, 'readiness$1low');
+    } else if (computedReadiness === 'high') {
+        correctedText = correctedText.replace(/readiness([^.]*?)\blow\b/gi, 'readiness$1high');
+    }
+
+    if (computedEngagement === 'low') {
+        correctedText = correctedText.replace(/engagement([^.]*?)\bhigh\b/gi, 'engagement$1low');
+    } else if (computedEngagement === 'high') {
+        correctedText = correctedText.replace(/engagement([^.]*?)\blow\b/gi, 'engagement$1high');
+    }
+
+    return correctedText;
+  }
 
   isEditingContext = signal(false);
   isEditingEmail = signal(false);
@@ -213,6 +281,66 @@ export class OpportunityDetailComponent {
   activityLogs = signal<StudentActivityLog[]>([]);
   isLoadingSubcollections = signal(false);
 
+  insights = computed(() => {
+    const rootInsights = this.student()?.aiInsights || {};
+    const subcollectionInsights = this.aiOutputs() || {};
+    // Deep merge legacy root attributes with fresh subcollection outputs so decoupled communications aren't lost
+    return Object.keys(rootInsights).length || Object.keys(subcollectionInsights).length 
+      ? ({ ...rootInsights, ...subcollectionInsights } as any)
+      : null;
+  });
+
+  private sanitizer = inject(DomSanitizer);
+
+  formatActivityType(type: string | null | undefined): string {
+    if (!type) return '-';
+    let t = type.toLowerCase().trim();
+    if (t === 'phone_call' || t === 'outbound_call' || t === 'inbound_call') return 'Phone';
+    if (t === 'email') return 'Email';
+    if (t === 'text' || t === 'sms') return 'SMS';
+    if (t === 'file_review') return 'File Review';
+    if (t === 'student_event') return 'System Event';
+    // Fallback: convert snake_case or spaces to Title Case
+    return t.split(/_|\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  }
+
+  formatNotes(text: any): any {
+    if (!text || text === '') return '-';
+
+    // If payload is an object, aggressively hunt for standard string properties
+    if (typeof text === 'object') {
+      text = text.bodyText || text.body || text.text || text.content || text.message || JSON.stringify(text);
+    }
+    
+    if (typeof text !== 'string' || text.trim() === '') return '-';
+
+    // 1. Convert URLs to shortened clickable Links
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    let html = text.replace(urlRegex, (url: string) => {
+      return `<a href="${url}" target="_blank" style="color: #3b82f6; text-decoration: underline;">[Link]</a>`;
+    });
+    
+    // 2. Add line breaks before common header chunks so flattened chat/email transcripts wrap nicely using pre-wrap layouts.
+    html = html.replace(/(From:|To:|Sent:|Subject:|Chat Transcript:)/gi, '<br><strong>$1</strong>');
+    
+    return this.sanitizer.bypassSecurityTrustHtml(html);
+  }
+
+  activitySummary = computed(() => {
+    const logs = this.activityLogs();
+    if (!logs || !logs.length) return '';
+    const counts: Record<string, number> = {};
+    logs.forEach(log => {
+      const rawType = log.communication_type || log.activity_category || 'Event';
+      const type = this.formatActivityType(rawType);
+      counts[type] = (counts[type] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => `${type} (${count})`)
+      .join(', ');
+  });
+
   async loadSubcollections(studentId: string) {
     this.isLoadingSubcollections.set(true);
     try {
@@ -222,7 +350,9 @@ export class OpportunityDetailComponent {
         this.studentService.loadActivityLogs(studentId),
       ]);
       this.aiOutputs.set(outputs);
+      console.log('--- [DEBUG] PAGE LOAD AI PAYLOAD ---', outputs);
       this.checklists.set(checklists);
+      console.log('--- [DEBUG] PAGE LOAD CHECKLISTS ---', checklists);
       this.activityLogs.set(logs);
     } catch (e) {
       console.error('[opportunity-detail] Failed to load subcollections:', e);
@@ -301,8 +431,11 @@ export class OpportunityDetailComponent {
       // Reload ai_insights/latest subcollection after generation
       const latestOutputs = await this.studentService.loadAiOutputs(student.id);
       this.aiOutputs.set(latestOutputs);
-      if (response && response.aiInsights && response.aiInsights.agentTrace) {
-        this.transientAgentTrace.set(response.aiInsights.agentTrace);
+      console.log('--- [DEBUG] NEW AI PAYLOAD RECEIVED ---', latestOutputs);
+      
+      const resInsights = response?.aiInsights || latestOutputs;
+      if (resInsights && resInsights.agentTrace) {
+        this.transientAgentTrace.set(resInsights.agentTrace);
       }
     } catch (e) {
       clearInterval(interval);

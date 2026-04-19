@@ -20,7 +20,7 @@ const firebaseConfig = {
   measurementId: 'G-QGY276YZCR',
 };
 
-const firebaseConfigClient = {
+const DevConfig = {
   apiKey: 'AIzaSyDwbq6TlPBGP_OjvQ6zdtiVthuN8Wwlk00',
   authDomain: 'dev-wu-agenticai-app-proj.firebaseapp.com',
   projectId: 'dev-wu-agenticai-app-proj',
@@ -30,13 +30,24 @@ const firebaseConfigClient = {
   measurementId: 'G-TQH9XRL30H',
 };
 
+export const QAConfig = {
+  // PASTE QA KEYS HERE TOMORROW!
+  apiKey: '...',
+  authDomain: 'qa-wu-agenticai-app-proj.firebaseapp.com',
+  projectId: 'qa-wu-agenticai-app-proj',
+  storageBucket: 'qa-wu-agenticai-app-proj.firebasestorage.app',
+  messagingSenderId: '...',
+  appId: '...',
+  measurementId: '...',
+};
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideAnimations(),
     provideAnimationsAsync(),
-    provideFirebaseApp(() => initializeApp(firebaseConfigClient)),
+    provideFirebaseApp(() => initializeApp(DevConfig)),
     provideStorage(() => getStorage()),
     provideFirestore(() => getFirestore()),
     provideFunctions(() => getFunctions()),

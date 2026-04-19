@@ -9,10 +9,10 @@ export interface ChecklistItem {
 // Subcollection: personalized_checklists/{checklist_id}
 // ---------------------------------------------------------------
 export interface PersonalizedChecklist {
-    checklist_id: string;
+    requirement_id: string;      // Fix from checklist_id
     student_id: string;
-    item_name: string;
-    category: string;
+    requirement_name: string;    // Fix from item_name
+    requirement_type?: string;   // Maps correctly
     is_satisfied: boolean;
     due_date?: string | null;
     completed_at?: string | null;
@@ -32,9 +32,12 @@ export interface StudentActivityLog {
     communication_type?: 'Phone' | 'Email' | 'Text' | 'Chat' | 'File Review' | null;
     task_notes?: string | null;
     task_comments?: string | null;
+    task_status?: string | null;
     interaction_direction?: 'inbound' | 'outbound' | null;
     case_number?: string | null;
+    case_subject?: string | null;
     case_status?: string | null;
+    actor?: string | null;
 }
 
 // ---------------------------------------------------------------
@@ -47,8 +50,8 @@ export interface AiOutputsLatest {
     engagementRisk?: { level: string; trendDirection?: string; trendNote?: string };
     metrics?: { timeSinceReserve: string; timeToProgramStart: string; timeToCensus: string };
     nextBestActions: { title: string; urgent: boolean; points: string[]; buttonText: string }[];
-    emailDraft?: { subject?: string; bodyText: string; bullets: string[] };
-    smsDraft?: string;
+    emailDraft?: { subject?: string; bodyText?: string; body?: string; bullets?: string[] };
+    smsDraft?: any; // To cover either string or { body: string }
     agentTrace?: { agentName: string; action: string; status: string; duration: string; timestamp: string }[];
 }
 
@@ -113,10 +116,11 @@ export interface AiInsights {
     }[];
     emailDraft?: {
         subject?: string;
-        bodyText: string;
-        bullets: string[];
+        bodyText?: string;
+        body?: string;
+        bullets?: string[];
     };
-    smsDraft?: string;
+    smsDraft?: any; // To cover either string or { body: string }
     agentTrace?: {
         agentName: string;
         action: string;
@@ -159,9 +163,13 @@ export interface Student {
     name: string;
     email: string;
     phone: string;
+    program?: string;
+    institution?: string;
+    status?: string;
     requirements: StudentRequirements;
     programStartDate?: string;
     reserveDate?: string;
+    censusDate?: string;
     courseActivity?: {
         courseId: string;
         isAccredited: boolean;

@@ -36,7 +36,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.queryStudentDocument = exports.aggregateChecklistsOnUpdate = exports.syncAiInsightsOnUpdate = void 0;
+exports.onBqSyncTrigger = exports.queryStudentDocument = exports.aggregateChecklistsOnUpdate = exports.syncAiInsightsOnUpdate = void 0;
 const google_auth_library_1 = require("google-auth-library");
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -82,30 +82,37 @@ function stripDerived(doc) {
  *
  * Recursion guard: derived-only writes (AI write-back, UI flags) are detected
  * via DERIVED_FIELDS blacklist and silently skipped to prevent infinite loops.
+ * Additionally, an explicit forceRegenerate path fires when isGeneratingAi
+ * flips from false/undefined → true.
  *
- * TODO: When the Python agent is decoupled into separate core_agent and
- * comms_agent microservices, add a detectRouteFlags(before, after) helper
- * here to send { route: ['comms_agent'] } for notes-only changes, etc.
+ * On success: writes heavy AI payload to ai_insights/latest subcollection,
+ * copies lightweight readinessLevel + engagementLevel to root doc for
+ * dashboard filtering, and keeps aiInsights on root for backward compat.
  */
 exports.syncAiInsightsOnUpdate = (0, firestore_1.onDocumentUpdated)({ document: 'salesforce_opportunities/{studentId}', retry: false }, async (event) => {
-    var _a, _b;
+    var _a, _b, _c, _d, _e, _f;
     const studentUid = event.params.studentId;
     const beforeData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
     const afterData = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
     if (!beforeData || !afterData) {
-        console.log(`[syncAiInsightsOnUpdate] No data found for ${studentUid}`);
+        console.log(`[syncAiInsightsOnUpdate] ERROR: Missing beforeData or afterData for ${studentUid}`);
         return;
     }
+    console.log(`[syncAiInsightsOnUpdate] Trigger invoked for: ${studentUid}`);
+    console.log(`[syncAiInsightsOnUpdate] isGeneratingAi -> BEFORE: ${beforeData.isGeneratingAi} | AFTER: ${afterData.isGeneratingAi}`);
+    console.log(`[syncAiInsightsOnUpdate] syncTimestamp -> BEFORE: ${beforeData.syncTimestamp} | AFTER: ${afterData.syncTimestamp}`);
     // --- Recursion guard ---
     const upstreamChanged = JSON.stringify(stripDerived(beforeData)) !==
         JSON.stringify(stripDerived(afterData));
     // Explicit force: UI writes { isGeneratingAi: true } to trigger regenerate
-    const forceRegenerate = beforeData.isGeneratingAi !== true && afterData.isGeneratingAi === true;
+    const forceRegenerate = (beforeData.isGeneratingAi !== true && afterData.isGeneratingAi === true) ||
+        (afterData.isGeneratingAi === true && afterData.syncTimestamp !== beforeData.syncTimestamp);
+    console.log(`[syncAiInsightsOnUpdate] Guard Evals -> upstreamChanged: ${upstreamChanged}, forceRegenerate: ${forceRegenerate}`);
     if (!upstreamChanged && !forceRegenerate) {
-        console.log(`[recursionGuard] No upstream change and no force regenerate. Skipping ${studentUid}.`);
+        console.log(`[recursionGuard] SILENT SKIP: No upstream change and no force regenerate detected for ${studentUid}.`);
         return;
     }
-    console.log(`[trigger] Proceeding for ${studentUid} — upstreamChanged=${upstreamChanged}, forceRegenerate=${forceRegenerate}`);
+    console.log(`[trigger] PROCEEDING for ${studentUid} — Calling Python Agent (targetHttp = https://python-data-agent-1033582308599.us-central1.run.app)`);
     try {
         // Re-fetch the latest full snapshot so the agent always works with
         // the most current state, regardless of write ordering.
@@ -118,18 +125,60 @@ exports.syncAiInsightsOnUpdate = (0, firestore_1.onDocumentUpdated)({ document: 
         const targetHttp = 'https://python-data-agent-1033582308599.us-central1.run.app';
         const auth = new google_auth_library_1.GoogleAuth();
         const client = await auth.getIdTokenClient(targetHttp);
+        console.log(`[trigger] Request payload prepared, dispatching to remote Agent...`);
         const response = await client.request({
             url: `${targetHttp}/generate-insights`,
             method: 'POST',
             data: { studentUid, dataContext: latestData },
         });
+        console.log(`[trigger] Python Agent returned status: ${response.status}`);
         if (!response.status || response.status >= 400) {
-            console.error(`[trigger] Python agent returned error status: ${response.status}`);
+            console.error(`[trigger] ERROR: Python agent returned error status: ${response.status}`, response.data);
+            await db.collection('salesforce_opportunities').doc(studentUid).set({ isGeneratingAi: false, lastAiError: `Python agent returned ${response.status}` }, { merge: true });
         }
         else {
+            console.log(`[trigger] SUCCESS: Payload received from Python agent. Structuring local writes...`);
             const aiPayload = response.data;
-            await db.collection('salesforce_opportunities').doc(studentUid).set(Object.assign(Object.assign({}, aiPayload), { isGeneratingAi: false }), { merge: true });
-            console.log(`[trigger] Insights updated for ${studentUid}`);
+            // Write heavy AI output to ai_insights/latest subcollection
+            await db.collection('salesforce_opportunities')
+                .doc(studentUid)
+                .collection('ai_insights')
+                .doc('latest')
+                .set(aiPayload, { merge: false });
+            // Write lightweight summary fields + backward-compat aiInsights to root
+            await db.collection('salesforce_opportunities').doc(studentUid).set({
+                aiInsights: aiPayload, // backward compat — remove once UI migrates to subcollection
+                readinessLevel: (_d = (_c = aiPayload === null || aiPayload === void 0 ? void 0 : aiPayload.readinessRisk) === null || _c === void 0 ? void 0 : _c.level) !== null && _d !== void 0 ? _d : null,
+                engagementLevel: (_f = (_e = aiPayload === null || aiPayload === void 0 ? void 0 : aiPayload.engagementRisk) === null || _e === void 0 ? void 0 : _e.level) !== null && _f !== void 0 ? _f : null,
+                isGeneratingAi: false,
+                lastAiError: null,
+            }, { merge: true });
+            console.log(`[trigger] ai_insights/latest written and root updated for ${studentUid}`);
+            // --- TAIL EXECUTION: Dispatch communications block asynchronously but await resolution ---
+            console.log(`[trigger] Tail Execution: Dispatching /generate-comms for ${studentUid}`);
+            try {
+                const commsResponse = await client.request({
+                    url: `${targetHttp}/generate-comms`,
+                    method: 'POST',
+                    data: { studentUid, dataContext: latestData },
+                });
+                if (commsResponse.status && commsResponse.status < 400) {
+                    console.log(`[trigger] SUCCESS: Communication drafts received. Merging natively into ai_insights/latest...`);
+                    await db.collection('salesforce_opportunities')
+                        .doc(studentUid)
+                        .collection('ai_insights')
+                        .doc('latest')
+                        .set(commsResponse.data, { merge: true });
+                    // Also shallow merge onto root for legacy UI component consistency until fully deprecated
+                    await db.collection('salesforce_opportunities').doc(studentUid).set({ aiInsights: commsResponse.data }, { merge: true });
+                }
+                else {
+                    console.error(`[trigger] ERROR: /generate-comms failed with status ${commsResponse.status}`, commsResponse.data);
+                }
+            }
+            catch (commsErr) {
+                console.error(`[trigger] WARNING: Tail execution for /generate-comms explicitly failed:`, commsErr);
+            }
         }
     }
     catch (err) {
@@ -182,11 +231,12 @@ exports.aggregateChecklistsOnUpdate = (0, firestore_2.onDocumentWritten)('salesf
             if (id === 'class_participation')
                 requirements.assignmentByCensusDay = satisfied;
         });
-        // Update parent, naturally invoking syncAiInsightsOnUpdate
+        // Update parent with aggregated requirements + sync metadata
         await admin.firestore().collection('salesforce_opportunities').doc(studentUid).set({
-            requirements
+            requirements,
+            syncTimestamp: Date.now()
         }, { merge: true });
-        console.log(`Requirements updated`);
+        console.log(`[aggregateChecklistsOnUpdate] Requirements updated for ${studentUid}`);
     }
     catch (err) {
         console.error(`Failed to sync requirements.`, err);
@@ -246,4 +296,8 @@ exports.queryStudentDocument = (0, https_1.onCall)({ cors: true }, async (reques
 // ------------------------------------------------------------------
 // Manual Pub/Sub Sync Simulator
 __exportStar(require("./sync-simulator"), exports);
+// ------------------------------------------------------------------
+// Data Pipeline Synchronization
+var sync_from_bq_1 = require("./sync-from-bq");
+Object.defineProperty(exports, "onBqSyncTrigger", { enumerable: true, get: function () { return sync_from_bq_1.onBqSyncTrigger; } });
 //# sourceMappingURL=index.js.map

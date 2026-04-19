@@ -61,9 +61,13 @@ export const syncAiInsightsOnUpdate = onDocumentUpdated(
     const afterData = event.data?.after.data();
 
     if (!beforeData || !afterData) {
-      console.log(`[syncAiInsightsOnUpdate] No data found for ${studentUid}`);
+      console.log(`[syncAiInsightsOnUpdate] ERROR: Missing beforeData or afterData for ${studentUid}`);
       return;
     }
+
+    console.log(`[syncAiInsightsOnUpdate] Trigger invoked for: ${studentUid}`);
+    console.log(`[syncAiInsightsOnUpdate] isGeneratingAi -> BEFORE: ${beforeData.isGeneratingAi} | AFTER: ${afterData.isGeneratingAi}`);
+    console.log(`[syncAiInsightsOnUpdate] syncTimestamp -> BEFORE: ${beforeData.syncTimestamp} | AFTER: ${afterData.syncTimestamp}`);
 
     // --- Recursion guard ---
     const upstreamChanged =
@@ -72,17 +76,20 @@ export const syncAiInsightsOnUpdate = onDocumentUpdated(
 
     // Explicit force: UI writes { isGeneratingAi: true } to trigger regenerate
     const forceRegenerate =
-      beforeData.isGeneratingAi !== true && afterData.isGeneratingAi === true;
+      (beforeData.isGeneratingAi !== true && afterData.isGeneratingAi === true) ||
+      (afterData.isGeneratingAi === true && afterData.syncTimestamp !== beforeData.syncTimestamp);
+
+    console.log(`[syncAiInsightsOnUpdate] Guard Evals -> upstreamChanged: ${upstreamChanged}, forceRegenerate: ${forceRegenerate}`);
 
     if (!upstreamChanged && !forceRegenerate) {
       console.log(
-        `[recursionGuard] No upstream change and no force regenerate. Skipping ${studentUid}.`,
+        `[recursionGuard] SILENT SKIP: No upstream change and no force regenerate detected for ${studentUid}.`,
       );
       return;
     }
 
     console.log(
-      `[trigger] Proceeding for ${studentUid} — upstreamChanged=${upstreamChanged}, forceRegenerate=${forceRegenerate}`,
+      `[trigger] PROCEEDING for ${studentUid} — Calling Python Agent (targetHttp = https://python-data-agent-1033582308599.us-central1.run.app)`,
     );
 
     try {
@@ -99,19 +106,24 @@ export const syncAiInsightsOnUpdate = onDocumentUpdated(
       const auth = new GoogleAuth();
       const client = await auth.getIdTokenClient(targetHttp);
 
+      console.log(`[trigger] Request payload prepared, dispatching to remote Agent...`);
+
       const response = await client.request({
         url: `${targetHttp}/generate-insights`,
         method: 'POST',
         data: { studentUid, dataContext: latestData },
       }) as any;
 
+      console.log(`[trigger] Python Agent returned status: ${response.status}`);
+
       if (!response.status || response.status >= 400) {
-        console.error(`[trigger] Python agent returned error status: ${response.status}`);
+        console.error(`[trigger] ERROR: Python agent returned error status: ${response.status}`, response.data);
         await db.collection('salesforce_opportunities').doc(studentUid).set(
           { isGeneratingAi: false, lastAiError: `Python agent returned ${response.status}` },
           { merge: true },
         );
       } else {
+        console.log(`[trigger] SUCCESS: Payload received from Python agent. Structuring local writes...`);
         const aiPayload = response.data;
 
         // Write heavy AI output to ai_insights/latest subcollection
@@ -134,6 +146,35 @@ export const syncAiInsightsOnUpdate = onDocumentUpdated(
         );
 
         console.log(`[trigger] ai_insights/latest written and root updated for ${studentUid}`);
+
+        // --- TAIL EXECUTION: Dispatch communications block asynchronously but await resolution ---
+        console.log(`[trigger] Tail Execution: Dispatching /generate-comms for ${studentUid}`);
+        try {
+          const commsResponse = await client.request({
+            url: `${targetHttp}/generate-comms`,
+            method: 'POST',
+            data: { studentUid, dataContext: latestData },
+          }) as any;
+
+          if (commsResponse.status && commsResponse.status < 400) {
+            console.log(`[trigger] SUCCESS: Communication drafts received. Merging natively into ai_insights/latest...`);
+            await db.collection('salesforce_opportunities')
+              .doc(studentUid)
+              .collection('ai_insights')
+              .doc('latest')
+              .set(commsResponse.data, { merge: true });
+            
+            // Also shallow merge onto root for legacy UI component consistency until fully deprecated
+            await db.collection('salesforce_opportunities').doc(studentUid).set(
+              { aiInsights: commsResponse.data }, 
+              { merge: true }
+            );
+          } else {
+            console.error(`[trigger] ERROR: /generate-comms failed with status ${commsResponse.status}`, commsResponse.data);
+          }
+        } catch (commsErr) {
+          console.error(`[trigger] WARNING: Tail execution for /generate-comms explicitly failed:`, commsErr);
+        }
       }
     } catch (err) {
       console.error(`[syncAiInsightsOnUpdate] Python agent failure for ${studentUid}:`, err);
@@ -164,42 +205,42 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore';
  */
 export const aggregateChecklistsOnUpdate = onDocumentWritten('salesforce_opportunities/{studentId}/personalized_checklists/{chkId}', async (event) => {
   const studentUid = event.params.studentId;
-  
-  console.log(`Checklist updated for student: ${studentUid}`);
-  
-  try {
-      const checklistsSnapshot = await admin.firestore().collection('salesforce_opportunities').doc(studentUid).collection('personalized_checklists').get();
-      
-      const requirements: any = {};
-      
-      checklistsSnapshot.forEach(doc => {
-          const id = doc.id;
-          const satisfied = doc.data().is_satisfied === true;
-          
-          if (id === 'initial_portal_login') requirements.orientationStarted = satisfied;
-          if (id === 'fafsa_submission') {
-              requirements.fafsaSubmitted = satisfied;
-              requirements.fundingPlan = satisfied;
-          }
-          if (id === 'course_registration') requirements.courseRegistration = satisfied;
-          if (id === 'wwow_login') requirements.wwowOrientationStarted = satisfied;
-          if (id === 'contingencies') {
-              requirements.officialTranscriptsReceived = satisfied;
-              requirements.nursingLicenseReceived = satisfied;
-          }
-          if (id === 'logged_into_course') requirements.firstAssignmentSubmitted = satisfied; // Mapped loosely for test schema
-          if (id === 'class_participation') requirements.assignmentByCensusDay = satisfied; 
-      });
-      
-      // Update parent with aggregated requirements + sync metadata
-      await admin.firestore().collection('salesforce_opportunities').doc(studentUid).set({
-          requirements,
-          syncTimestamp: Date.now()
-      }, { merge: true });
 
-      console.log(`[aggregateChecklistsOnUpdate] Requirements updated for ${studentUid}`);
+  console.log(`Checklist updated for student: ${studentUid}`);
+
+  try {
+    const checklistsSnapshot = await admin.firestore().collection('salesforce_opportunities').doc(studentUid).collection('personalized_checklists').get();
+
+    const requirements: any = {};
+
+    checklistsSnapshot.forEach(doc => {
+      const id = doc.id;
+      const satisfied = doc.data().is_satisfied === true;
+
+      if (id === 'initial_portal_login') requirements.orientationStarted = satisfied;
+      if (id === 'fafsa_submission') {
+        requirements.fafsaSubmitted = satisfied;
+        requirements.fundingPlan = satisfied;
+      }
+      if (id === 'course_registration') requirements.courseRegistration = satisfied;
+      if (id === 'wwow_login') requirements.wwowOrientationStarted = satisfied;
+      if (id === 'contingencies') {
+        requirements.officialTranscriptsReceived = satisfied;
+        requirements.nursingLicenseReceived = satisfied;
+      }
+      if (id === 'logged_into_course') requirements.firstAssignmentSubmitted = satisfied; // Mapped loosely for test schema
+      if (id === 'class_participation') requirements.assignmentByCensusDay = satisfied;
+    });
+
+    // Update parent with aggregated requirements + sync metadata
+    await admin.firestore().collection('salesforce_opportunities').doc(studentUid).set({
+      requirements,
+      syncTimestamp: Date.now()
+    }, { merge: true });
+
+    console.log(`[aggregateChecklistsOnUpdate] Requirements updated for ${studentUid}`);
   } catch (err) {
-      console.error(`Failed to sync requirements.`, err);
+    console.error(`Failed to sync requirements.`, err);
   }
 });
 
@@ -271,3 +312,7 @@ export const queryStudentDocument = onCall({ cors: true }, async (request) => {
 // ------------------------------------------------------------------
 // Manual Pub/Sub Sync Simulator
 export * from './sync-simulator';
+
+// ------------------------------------------------------------------
+// Data Pipeline Synchronization
+export { onBqSyncTrigger } from './sync-from-bq';

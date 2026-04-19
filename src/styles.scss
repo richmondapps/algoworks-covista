@@ -79,7 +79,7 @@ button {
 }
 
 .status-badge.complete,
-.status-badge.low {
+.status-badge.high {
   background: rgba(16, 185, 129, 0.2);
   color: var(--success);
 }
@@ -91,7 +91,7 @@ button {
 }
 
 .status-badge.missing,
-.status-badge.high {
+.status-badge.low {
   background: rgba(239, 68, 68, 0.2);
   color: var(--danger);
 }

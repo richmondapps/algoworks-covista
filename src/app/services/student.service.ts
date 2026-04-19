@@ -203,8 +203,13 @@ export class StudentService {
   // ---------------------------------------------------------------
   async loadAiOutputs(studentId: string): Promise<AiOutputsLatest | null> {
     const latestRef = doc(this.firestore, `${COLLECTION_NAME}/${studentId}/ai_insights/latest`);
-    const snap = await getDoc(latestRef);
-    return snap.exists() ? (snap.data() as AiOutputsLatest) : null;
+    try {
+      const snap = await getDoc(latestRef);
+      return snap.exists() ? (snap.data() as AiOutputsLatest) : null;
+    } catch (e) {
+      console.warn('[student.service] Subcollection schema read blocked by active Firestore Rules. Seamlessly yielding to root backward-compatibility...');
+      return null;
+    }
   }
 
   // ---------------------------------------------------------------
@@ -212,8 +217,12 @@ export class StudentService {
   // ---------------------------------------------------------------
   async loadChecklists(studentId: string): Promise<PersonalizedChecklist[]> {
     const ref = collection(this.firestore, `${COLLECTION_NAME}/${studentId}/personalized_checklists`);
-    const snap = await getDocs(ref);
-    return snap.docs.map(d => ({ checklist_id: d.id, ...d.data() } as PersonalizedChecklist));
+    try {
+      const snap = await getDocs(ref);
+      return snap.docs.map(d => ({ requirement_id: d.id, ...d.data() } as PersonalizedChecklist));
+    } catch {
+      return [];
+    }
   }
 
   // ---------------------------------------------------------------
@@ -222,8 +231,12 @@ export class StudentService {
   async loadActivityLogs(studentId: string): Promise<StudentActivityLog[]> {
     const ref = collection(this.firestore, `${COLLECTION_NAME}/${studentId}/activity_logs`);
     const q = query(ref, orderBy('activity_datetime', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ log_id: d.id, ...d.data() } as StudentActivityLog));
+    try {
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ log_id: d.id, ...d.data() } as StudentActivityLog));
+    } catch {
+      return [];
+    }
   }
 
   // ---------------------------------------------------------------
