@@ -112,6 +112,22 @@ class AgentOrchestrator:
 
         # Convert to a plain dict once so all agents receive a consistent type.
         state_dict: dict[str, Any] = dict(state)
+        
+        # Absolute Calculation: Force overwrite the stale BQ timeSinceReserveDays using true active dates
+        if state_dict.get("reserveDate"):
+            try:
+                r_date = datetime.datetime.strptime(state_dict["reserveDate"], "%Y-%m-%d").date()
+                
+                ui_date_str = state_dict.get("uiCalculatedDateStr")
+                if ui_date_str:
+                    now_local = datetime.datetime.strptime(ui_date_str, "%Y-%m-%d").date()
+                else:
+                    now_local = datetime.datetime.now(datetime.timezone.utc).date()
+                    
+                delta = (now_local - r_date).days
+                state_dict["timeSinceReserveDays"] = max(0, delta)
+            except Exception:
+                pass
 
         for agent in self._agents:
             result = agent.run(state=state_dict, ctx=ctx)

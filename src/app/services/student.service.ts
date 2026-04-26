@@ -30,9 +30,10 @@ export class StudentService {
           const s = { 
             id: doc.id, 
             ...raw,
-            name: raw['student_name'] || raw['name'] || 'Unknown Student',
+            name: raw['studentName'] || raw['student_name'] || raw['name'] || 'Unknown Student',
             programStartDate: raw['program_start_date'] || raw['programStartDate'],
             reserveDate: raw['reserve_date'] || raw['reserveDate'],
+            censusDate: raw['census_date'] || raw['censusDate'],
             requirements: raw['requirements'] || {}
           } as any as Student;
           const today = new Date().getTime();
@@ -46,16 +47,7 @@ export class StudentService {
             s.timeSinceReserveDays = Math.floor((today - reserve) / (1000 * 3600 * 24));
           }
           
-          if (s.courseActivity && s.courseActivity.length > 0) {
-              const accreditedCourses = s.courseActivity.filter(c => c.isAccredited);
-              if (accreditedCourses.length > 0) {
-                  const hasLogin = accreditedCourses.some(c => !!c.firstLoginAt);
-                  const hasPost = accreditedCourses.some(c => !!c.firstDiscussionPostAt);
 
-                  s.requirements.orientationStarted = hasLogin;
-                  s.requirements.firstAssignmentSubmitted = hasPost;
-              }
-          }
           
           if (!s.aiInsights) {
               s.aiInsights = {} as any;
@@ -68,7 +60,7 @@ export class StudentService {
                 s.aiInsights!.nextBestActions = [];
             }
 
-          if (!s.requirements.orientationStarted) {
+          if (!s.requirements.initialPortalLogin) {
             s.aiInsights!.nextBestActions.push({
               title: 'Initial portal login / Not logged into course',
               urgent: true,
@@ -96,16 +88,6 @@ export class StudentService {
               ],
               buttonText: 'Send Email'
             });
-          } else if (!s.requirements.fundingPlan) {
-            s.aiInsights!.nextBestActions.push({
-              title: 'Funding - FAFSA Submitted but awaiting award/decision',
-              urgent: false,
-              points: [
-                'Check FAFSA Status Link: https://studentaid.gov/help/check-fafsa-status or student portal',
-                'Disclaimer/Note that FAFSA process can take several days'
-              ],
-              buttonText: 'Send Email'
-            });
           }
 
           if (!s.requirements.courseRegistration) {
@@ -121,12 +103,12 @@ export class StudentService {
             });
           }
 
-          if (!s.requirements.wwowOrientationStarted) {
+          if (!s.requirements.wowOrientation) {
             s.aiInsights!.nextBestActions.push({
-              title: 'No WWOW Login',
+              title: 'No WOW Login',
               urgent: true,
               points: [
-                'Link to WWOW orientation',
+                'Link to WOW orientation',
                 'Estimated time to complete - 25 min'
               ],
               buttonText: 'Send Email'
@@ -160,8 +142,7 @@ export class StudentService {
             }
           }
 
-          s.riskIndicator = this.computeRisk(s, today);
-          s.actionRequired = s.riskIndicator === 'High' || s.riskIndicator === 'Medium';
+          s.actionRequired = (s.aiInsights?.readinessRisk?.level === 'Low' || s.readinessLevel === 'Low') || (s.aiInsights?.engagementLevel?.level === 'Low' || s.engagementLevel === 'Low');
           
           return s;
         });
@@ -244,39 +225,51 @@ export class StudentService {
   // ---------------------------------------------------------------
   async triggerAiGeneration(studentId: string): Promise<void> {
     const studentDoc = doc(this.firestore, `${COLLECTION_NAME}/${studentId}`);
-    await setDoc(studentDoc, { isGeneratingAi: true, syncTimestamp: Date.now() }, { merge: true });
+    
+    // Explicitly snap the user's localized browser date string to prevent Vertex UTC shift hallucinations
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const localDateStr = `${y}-${m}-${d}`;
+
+    await setDoc(studentDoc, { 
+      isGeneratingAi: true, 
+      isGeneratingComms: true,
+      syncTimestamp: Date.now(),
+      uiCalculatedDateStr: localDateStr
+    }, { merge: true });
   }
 
-  async generateAiInsights(student: Student) {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const studentDoc = doc(this.firestore, `${COLLECTION_NAME}/${student.id}`);
-        // 1. Trigger via isGeneratingAi signal field
-        await setDoc(studentDoc, { isGeneratingAi: true, syncTimestamp: Date.now() }, { merge: true });
-
-        // 2. Watch root doc — when isGeneratingAi flips false, load the subcollection result
-        const unsubscribe = onSnapshot(studentDoc, async (snapshot) => {
-          const data = snapshot.data();
-          if (data && data['isGeneratingAi'] === false) {
-            unsubscribe();
-            // Load heavy payload from ai_insights/latest subcollection
-            const aiOutputs = await this.loadAiOutputs(student.id);
-            resolve({ aiInsights: aiOutputs ?? data['aiInsights'] });
+  async waitForAiGeneration(studentId: string): Promise<any> {
+    let attempts = 0;
+    while (attempts < 120) {
+      await new Promise(r => setTimeout(r, 1000));
+      const studentDoc = doc(this.firestore, `${COLLECTION_NAME}/${studentId}`);
+      const snap = await getDoc(studentDoc);
+      if (snap.exists() && snap.data()['isGeneratingAi'] === false) {
+          if (snap.data()['lastAiError']) {
+              throw new Error(snap.data()['lastAiError']);
           }
-        }, (error) => {
-          unsubscribe();
-          reject(error);
-        });
-
-        // 3. Fallback timeout for architectural resilience
-        setTimeout(() => {
-          unsubscribe();
-          reject(new Error("AI Generation Timeout"));
-        }, 45000); // 45 seconds max timeout
-      } catch (e) {
-        reject(e);
+          return snap.data();
       }
-    });
+      attempts++;
+    }
+    throw new Error("AI Generation timed out waiting for backend orchestrator.");
+  }
+
+  async waitForCommsGeneration(studentId: string): Promise<any> {
+    let attempts = 0;
+    while (attempts < 120) {
+      await new Promise(r => setTimeout(r, 1000));
+      const studentDoc = doc(this.firestore, `${COLLECTION_NAME}/${studentId}`);
+      const snap = await getDoc(studentDoc);
+      if (snap.exists() && snap.data()['isGeneratingComms'] === false) {
+          return snap.data();
+      }
+      attempts++;
+    }
+    console.warn("Communications generation organically timed out. Returning partial UI.");
   }
 
   async queryDocumentInfo(studentUid: string, fileName: string, query: string) {
@@ -355,7 +348,7 @@ export class StudentService {
         stats: { emailOpens: 2, smsClicks: 1, bestMethod: 'Email' },
         requirements: {} as any,
         recommendedActions: [
-          { id: 'r1', title: 'Email Reminder', description: 'Student needs to login to WWOW.', priority: 'Medium', type: 'Email' }
+          { id: 'r1', title: 'Email Reminder', description: 'Student needs to login to WOW.', priority: 'Medium', type: 'Email' }
         ]
       },
       {
@@ -386,71 +379,28 @@ export class StudentService {
     await batch.commit();
   }
 
-  private computeRisk(s: Student, today: number): 'Low' | 'Medium' | 'High' {
-    let highestRisk: 'Low' | 'Medium' | 'High' = 'Low';
+  private computeReadinessLevel(s: Student): 'Low' | 'Medium' | 'High' {
+    const reqs = s.requirements || {};
+    let completed = 0;
     
-    // Helper to upgrade risk
-    const upgradeRisk = (newRisk: 'Low' | 'Medium' | 'High') => {
-      if (newRisk === 'High') highestRisk = 'High';
-      if (newRisk === 'Medium' && highestRisk === 'Low') highestRisk = 'Medium';
-    };
-
-    const MS_PER_DAY = 1000 * 3600 * 24;
-    const MS_PER_WEEK = MS_PER_DAY * 7;
-
-    const reserveDateMs = s.reserveDate ? new Date(s.reserveDate).getTime() : null;
-    const startDateMs = s.programStartDate ? new Date(s.programStartDate).getTime() : null;
-
-    // Initial Portal Login
-    if (!s.requirements.orientationStarted && reserveDateMs) {
-      const daysSinceReserve = (today - reserveDateMs) / MS_PER_DAY;
-      if (daysSinceReserve >= 7) upgradeRisk('High');
-      else if (daysSinceReserve >= 5) upgradeRisk('Medium');
-      else if (daysSinceReserve >= 3) upgradeRisk('Low');
-    }
-
-    // Funding - FAFSA
-    if (!s.requirements.fafsaSubmitted && startDateMs) {
-      const daysUntilStart = (startDateMs - today) / MS_PER_DAY;
-      if (daysUntilStart < 14) upgradeRisk('High');
-      else if (daysUntilStart <= 21) upgradeRisk('Medium');
-    }
-
-    // Course Registration
-    if (!s.requirements.courseRegistration && startDateMs && reserveDateMs) {
-       const daysSinceReserve = (today - reserveDateMs) / MS_PER_DAY;
-       const daysUntilStart = (startDateMs - today) / MS_PER_DAY;
-       
-       if (daysSinceReserve > 2) {
-         if (daysUntilStart < 4) upgradeRisk('High');
-         else if (daysUntilStart <= 7) upgradeRisk('Medium');
-       }
-    }
-
-    // WWOW Log in
-    if (!s.requirements.wwowOrientationStarted && s.courseActivity) {
-      // Assuming access string inside courseActivity
-      const wwow = s.courseActivity.find(c => c.courseId === 'WWOW');
-      if (wwow && wwow.firstLoginAt === null) {
-          // Simplified checking
-          upgradeRisk('Medium');
-      }
-    }
+    if (reqs.initialPortalLogin) completed++;
+    if (reqs.fafsaSubmitted) completed++;
+    if (reqs.courseRegistration) completed++;
+    if (reqs.wowOrientation) completed++;
+    if (reqs.courseLogin) completed++;
+    if (reqs.classParticipation) completed++;
     
-    // Logged into course
-    if (!s.requirements.orientationStarted && startDateMs) {
-       const daysSinceStart = (today - startDateMs) / MS_PER_DAY;
-       if (daysSinceStart >= 3) upgradeRisk('High');
-       else if (daysSinceStart >= 2) upgradeRisk('Medium');
-    }
+    if (completed === 6) return 'High';
+    if (completed >= 3) return 'Medium';
+    return 'Low';
+  }
 
-    // Class Participation
-    if (!s.requirements.firstAssignmentSubmitted && startDateMs) {
-       const daysSinceStart = (today - startDateMs) / MS_PER_DAY;
-       if (daysSinceStart >= 3) upgradeRisk('High');
-       else if (daysSinceStart >= 2) upgradeRisk('Medium');
-    }
-
-    return highestRisk;
+  private computeEngagementLevel(s: Student): 'Low' | 'Medium' | 'High' {
+    const stats = s.stats || { emailOpens: 0, smsClicks: 0 };
+    const interactions = (stats.emailOpens || 0) + (stats.smsClicks || 0);
+    
+    if (interactions > 3) return 'High';
+    if (interactions > 0) return 'Medium';
+    return 'Low';
   }
 }

@@ -41,14 +41,14 @@ def mock_student_state() -> dict[str, Any]:
         "time_since_reserve_days": 63,
         "last_updated_at": "2026-04-05T22:48:53.425Z",
         "requirements": {
+            "initialPortalLogin": True,
             "fafsaSubmitted": True,
-            "fundingPlan": True,
             "courseRegistration": False,
-            "orientationStarted": True,
+            "wowOrientation": True,
+            "courseLogin": False,
+            "classParticipation": False,
             "officialTranscriptsReceived": True,
             "nursingLicenseReceived": False,
-            "firstAssignmentSubmitted": False,
-            "assignmentByCensusDay": False,
         },
     }
 

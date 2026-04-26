@@ -7,6 +7,7 @@ import { AuthService } from '../../services/auth.service';
 import { FilterRiskPipe } from '../../pipes/filter-risk.pipe';
 import { Student } from '../../models/student';
 import { Firestore, doc, setDoc } from '@angular/fire/firestore';
+import { Functions, httpsCallable } from '@angular/fire/functions';
 
 @Component({
   selector: 'app-dashboard',
@@ -18,25 +19,22 @@ import { Firestore, doc, setDoc } from '@angular/fire/firestore';
 export class DashboardComponent {
   studentService = inject(StudentService);
   private firestore = inject(Firestore);
+  private functions = inject(Functions);
   auth = inject(AuthService);
 
-  // Sync state
-  isSyncingBq = signal<boolean>(false);
+
 
   // Base raw stream from database
   allStudents = this.studentService.students;
 
   // The active UI filter state
+  searchQuery = signal<string>('');
   engagementFilter = signal<'All' | 'High' | 'Medium' | 'Low'>('All');
   readinessFilter = signal<'All' | 'High' | 'Medium' | 'Low'>('All');
 
   formatLevel(level?: string | null): string {
     if (!level) return 'Medium';
     let formatted = level.charAt(0).toUpperCase() + level.slice(1).toLowerCase();
-    
-    // Reverse AI Risk -> UI Level semantic mapping
-    if (formatted === 'High') return 'Low';
-    if (formatted === 'Low') return 'High';
     return formatted;
   }
 
@@ -57,6 +55,7 @@ export class DashboardComponent {
     const list = this.allStudents();
     const engFilter = this.engagementFilter();
     const readFilter = this.readinessFilter();
+    const q = this.searchQuery().toLowerCase().trim();
     const col = this.sortColumn();
     const dir = this.sortDirection();
 
@@ -70,8 +69,9 @@ export class DashboardComponent {
       
       const passesReadiness = readFilter === 'All' || (sReadiness === readFilter);
       const passesEngagement = engFilter === 'All' || (sEngagement === engFilter);
+      const passesSearch = !q || (s.name?.toLowerCase().includes(q) || s.id.toLowerCase().includes(q));
       
-      return passesReadiness && passesEngagement;
+      return passesReadiness && passesEngagement && passesSearch;
     });
 
     return filtered.sort((a, b) => {
@@ -105,18 +105,5 @@ export class DashboardComponent {
     return checklist.filter(c => c.status === 'Missing');
   }
 
-  async syncBigQueryData() {
-    if (this.isSyncingBq()) return;
-    this.isSyncingBq.set(true);
-    try {
-      const triggerRef = doc(this.firestore, 'system_config/bq_sync_trigger');
-      await setDoc(triggerRef, { timestamp: Date.now() }, { merge: true });
-      alert('BigQuery Synchronization Dispatched via Firestore Event!');
-    } catch (err: any) {
-      console.error('BigQuery Sync Failed:', err);
-      alert('Sync failed - ensure your Angular layout has active database credentials.');
-    } finally {
-      this.isSyncingBq.set(false);
-    }
-  }
+
 }

@@ -7,6 +7,8 @@ import { LoginComponent } from './components/login/login.component';
 import { authGuard } from './guards/auth.guard';
 import { AdminSimulatorComponent } from './components/admin-simulator/admin-simulator.component';
 import { FeedbackSummaryComponent } from './components/feedback-summary/feedback-summary.component';
+import { adminGuard } from './guards/admin.guard';
+import { AiConfigComponent } from './components/ai-config/ai-config.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -21,6 +23,7 @@ export const routes: Routes = [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'opportunity/:id', component: OpportunityDetailComponent },
       { path: 'feedback', component: FeedbackSummaryComponent },
+      { path: 'ai-config', component: AiConfigComponent, canActivate: [adminGuard] },
     ],
   },
   { path: '**', redirectTo: 'dashboard' },

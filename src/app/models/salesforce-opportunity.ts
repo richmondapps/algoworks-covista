@@ -32,8 +32,8 @@ export interface SalesforceOpportunityProfile {
 
     // AI Payload Output Destination (Mapped later by the asynchronous Eventarc Agent)
     aiInsights?: {
-        readinessRisk?: { level: 'High' | 'Medium' | 'Low' | string; text: string; trendDirection?: 'up' | 'down' | 'stable' | string; trendNote?: string; };
-        engagementRisk?: { level: 'High' | 'Medium' | 'Low' | string; text: string; trendDirection?: 'up' | 'down' | 'stable' | string; trendNote?: string; };
+        readinessLevel?: { level: 'High' | 'Medium' | 'Low' | string; text: string; trendDirection?: 'up' | 'down' | 'stable' | string; trendNote?: string; };
+        engagementLevel?: { level: 'High' | 'Medium' | 'Low' | string; text: string; trendDirection?: 'up' | 'down' | 'stable' | string; trendNote?: string; };
         metrics?: {
             timeSinceReserve: string;
             timeToProgramStart: string;

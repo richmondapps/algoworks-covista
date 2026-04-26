@@ -21,6 +21,13 @@
           "algoworks-dev"
         ]
       }
+    },
+    "qa-wu-agenticai-app-proj": {
+      "hosting": {
+        "covista": [
+          "qa-wu-agenticai-app-proj"
+        ]
+      }
     }
   },
   "etags": {}

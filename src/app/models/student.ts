@@ -48,9 +48,10 @@ export interface AiOutputsLatest {
     overviewSummary?: string;
     readinessRisk?: { level: string; trendDirection?: string; trendNote?: string };
     engagementRisk?: { level: string; trendDirection?: string; trendNote?: string };
+    engagementLevel?: { level: string; trendDirection?: string; trendNote?: string };
     metrics?: { timeSinceReserve: string; timeToProgramStart: string; timeToCensus: string };
     nextBestActions: { title: string; urgent: boolean; points: string[]; buttonText: string }[];
-    emailDraft?: { subject?: string; bodyText?: string; body?: string; bullets?: string[] };
+    emailDraft?: { subject?: string; salutation?: string; bodyText?: string; body?: string; bullets?: string[]; closingText?: string; };
     smsDraft?: any; // To cover either string or { body: string }
     agentTrace?: { agentName: string; action: string; status: string; duration: string; timestamp: string }[];
 }
@@ -91,6 +92,12 @@ export interface AiInsights {
         trendDirection?: string;
         trendNote?: string;
     };
+    engagementLevel?: {
+        level: string;
+        text: string;
+        trendDirection?: string;
+        trendNote?: string;
+    };
     metrics?: {
         timeSinceReserve: string;
         timeToProgramStart: string;
@@ -116,9 +123,11 @@ export interface AiInsights {
     }[];
     emailDraft?: {
         subject?: string;
+        salutation?: string;
         bodyText?: string;
         body?: string;
         bullets?: string[];
+        closingText?: string;
     };
     smsDraft?: any; // To cover either string or { body: string }
     agentTrace?: {
@@ -145,16 +154,16 @@ export interface CommunicationLog {
 }
 
 export interface StudentRequirements {
+    initialPortalLogin: boolean;
     fafsaSubmitted: boolean;
-    fundingPlan: boolean;
     courseRegistration: boolean;
-    wwowOrientationStarted: boolean;
-    officialTranscriptsReceived: boolean;
-    nursingLicenseReceived: boolean;
-    orientationStarted: boolean;
-    firstAssignmentSubmitted: boolean;
-    assignmentByCensusDay: boolean;
+    wowOrientation: boolean;
+    courseLogin: boolean;
+    classParticipation: boolean;
+    officialTranscriptsReceived?: boolean;
+    nursingLicenseReceived?: boolean;
     dynamicTranscripts?: {name: string; valid: boolean;}[];
+    contingencyInstitutions?: string[];
 }
 
 export interface Student {
@@ -166,6 +175,7 @@ export interface Student {
     program?: string;
     institution?: string;
     status?: string;
+    fundingType?: string | null;
     requirements: StudentRequirements;
     programStartDate?: string;
     reserveDate?: string;

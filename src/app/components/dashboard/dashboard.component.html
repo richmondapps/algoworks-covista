@@ -3,12 +3,6 @@
         <h2>Opportunities Dashboard</h2>
         <p>Monitor readiness checklists and identify students needing action before census.<br/>Select a student to see their outputs and provide feedback.</p>
     </div>
-    <div style="display: flex; gap: 12px; align-items: center;">
-        <button *ngIf="auth.currentUser()?.email?.toLowerCase()?.includes('jake')" class="primary-btn" style="display: flex; align-items: center; gap: 6px;" (click)="syncBigQueryData()" [disabled]="isSyncingBq()">
-            <span class="material-icons" [style.animation]="isSyncingBq() ? 'spin 1s linear infinite' : 'none'">sync</span> 
-            {{ isSyncingBq() ? 'Syncing BQ Pipeline...' : 'Sync BQ (LIMIT 10)' }}
-        </button>
-    </div>
 </div>
 
 
@@ -17,7 +11,10 @@
     <div
         style="padding: 15px 20px; border-bottom: 1px solid rgba(0, 0, 0, 0.1); display: flex; gap: 15px; align-items: center;">
         <span style="font-weight: 500; color: var(--text-secondary);">Filter View:</span>
-        <label style="font-size: 13px; color: var(--text-secondary); margin-left: 10px;">Engagement Level:</label>
+
+        <input type="text" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" placeholder="Search by Name or ID..." style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; margin-left: 10px; width: 220px;" />
+
+        <label style="font-size: 13px; color: var(--text-secondary); margin-left: 15px;">Engagement Level:</label>
         <select [ngModel]="engagementFilter()" (ngModelChange)="engagementFilter.set($event)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
            <option value="All">All</option>
            <option value="High">High</option>
@@ -66,13 +63,13 @@
                     <div class="student-name" style="font-weight: 500; color: var(--text-primary);">{{ s.name }}</div>
                 </td>
                 <td>
-                    <span class="status-badge" [ngClass]="formatLevel(s.aiInsights?.readinessRisk?.level || s.readinessLevel || s.riskIndicator).toLowerCase()">
-                        {{ formatLevel(s.aiInsights?.readinessRisk?.level || s.readinessLevel || s.riskIndicator) }}
+                    <span class="status-badge" [ngClass]="formatLevel(s.readinessLevel || s.aiInsights?.readinessRisk?.level || s.riskIndicator).toLowerCase()">
+                        {{ formatLevel(s.readinessLevel || s.aiInsights?.readinessRisk?.level || s.riskIndicator) }}
                     </span>
                 </td>
                 <td>
-                    <span class="status-badge" [ngClass]="formatLevel(s.aiInsights?.engagementRisk?.level || s.engagementLevel).toLowerCase()">
-                        {{ formatLevel(s.aiInsights?.engagementRisk?.level || s.engagementLevel) }}
+                    <span class="status-badge" [ngClass]="formatLevel(s.aiInsights?.engagementLevel?.level || s.engagementLevel).toLowerCase()">
+                        {{ formatLevel(s.aiInsights?.engagementLevel?.level || s.engagementLevel) }}
                     </span>
                 </td>
                 <td>{{ s.timeSinceReserveDays != null ? s.timeSinceReserveDays + ' Days' : '-' }}</td>

@@ -1,4 +1,4 @@
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
+import { ApplicationConfig, provideZoneChangeDetection, isDevMode } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
@@ -8,7 +8,7 @@ import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { provideAuth, getAuth } from '@angular/fire/auth';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideHttpClient } from '@angular/common/http';
-import { provideFunctions, getFunctions } from '@angular/fire/functions';
+import { provideFunctions, getFunctions, connectFunctionsEmulator } from '@angular/fire/functions';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAHNDN4eoJuWuXk3UegX9PoSWcZQj6yFz4',
@@ -31,14 +31,13 @@ const DevConfig = {
 };
 
 export const QAConfig = {
-  // PASTE QA KEYS HERE TOMORROW!
-  apiKey: '...',
-  authDomain: 'qa-wu-agenticai-app-proj.firebaseapp.com',
-  projectId: 'qa-wu-agenticai-app-proj',
-  storageBucket: 'qa-wu-agenticai-app-proj.firebasestorage.app',
-  messagingSenderId: '...',
-  appId: '...',
-  measurementId: '...',
+  apiKey: "AIzaSyDj8K2-0oX3BI920vI6Swek74ouj0Uooc4",
+  authDomain: "qa-wu-agenticai-app-proj.firebaseapp.com",
+  projectId: "qa-wu-agenticai-app-proj",
+  storageBucket: "qa-wu-agenticai-app-proj.firebasestorage.app",
+  messagingSenderId: "738161391370",
+  appId: "1:738161391370:web:d69c9335cc1f15fbc4ecf3",
+  measurementId: "G-3K5F7VEZP4"
 };
 
 export const appConfig: ApplicationConfig = {
@@ -47,10 +46,20 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideAnimations(),
     provideAnimationsAsync(),
-    provideFirebaseApp(() => initializeApp(DevConfig)),
+    provideFirebaseApp(() => {
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+      const isQA = hostname.includes('qa-wu') || hostname.includes('qa-studentsuccessplan');
+      return initializeApp(isQA ? QAConfig : DevConfig);
+    }),
     provideStorage(() => getStorage()),
     provideFirestore(() => getFirestore()),
-    provideFunctions(() => getFunctions()),
+    provideFunctions(() => {
+      const functions = getFunctions();
+      if (isDevMode()) {
+        connectFunctionsEmulator(functions, 'localhost', 5003);
+      }
+      return functions;
+    }),
     provideAuth(() => getAuth()),
     provideHttpClient(),
   ],

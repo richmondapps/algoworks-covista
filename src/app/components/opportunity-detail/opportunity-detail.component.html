@@ -203,10 +203,27 @@
                   : "Run Vertex AI Insights"
             }}
           </a>
+
+          <a
+            style="
+              color: #4b5563;
+              font-weight: 600;
+              font-size: 12px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              margin-left: 12px;
+            "
+            (click)="showAiPayloadModal.set(true)"
+          >
+            <span class="material-icons" style="font-size: 14px">bug_report</span>
+            View Sent Metrics
+          </a>
         </div>
       </div>
 
-      @if (insights()?.readinessRisk) {
+      @if (insights()?.readinessLevel || insights()?.readinessLevel) {
         <div
           class="metrics-row risk-indicators-row"
           style="
@@ -219,7 +236,7 @@
           <div
             class="metric-card risk-card-indicator"
             [ngClass]="
-              formatLevel(insights()!.readinessRisk?.level).toLowerCase()
+              formatLevel(computedReadinessLevel()).toLowerCase()
             "
             style="
               border: 1px solid #e5e7eb;
@@ -250,50 +267,28 @@
                 "
                 [class]="
                   'pill-' +
-                  formatLevel(insights()!.readinessRisk?.level).toLowerCase()
+                  formatLevel(computedReadinessLevel()).toLowerCase()
                 "
-                >{{ formatLevel(insights()!.readinessRisk?.level) }}</strong
+                >{{ formatLevel(computedReadinessLevel()) }}</strong
               >
             </div>
-            <div
-              style="
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 12px;
-                color: #6b7280;
-                text-align: right;
-              "
-            >
-              <span>{{
-                formatNote(insights()!.readinessRisk?.trendNote, insights()!.readinessRisk?.level)
-              }}</span>
-              <span
-                class="material-icons trend-icon"
-                style="font-size: 18px"
-                [ngClass]="
-                  insights()!.readinessRisk?.trendDirection === 'increasing'
-                    ? 'trend-up'
-                    : insights()!.readinessRisk?.trendDirection === 'decreasing'
-                      ? 'trend-down'
-                      : 'trend-flat'
-                "
-              >
-                {{
-                  insights()!.readinessRisk?.trendDirection === "increasing"
-                    ? "trending_up"
-                    : insights()!.readinessRisk?.trendDirection === "decreasing"
-                      ? "trending_down"
-                      : "trending_flat"
-                }}
-              </span>
+            <div style="display: flex; flex-direction: column; align-items: flex-end;">
+              <div style="font-size: 13px; color: var(--text-secondary); margin-top: 8px; display: flex; align-items: flex-start; gap: 6px;">
+                <span class="material-icons" style="font-size: 16px; margin-top: 2px;">fact_check</span>
+                <div style="text-align: left;">
+                  <strong>{{ recentReadinessSummary().message }}</strong>
+                  <div *ngIf="recentReadinessSummary().date" style="opacity: 0.8; font-size: 12px; margin-top: 2px;">
+                     {{ recentReadinessSummary().date | date:'MMM d, y, h:mm a' }}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           <div
             class="metric-card risk-card-indicator"
             [ngClass]="
-              formatLevel(insights()!.engagementRisk?.level).toLowerCase()
+              formatLevel(insights()?.engagementLevel?.level || student?.engagementLevel).toLowerCase()
             "
             style="
               border: 1px solid #e5e7eb;
@@ -313,8 +308,7 @@
                   color: #4b5563;
                   text-transform: uppercase;
                 "
-                >Engagement Level</span
-              >
+                >Engagement Level</span>
               <strong
                 style="
                   font-size: 13px;
@@ -324,45 +318,23 @@
                 "
                 [class]="
                   'pill-' +
-                  formatLevel(insights()!.engagementRisk?.level).toLowerCase()
+                  formatLevel(insights()?.engagementLevel?.level || student?.engagementLevel).toLowerCase()
                 "
-                >{{ formatLevel(insights()!.engagementRisk?.level) }}</strong
-              >
+                >{{ formatLevel(insights()?.engagementLevel?.level || student?.engagementLevel) }}</strong>
             </div>
-            <div
-              style="
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 12px;
-                color: #6b7280;
-                text-align: right;
-              "
-            >
-              <span>{{
-                formatNote(insights()!.engagementRisk?.trendNote, insights()!.engagementRisk?.level)
-              }}</span>
-              <span
-                class="material-icons trend-icon"
-                style="font-size: 18px"
-                [ngClass]="
-                  insights()!.engagementRisk?.trendDirection === 'increasing'
-                    ? 'trend-up'
-                    : insights()!.engagementRisk?.trendDirection ===
-                        'decreasing'
-                      ? 'trend-down'
-                      : 'trend-flat'
-                "
-              >
-                {{
-                  insights()!.engagementRisk?.trendDirection === "increasing"
-                    ? "trending_up"
-                    : insights()!.engagementRisk?.trendDirection ===
-                        "decreasing"
-                      ? "trending_down"
-                      : "trending_flat"
-                }}
-              </span>
+
+            <div style="display: flex; flex-direction: column; align-items: flex-end;">
+
+              <!-- Natively display recent activity compute without AI reliance -->
+              <div style="font-size: 13px; color: var(--text-secondary); margin-top: 12px; display: flex; align-items: flex-start; gap: 6px;">
+                <span class="material-icons" style="font-size: 16px; margin-top: 2px;">history</span>
+                <div style="text-align: left;">
+                  <strong>{{ recentActivitySummary().message }}</strong>
+                  <div *ngIf="recentActivitySummary().date" style="opacity: 0.8; font-size: 12px; margin-top: 2px;">
+                     {{ recentActivitySummary().date | date:'MMM d, y, h:mm a' }}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -564,16 +536,26 @@
               </div>
               <ul class="nba-list">
                 @for (chk of checklists(); track chk.requirement_id) {
-                  <li class="nba-item" style="align-items: center">
-                    <span
-                      class="material-icons"
-                      [ngStyle]="{
-                        color: chk.is_satisfied ? '#10b981' : '#f59e0b',
-                        'font-size': '18px',
-                      }"
-                    >
-                      {{ chk.is_satisfied ? "check_circle" : "pending" }}
-                    </span>
+                  <li 
+                    class="nba-item" 
+                    [style.cursor]="chk.is_satisfied ? 'pointer' : 'default'" 
+                    [style.background]="hoveredChecklist === chk.requirement_id ? '#f3f4f6' : 'transparent'"
+                    style="align-items: center; transition: background 0.2s;" 
+                    (click)="chk.is_satisfied && viewActivity(chk.requirement_id, chk.requirement_name)" 
+                    (mouseenter)="chk.is_satisfied ? hoveredChecklist = chk.requirement_id : null" 
+                    (mouseleave)="hoveredChecklist = null"
+                  >
+                    @if (chk.is_satisfied === true) {
+                      <span class="material-icons" style="color: #10b981; font-size: 18px;">
+                        check_circle
+                      </span>
+                    } @else if (chk.is_satisfied === false) {
+                      <div style="background: #ef4444; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">
+                        <span class="material-icons" style="font-size: 12px; font-weight: bold;">close</span>
+                      </div>
+                    } @else {
+                      <div style="width: 16px; height: 16px;"></div>
+                    }
                     <div class="text-content">
                       <h4 style="margin: 0">{{ chk.requirement_name }}</h4>
                     </div>
@@ -723,10 +705,10 @@
                             "
                             >{{
                               formatActivityType(
-                                log.activity_category || "General"
+                                log.activity_category || "General",
+                                log.communication_type || log.activity_name
                               )
-                            }}</span
-                          >
+                            }}</span>
                         </td>
                         <td
                           style="
@@ -788,12 +770,12 @@
           <div class="comms-grid">
             <div
               class="comm-card email-card"
-              [style.opacity]="isGeneratingAi() ? '0.7' : '1'"
+              [style.opacity]="isGeneratingComms() ? '0.7' : '1'"
             >
               <div class="c-top">
                 Email Draft
                 <div style="display: flex; align-items: center; gap: 8px">
-                  @if (isGeneratingAi()) {
+                  @if (isGeneratingComms()) {
                     <span
                       class="material-icons"
                       style="
@@ -815,28 +797,37 @@
                     "Important update regarding your enrollment"
                 }}
               </div>
-                <div class="body" style="white-space: pre-wrap" [innerHTML]="formatNotes(insights()!.emailDraft?.body || insights()!.emailDraft?.bodyText || insights()!.emailDraft)">
+                <div class="body">
+                  @if (insights()!.emailDraft?.salutation) {
+                    <div class="salutation" style="margin-bottom: 12px; font-weight: 500;">
+                      {{ insights()!.emailDraft!.salutation }}
+                    </div>
+                  }
+                  <div style="white-space: pre-wrap" [innerHTML]="formatNotes(insights()!.emailDraft?.body || insights()!.emailDraft?.bodyText || insights()!.emailDraft)"></div>
                 @if (insights()!.emailDraft?.bullets?.length) {
-                  <ul style="margin-top: 12px; padding-left: 20px">
+                  <ul class="email-bullets" style="margin-top: 12px; padding-left: 20px; list-style-type: disc !important;">
                     @for (
                       bullet of insights()!.emailDraft!.bullets;
                       track bullet
                     ) {
-                      <li>{{ bullet }}</li>
+                      <li [innerHTML]="formatNotes(bullet)"></li>
                     }
                   </ul>
+                }
+                @if (insights()!.emailDraft?.closingText) {
+                  <div style="white-space: pre-wrap; margin-top: 16px;" [innerHTML]="formatNotes(insights()!.emailDraft!.closingText)"></div>
                 }
               </div>
             </div>
 
             <div
               class="comm-card sms-card"
-              [style.opacity]="isGeneratingAi() ? '0.7' : '1'"
+              [style.opacity]="isGeneratingComms() ? '0.7' : '1'"
             >
               <div class="c-top">
                 SMS Draft
                 <div style="display: flex; align-items: center; gap: 8px">
-                  @if (isGeneratingAi()) {
+                  @if (isGeneratingComms()) {
                     <span
                       class="material-icons"
                       style="
@@ -871,6 +862,60 @@
           </p>
         </div>
       }
+    </div>
+  </div>
+}
+
+@if (selectedActivityModal()) {
+  <div class="modal-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: white; border-radius: 12px; width: 400px; max-width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow: hidden;">
+      <div style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; background: #fafafa;">
+        <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #111827;">Raw Activity Log Focus</h3>
+        <button (click)="selectedActivityModal.set(null)" style="background: transparent; border: none; cursor: pointer; color: #6b7280;">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div style="padding: 20px;">
+        <div style="margin-bottom: 12px;">
+          <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Activity Name</span>
+          <div style="font-size: 14px; color: #111827; margin-top: 4px; font-weight: 500;">
+             {{ selectedActivityName() }}
+          </div>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Datetime</span>
+          <div style="font-size: 14px; color: #111827; margin-top: 4px;">{{ safeFormatDate(selectedActivityModal()!.activity_datetime) }}</div>
+        </div>
+      </div>
+      <div style="padding: 16px 20px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: right;">
+        <button (click)="selectedActivityModal.set(null)" style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 12px; font-size: 14px; font-weight: 500; cursor: pointer; color: #374151; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">Dismiss Modal</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showAiPayloadModal()) {
+  <div class="modal-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: white; border-radius: 12px; width: 500px; max-width: 90%; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+      <div style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; background: #fafafa;">
+        <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #111827;">AI Communication Dispatch (14-Day Context)</h3>
+        <button (click)="showAiPayloadModal.set(false)" style="background: transparent; border: none; cursor: pointer; color: #6b7280;">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div style="padding: 20px; overflow-y: auto; flex: 1;">
+         <div style="font-size: 12px; color: #4b5563; margin-bottom: 12px; line-height: 1.5;">This mathematically reflects the explicit snapshot of activity inputs artificially mapped by the backend orchestrator directly into the Python GenAI proxy.</div>
+         @if (aiPayloadDebug().length === 0) {
+           <div style="background: #1e1e1e; color: #a6e22e; padding: 12px; border-radius: 6px; font-size: 12px; overflow-x: auto; font-style: italic;">
+             [ ] // No verified inbound engagements or system events detected within the 14-day trailing calculus window.
+           </div>
+         } @else {
+           <pre style="background: #1e1e1e; color: #a6e22e; padding: 12px; border-radius: 6px; font-size: 12px; overflow-x: auto;">{{ aiPayloadDebug() | json }}</pre>
+         }
+      </div>
+      <div style="padding: 16px 20px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: right;">
+        <button (click)="showAiPayloadModal.set(false)" style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 12px; font-size: 14px; font-weight: 500; cursor: pointer; color: #374151;">Close</button>
+      </div>
     </div>
   </div>
 }

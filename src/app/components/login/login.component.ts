@@ -16,4 +16,10 @@ export class LoginComponent implements OnInit {
   loginWithGoogle() {
     this.authService.loginWithGoogle();
   }
+
+  loginWithOkta() {
+    this.authService.loginWithOkta();
+  }
+
+
 }

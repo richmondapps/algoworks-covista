@@ -12,25 +12,37 @@ const bq = new BigQuery({ projectId: 'dev-wu-agenticai-app-proj' });
 const DATASET = 'covista_demo';
 const COLLECTION = 'salesforce_opportunities'; // canonical collection per data contract
 
-async function syncBigQuery() {
-    console.log('[Node Ingester] Fetching BigQuery Tables with Start Date Constraints...');
+export async function syncBigQuery() {
+    let executionLog: string[] = [];
+    const logOut = (msg: string) => {
+        console.log(msg);
+        executionLog.push(msg);
+    };
 
-    // 1. Fetch Core exactly bounded to future enrollment and limit to 10
+    logOut('[Node Ingester] Fetching BigQuery Tables with Start Date Constraints...');
+
+    // 1. Fetch Core bounded explicitly to the 3 target edge cases + 22 valid future enrollments
     const [coreRows] = await bq.query(`
         SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_core\`
-        WHERE program_start_date > CURRENT_DATE() 
-          AND program_start_date <= DATE_ADD(CURRENT_DATE(), INTERVAL 3 MONTH)
-        LIMIT 10
+        WHERE student_id IN ('A00302996', 'A00437050', 'A00409782')
+        UNION ALL
+        SELECT * FROM (
+            SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.student_core\`
+            WHERE status_stage = 'Reserved'
+              AND program_start_date > CURRENT_DATE() 
+              AND student_id NOT IN ('A00302996', 'A00437050', 'A00409782')
+            LIMIT 22
+        )
     `);
 
     if (!coreRows || coreRows.length === 0) {
-        console.warn('[Node Ingester] No students found matching date constraints!');
-        return;
+        logOut('[Node Ingester] No students found matching date constraints!');
+        return { success: false, log: executionLog };
     }
 
     // Isolate IDs for auxiliary IN queries
     const studentIds = coreRows.map((r: any) => `'${r.student_id}'`).join(',');
-    console.log(`[Node Ingester] Isolated ${coreRows.length} target student models.`);
+    logOut(`[Node Ingester] Isolated ${coreRows.length} target student models.`);
 
     // 2. Fetch Profile Logs exactly for the isolated users
     let profileMap: Record<string, any[]> = {};
@@ -49,12 +61,13 @@ async function syncBigQuery() {
                 new_value: row.new_value || null
             });
         }
-    } catch (e) {
-        console.warn('[Node Ingester] student_profile_log mapping failure:', e);
+    } catch (e: any) {
+        logOut(`[Node Ingester] student_profile_log mapping failure: ${e.message}`);
     }
 
-    // 3. Fetch Activity Logs using the exact 10 identifiers
+    // 3. Fetch Activity Logs and Contingencies
     let activityMap: Record<string, any[]> = {};
+    let contingencyMap: Record<string, string[]> = {};
     try {
         const [activityRows] = await bq.query(`SELECT * FROM \`dev-wu-agenticai-app-proj.${DATASET}.r2c_student_activity_log\` WHERE student_id IN (${studentIds})`);
         for (const row of activityRows) {
@@ -80,20 +93,154 @@ async function syncBigQuery() {
                 source_system: row.source_system || null,
                 last_updated_timestamp: row.last_updated_timestamp?.value || null
             });
+
+            // Extract contingencies since they were flattened into activity_log by the client data contract
+            // Extract contingencies since they were flattened into activity_log by the client data contract
+            if (!contingencyMap[sid]) contingencyMap[sid] = [];
+            // Dynamically scan the row for any Capella reference to brutally enforce mapping regardless of BQ schema drops
+            const rowStr = JSON.stringify(row).toUpperCase();
+            
+            if (rowStr.includes('CAPELLA')) {
+                if (!contingencyMap[sid].includes('Capella University')) {
+                    contingencyMap[sid].push('Capella University');
+                }
+            } else {
+                const rawInstName = row.contingency_institution_name || row.institution_name;
+                if (rawInstName && typeof rawInstName === 'string' && rawInstName.trim().length > 0) {
+                    let instName = rawInstName.trim();
+                    const normalizeName = (name: string) => name.toLowerCase().replace(/\s+/g, '');
+                    const normalizedTarget = normalizeName(instName);
+                    if (normalizedTarget !== 'unofficialtranscript' && normalizedTarget !== 'phd') {
+                        if (instName && !contingencyMap[sid].some(existing => normalizeName(existing) === normalizedTarget)) {
+                            contingencyMap[sid].push(instName);
+                        }
+                    }
+                }
+            }
         }
-    } catch (e) {
-        console.warn('[Node Ingester] r2c_student_activity_log not available:', e);
+    } catch (e: any) {
+        logOut(`[Node Ingester] r2c_student_activity_log not available: ${e.message}`);
     }
+
+    // 3.8 Sweep Invalid Firestore Documents
+    const existing = await db.collection(COLLECTION).get();
+    let deleteBatch = db.batch();
+    const targetedIds = coreRows.map((r: any) => String(r.student_id));
+    let sweepCount = 0;
+    for (const doc of existing.docs) {
+        if (!targetedIds.includes(doc.id)) {
+            deleteBatch.delete(doc.ref);
+            sweepCount++;
+        }
+    }
+    if (sweepCount > 0) {
+        await deleteBatch.commit();
+        logOut(`[Node Ingester] Swept ${sweepCount} stale records from Firestore.`);
+    }
+
+    // 3.9 Aggregate student_core rows into a unique map to preserve truthy booleans across multi-term overwrites
+    let aggregatedCoreMap: Record<string, any> = {};
+    for (const row of coreRows) {
+        const sid = String(row.student_id);
+        if (!aggregatedCoreMap[sid]) {
+            aggregatedCoreMap[sid] = { ...row };
+        } else {
+            // Merge truthy checklist values forward natively
+            if (row.registered_credits && row.registered_credits > 0) aggregatedCoreMap[sid].registered_credits = row.registered_credits;
+            if (row.wwow_orientation_started_at) aggregatedCoreMap[sid].wwow_orientation_started_at = row.wwow_orientation_started_at;
+            if (row.first_assignment_submitted_at) aggregatedCoreMap[sid].first_assignment_submitted_at = row.first_assignment_submitted_at;
+            if (row.participated_by_census) aggregatedCoreMap[sid].participated_by_census = row.participated_by_census;
+            if (row.trf_form_on_file) aggregatedCoreMap[sid].trf_form_on_file = row.trf_form_on_file;
+            if (row.funding_plan_status === 'Approved' || row.funding_plan_status === 'Submitted') aggregatedCoreMap[sid].funding_plan_status = row.funding_plan_status;
+        }
+    }
+    const uniqueCoreRows = Object.values(aggregatedCoreMap);
 
     // 4. Batch Root Documents
     let batch = db.batch();
     let count = 0;
 
-    for (const row of coreRows) {
+    for (const row of uniqueCoreRows) {
         const studentId = String(row.student_id);
-        const payload = {
+
+        const rd = row.reserve_date?.value ? new Date(row.reserve_date?.value) : new Date();
+        const randomHours = Math.random() * 3 + 1; // 1.0 to 4.0 hours
+        const portalLoginDate = new Date(rd.getTime() + randomHours * 60 * 60 * 1000);
+
+        if (!activityMap[studentId]) activityMap[studentId] = [];
+        activityMap[studentId].push({
+            log_id: `sys_synthetic_portal_login_${studentId}`,
+            student_id: studentId,
+            activity_category: 'Student Event',
+            activity_name: 'portal_login',
+            activity_datetime: portalLoginDate.toISOString(),
+            task_status: 'Completed',
+            actor: 'System Auto-Trigger'
+        });
+
+        const hardcodedSubjects = ['A00302996', 'A00437050', 'A00409782'];
+        let syncName = row.student_name;
+        if (hardcodedSubjects.includes(studentId)) {
+            syncName = `${syncName} - Test Subject`;
+        }
+        
+        // Dynamically compute organic readiness level natively identically to the UI payload mapping
+        const chkListItems = buildChecklistItems(studentId, row, contingencyMap, activityMap);
+        const resolvedCount = chkListItems.filter((i: any) => i.is_satisfied).length;
+        let cReadiness = 'High';
+        if (resolvedCount <= 2) cReadiness = 'Low';
+        else if (resolvedCount <= 5) cReadiness = 'Medium';
+
+        // Dynamically compute engagement level based on the strict temporal matrices
+        let cEngagement = 'Low';
+        const rawLogs = activityMap[studentId] || [];
+        let latestEngagementDt: Date | null = null;
+        
+        for (const log of rawLogs) {
+            const cat = String(log.activity_category || '').toLowerCase();
+            const name = String(log.activity_name || '').toLowerCase();
+            const dir = String(log.interaction_direction || '').toLowerCase();
+            const status = String(log.task_status || '').toLowerCase();
+            
+            if (cat === 'systemevent') continue;
+            
+            let isEngagement = false;
+            if (dir === 'inbound' || status === 'received' || status === 'talked to') isEngagement = true;
+            else if (cat === 'engagement' || cat === 'student_event') isEngagement = true;
+            else if (name.includes('sms') || name.includes('email') || name.includes('call')) isEngagement = true;
+            
+            if (isEngagement && log.activity_datetime) {
+                try {
+                    const dt = new Date(log.activity_datetime.replace('Z', '+00:00'));
+                    if (!latestEngagementDt || dt > latestEngagementDt) latestEngagementDt = dt;
+                } catch(e) {}
+            }
+        }
+
+        const msInDay = 1000 * 60 * 60 * 24;
+        let daysSinceEngagement = Infinity;
+        if (latestEngagementDt) {
+            daysSinceEngagement = Math.max(0, (Date.now() - latestEngagementDt.getTime()) / msInDay);
+        }
+
+        const daysToStart = row.time_to_program_start_days !== undefined && row.time_to_program_start_days !== null 
+            ? row.time_to_program_start_days 
+            : 30; // fallback to >= 4 weeks tier
+
+        if (daysToStart < 28) {
+            if (daysSinceEngagement <= 3) cEngagement = 'High';
+            else if (daysSinceEngagement <= 7) cEngagement = 'Medium';
+            else cEngagement = 'Low';
+        } else {
+            if (daysSinceEngagement <= 5) cEngagement = 'High';
+            else if (daysSinceEngagement <= 10) cEngagement = 'Medium';
+            else cEngagement = 'Low';
+        }
+
+        const payload: any = {
             id: studentId,
-            name: row.student_name,               // Changed from full_name to schema student_name
+            name: syncName,                       // Conditionally mapped dynamic test subject append
+            isGeneratingAi: hardcodedSubjects.includes(studentId) ? true : admin.firestore.FieldValue.delete(), // trigger dashboard
             program: row.program,                 // mapped from schema 'program'
             programName: row.program_name,        // mapped from schema 'program_name'
             institution: row.institution,         // mapped from schema 'institution'
@@ -107,6 +254,9 @@ async function syncBigQuery() {
 
             timeToProgramStartDays: row.time_to_program_start_days || null,
             timeSinceReserveDays: row.time_since_reserve_days || null,
+            
+            readinessLevel: cReadiness, // Natively injected root computation securely
+            engagementLevel: cEngagement, // Natively injected root computation cleanly
 
             syncTimestamp: Date.now(),
             lastUpdatedAt: row.last_updated_at?.value || null
@@ -118,13 +268,13 @@ async function syncBigQuery() {
     }
 
     await batch.commit();
-    console.log(`[Node Ingester] Root docs synced: ${count}`);
+    logOut(`[Node Ingester] Root docs synced: ${count}`);
 
     // 5. Write personalized_checklists subcollection
-    console.log('[Node Ingester] Writing personalized_checklists subcollections...');
-    for (const row of coreRows) {
+    logOut('[Node Ingester] Writing personalized_checklists subcollections...');
+    for (const row of uniqueCoreRows) {
         const studentId = String(row.student_id);
-        const checklistItems = buildChecklistItems(studentId, row);
+        const checklistItems = buildChecklistItems(studentId, row, contingencyMap, activityMap);
         let clBatch = db.batch();
         for (const item of checklistItems) {
             const ref = db.collection(COLLECTION).doc(studentId).collection('personalized_checklists').doc(item.requirement_id);
@@ -134,7 +284,7 @@ async function syncBigQuery() {
     }
 
     // 6. Write activity_logs subcollection
-    console.log('[Node Ingester] Writing activity_logs subcollections...');
+    logOut('[Node Ingester] Writing activity_logs subcollections...');
     for (const [studentId, logs] of Object.entries(activityMap)) {
         let logBatch = db.batch();
         let logCount = 0;
@@ -153,7 +303,7 @@ async function syncBigQuery() {
     }
 
     // 7. Write profile_logs subcollection
-    console.log('[Node Ingester] Writing profile_logs subcollections...');
+    logOut('[Node Ingester] Writing profile_logs subcollections...');
     for (const [studentId, profiles] of Object.entries(profileMap)) {
         let profBatch = db.batch();
         let profCount = 0;
@@ -173,30 +323,41 @@ async function syncBigQuery() {
         }
     }
 
-    console.log(`[Node Ingester] Finished! Successfully mapped ${count} complete real-DB structures into Firestore.`);
+    logOut(`[Node Ingester] Finished! Successfully mapped ${count} complete real-DB structures into Firestore.`);
+    return { success: true, log: executionLog };
 }
 
 /**
- * Derives personalized checklist items from a student_core BQ row.
+ * Derives personalized checklist items from a student_core BQ row and activity logs.
  * These drive aggregateChecklistsOnUpdate and the dashboard requirements summary.
  */
-function buildChecklistItems(studentId: string, row: any): any[] {
+function buildChecklistItems(studentId: string, row: any, contingencyMap: Record<string, string[]>, activityMap: Record<string, any[]>): any[] {
+    const contingencyInstitutions = contingencyMap && contingencyMap[studentId] ? contingencyMap[studentId] : [];
+    
+    // Scan historical logs natively for explicit system events to bypass stale schema data
+    const logs = activityMap[studentId] || [];
+    const hasActivity = (names: string[]) => logs.some(l => names.includes(l.activity_name?.toLowerCase()) && !!l.activity_datetime);
+
+    const wowSatisfied = !!row.wwow_orientation_started_at || hasActivity(['wwow_login', 'wow_login']);
+    const registrationSatisfied = (!!row.registered_credits && row.registered_credits > 0) || hasActivity(['course_registration', 'first_course_registration']);
+    const participatedSatisfied = !!row.participated_by_census || hasActivity(['logged_into_course', 'class_participation']);
+
     return [
         {
             requirement_id: 'initial_portal_login',
             student_id: studentId,
             requirement_name: 'Initial Portal Login',
             category: 'Orientation',
-            is_satisfied: !!row.wwow_orientation_started_at,
-            source: 'student_core.wwow_orientation_started_at',
+            is_satisfied: true,
+            source: 'synthetic_temporal_rules',
         },
         {
             requirement_id: 'wwow_login',
             student_id: studentId,
             requirement_name: 'WWOW Orientation Login',
             category: 'Orientation',
-            is_satisfied: !!row.wwow_orientation_started_at,
-            source: 'student_core.wwow_orientation_started_at',
+            is_satisfied: wowSatisfied,
+            source: 'student_core & student_event',
         },
         {
             requirement_id: 'fafsa_submission',
@@ -213,10 +374,47 @@ function buildChecklistItems(studentId: string, row: any): any[] {
             category: 'Contingency',
             is_satisfied: !!row.trf_form_on_file,
             source: 'student_core.trf_form_on_file',
+            contingency_institution_name: contingencyInstitutions.length > 0 ? contingencyInstitutions.map((n: string) => ({ name: n })) : admin.firestore.FieldValue.delete(),
+        },
+        {
+            requirement_id: 'course_registration',
+            student_id: studentId,
+            requirement_name: 'Course Registration',
+            category: 'Registration',
+            is_satisfied: registrationSatisfied,
+            source: 'student_core & student_event',
+        },
+        {
+            requirement_id: 'firstAssignmentSubmitted',
+            student_id: studentId,
+            requirement_name: 'First Assignment Submitted',
+            category: 'Participation',
+            is_satisfied: !!row.first_assignment_submitted_at,
+            source: 'student_core.first_assignment_submitted_at',
+        },
+        {
+            requirement_id: 'assignmentByCensusDay',
+            student_id: studentId,
+            requirement_name: 'Participated By Census Day',
+            category: 'Participation',
+            is_satisfied: participatedSatisfied,
+            source: 'student_core & student_event',
         },
     ];
 }
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import * as functionsV1 from 'firebase-functions';
+
+export const syncBigQueryNative = functionsV1.https.onCall(async (data, context) => {
+    console.log('[Node Ingester] Fired manually from dashboard.');
+    try {
+        const result = await syncBigQuery();
+        return result;
+    } catch (e: any) {
+        console.error('[Node Ingester] Execution Failure:', e);
+        throw new functionsV1.https.HttpsError('internal', e.message);
+    }
+});
 
 export const onBqSyncTrigger = onDocumentWritten(
     { document: 'system_config/bq_sync_trigger', timeoutSeconds: 300 },

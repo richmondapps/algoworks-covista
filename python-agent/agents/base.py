@@ -160,14 +160,25 @@ class BaseAgent(ABC):
             json.JSONDecodeError: When the model returns non-JSON text.
             Exception: Propagates any Vertex AI SDK errors.
         """
+        import concurrent.futures
         model = GenerativeModel(model_name=self.model_name)
-        response = model.generate_content(
-            prompt,
-            generation_config={
-                "response_mime_type": "application/json",
-                "temperature": 0.2,
-            },
-        )
+        
+        def _exec():
+            return model.generate_content(
+                prompt,
+                generation_config={
+                    "response_mime_type": "application/json",
+                    "temperature": 0.2,
+                },
+            )
+            
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_exec)
+                response = future.result(timeout=50.0)
+        except concurrent.futures.TimeoutError:
+            raise Exception("Vertex AI generation timed out after 50.0 seconds.")
+
         cleaned = response.text.replace("```json", "").replace("```", "")
         return json.loads(cleaned.strip())
 

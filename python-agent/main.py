@@ -51,8 +51,11 @@ _orchestrator: AgentOrchestrator = AgentOrchestrator(
         ReadinessAgent(),
         RiskAgent(),
         NBAAgent(),
-        CommunicationsAgent(),
     ]
+)
+
+_comms_orchestrator: AgentOrchestrator = AgentOrchestrator(
+    agents=[CommunicationsAgent()]
 )
 
 
@@ -73,7 +76,6 @@ def generate_insights() -> Response:
         1. Readiness Agent  — checklist + timing evaluation.
         2. Risk Agent       — engagement risk + overview summary.
         3. NBA Agent        — Next Best Actions grounded in 1 + 2.
-        4. Communications   — email/SMS drafts aligned with top NBA.
 
     Returns:
         JSON response matching the ai_insights/latest schema defined in
@@ -91,6 +93,18 @@ def generate_insights() -> Response:
             state=state,
         )
 
+    # 2. Fetch CMS templates dynamically so the NBA Agent can pull Elective Activities
+    try:
+        configs_ref = db.collection("ai_configurations").get()
+        configs = []
+        for d in configs_ref:
+            c = d.to_dict()
+            c["id"] = d.id
+            configs.append(c)
+        state["cmsTemplates"] = configs
+    except Exception as e:
+        print(f"CMS fetch failed in insights: {e}")
+
     derived: DerivedOutput = _orchestrator.run(state=state)
 
     # Persist to Firestore without blocking the HTTP response.
@@ -99,6 +113,78 @@ def generate_insights() -> Response:
         args=(student_uid, derived),
     )
     thread.start()
+
+    return jsonify(derived)
+
+@app.route("/generate-communications", methods=["POST"])
+def generate_communications() -> Response:
+    req_data: dict[str, Any] = request.json
+    student_uid: str | None = req_data.get("studentUid")
+    state: dict[str, Any] = req_data.get("dataContext", {})
+    
+    # 1. Fetch NBA payload from ai_insights/latest dynamically so the decoupled CommunicationsAgent evaluates it
+    if student_uid:
+        try:
+            latest = db.collection("salesforce_opportunities").document(student_uid).collection("ai_insights").document("latest").get()
+            if latest.exists:
+                state["nbaPayload"] = latest.to_dict().get("nextBestActions", [])
+                
+            # Bridge the new subcollection architecture back to the agent's expected state
+            chk_docs = db.collection("salesforce_opportunities").document(student_uid).collection("personalized_checklists").stream()
+            req_dict = state.get("requirements", {}) # Fallback to existing if present
+            has_contingencies = False
+            
+            for chk in chk_docs:
+                d = chk.to_dict()
+                r_id = d.get("requirement_id")
+                sat = d.get("is_satisfied", False)
+                
+                if r_id == "logged_into_course": req_dict["courseLogin"] = sat
+                elif r_id == "class_participation": req_dict["classParticipation"] = sat
+                elif r_id == "wwow_login": req_dict["wowOrientation"] = sat
+                elif r_id == "fafsa_submission": req_dict["fafsaSubmitted"] = sat
+                elif r_id == "initial_portal_login": req_dict["initialPortalLogin"] = sat
+                elif r_id == "course_registration": req_dict["courseRegistration"] = sat
+                elif r_id == "contingencies":
+                    insts = d.get("contingency_institution_name", [])
+                    if isinstance(insts, list) and len(insts) > 0:
+                        has_contingencies = True
+                # Map specific contingency requirements dynamically
+                elif r_id and str(r_id).startswith("cont_trans"):
+                    req_dict["officialTranscriptsReceived"] = sat
+                elif r_id and str(r_id).startswith("cont_nurs"):
+                    req_dict["nursingLicenseReceived"] = sat
+
+            state["requirements"] = req_dict
+            state["hasContingencies"] = has_contingencies
+        except Exception as e:
+            print(f"Error bridging AI requirements from subcollection: {e}")
+            
+        state = _enrich_with_activity_logs(
+            student_uid=student_uid,
+            state=state,
+        )
+
+    # 2. Fetch CMS templates dynamically (Email Patterns & Checklist Items)
+    try:
+        configs_ref = db.collection("ai_configurations").get()
+        configs = []
+        for d in configs_ref:
+            c = d.to_dict()
+            c["id"] = d.id
+            configs.append(c)
+        state["cmsTemplates"] = configs
+    except Exception as e:
+        print(f"CMS fetch failed: {e}")
+
+    derived: DerivedOutput = _comms_orchestrator.run(state=state)
+
+    # Persist the dynamic email drafts explicitly to Firestore natively
+    if student_uid:
+        threading.Thread(
+            target=_persist_derived,
+            args=(student_uid, derived),
+        ).start()
 
     return jsonify(derived)
 
@@ -187,7 +273,7 @@ def _persist_derived(
         derived.get("readinessRisk", {}).get("level")  # type: ignore[union-attr]
     )
     engagement_level: str | None = (
-        derived.get("engagementRisk", {}).get("level")  # type: ignore[union-attr]
+        derived.get("engagementLevel", {}).get("level")  # type: ignore[union-attr]
     )
     summary: dict[str, str] = {
         k: v
