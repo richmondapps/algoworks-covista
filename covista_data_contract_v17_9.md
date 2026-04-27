@@ -218,7 +218,7 @@ Rules:
 - Alternate funding submission has no timestamp; `activity_datetime` is NULL for `activity_name = 'alternate_funding_submission'`. Completion is derived from the funding-flag on the alt-funding row, evaluated under the OR-logic in §11.1 (Apr 27 call — Bryan, Manvitha, Jake, Nagendra, Alpesh).
 - Access-granted dates are not collected upstream. No date is emitted for access provided to student for the student portal, WWOW orientation, or the course. Consumers rely on engagement proxies (e.g., `wwow_login`, `logged_into_course`, `lms_login`).
 - `initial_portal_login` has no source data. Student-portal login events live as logs in the portal application's own GCP project, not in Salesforce / DaaS. Ingestion pending GCP access; no ETA. Until then, the `initial_portal_login` checklist line renders as "unknown / not satisfied" in the UI.
-- `lms_login` source availability is pending confirmation from the SIS / LMS team. Until the feed is wired, engagement for post-orientation activity is derived from `wwow_login` + `logged_into_course` only.
+- `lms_login` is **live in source as of Apr 27, 2026** (Alpesh confirmed) — `daas-cdw-dev.rpt_ai_solutions.wldn_r2c_student_activity_log` now emits `activity_category='student_event'`, `activity_name='lms_login'` rows with populated `activity_datetime`. Initial mirror to dev/QA on Apr 27 captured 5,423 rows. See §13 for consumer semantics.
 - `application_submission_date` may be used as a proxy for program-start-date-adjacent calculations (pending business confirmation).
 
 ---
@@ -325,7 +325,7 @@ If a non-Reserved row ever leaks through, consumers MUST:
 
 ### 13.5 Source Dependency
 
-`lms_login` availability from the LMS / SIS source is pending confirmation. The contract reserves the slot; ingestion begins once the source feed is confirmed.
+`lms_login` is **live in source as of Apr 27, 2026** (Alpesh confirmed). Source: `daas-cdw-dev.rpt_ai_solutions.wldn_r2c_student_activity_log`. Initial mirror to dev + QA on Apr 27 captured 5,423 rows alongside 4,082 existing `wwow_login` rows. Engagement consumers should now read `lms_login` directly; the `wwow_login` + `logged_into_course` fallback in §13.4 rule 4 is no longer required.
 
 ---
 
