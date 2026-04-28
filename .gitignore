@@ -43,3 +43,21 @@ Thumbs.db
 
 # Adtalem BQ credentials (do NOT commit)
 .adtalem_credentials.json
+
+# Local-only context-building artifacts (NEVER commit)
+# Workspace memory, daily logs, exports, transcripts, screenshots,
+# and ad-hoc audit/probe outputs. For our tracking only.
+context/
+screeshots/
+image/
+transcripts/
+older/
+april/
+python-agent/sync_*.log
+python-agent/query_outputs/
+
+# Local-only (additional)
+timeline/
+firestore-debug.log
+*.log
+python-agent/__pycache__/
