@@ -92,6 +92,8 @@ COLUMNS = [
     # FAFSA fields (v17.7)
     "fafsa_interest_in_federal_aid",
     "fafsa_intend_to_fund",
+    # FAFSA submission flag (v17.8 — confirmed live in source Apr 24, 2026)
+    "fafsa_submission_flag",
 ]
 
 # Explicitly excluded: dw_etl_chg_hash, etl_created_at (internal DE use only)
@@ -133,6 +135,7 @@ DEST_SCHEMA = [
     bigquery.SchemaField("contingency_status", "STRING"),
     bigquery.SchemaField("fafsa_interest_in_federal_aid", "STRING"),
     bigquery.SchemaField("fafsa_intend_to_fund", "STRING"),
+    bigquery.SchemaField("fafsa_submission_flag", "BOOLEAN"),
     bigquery.SchemaField("_mirrored_at", "TIMESTAMP"),
 ]
 # ── DDL for destination table ───────────────────────────────────────────
@@ -170,9 +173,16 @@ CREATE TABLE IF NOT EXISTS `{DEST_FQN}` (
     contingency_status STRING,
     fafsa_interest_in_federal_aid STRING,
     fafsa_intend_to_fund STRING,
+    fafsa_submission_flag BOOLEAN,
     _mirrored_at TIMESTAMP
 )
 """
+
+# ALTER statements to bring an existing destination table up to current schema.
+# BQ supports ADD COLUMN IF NOT EXISTS — safe to run on every sync.
+DEST_ALTERS = [
+    f"ALTER TABLE `{DEST_FQN}` ADD COLUMN IF NOT EXISTS fafsa_submission_flag BOOLEAN",
+]
 
 # Path to Adtalem credentials for writing to dest project
 ADTALEM_CREDS_PATH = os.path.join(
@@ -230,6 +240,9 @@ def ensure_dest_table(dest_client: bigquery.Client):
     print(f"[Mirror] Ensuring destination table {DEST_FQN}")
     job = dest_client.query(DEST_DDL)
     job.result()
+    for alter_sql in DEST_ALTERS:
+        print(f"[Mirror] {alter_sql}")
+        dest_client.query(alter_sql).result()
     print("[Mirror] Destination table ready.")
 
 
