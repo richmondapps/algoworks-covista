@@ -43,3 +43,7 @@ Thumbs.db
 
 # Adtalem BQ credentials (do NOT commit)
 .adtalem_credentials.json
+
+# Local workspace memory (daily notes, master, transcripts — keep local)
+context/**
+!context/README.md

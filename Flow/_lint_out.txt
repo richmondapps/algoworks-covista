@@ -1,0 +1,79 @@
+﻿python : Traceback (most recent call last):
+At line:1 char:1
++ python C:\covista\main\Flow\_lint_validation_queries.py 2>&1 | Out-Fi ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\neosu\AppData\Local\Programs\Python\Python310\lib\site-package
+s\sqlglot\tokenizer_core.py", line 668, in tokenize
+
+=== validation_queries_pubsub_pipeline.md ù 16 SQL block(s) ===
+
+[ OK ] 1. Row-count parity (CDW vs `_stream` vs post-MERGE)     WITH src AS (
+[ OK ] 2. Hash-based CDC drift (silent column drift detection)  WITH src AS (
+[ OK ] Inspect a single mismatched emplid                       SELECT 'CDW' AS src, * FROM `{{CDW_PROJECT}}.rpt_ai_solution
+[ OK ] 3. Freshness lag (15-min cadence SLA)                    SELECT
+[ OK ] Multi-table freshness in one shot                        SELECT 'student_profile' AS tbl, TIMESTAMP_DIFF(CURRENT_TIME
+[ OK ] 4. Ghost rows (in landing but not in CDW source)         SELECT
+[ OK ] Cleanup query (USE WITH CARE ù run only after confirming ghosts are intentional)  -- Preview first; do NOT run until confirmed
+[ OK ] 5. V18 nullability (required fields populated)           SELECT
+[ OK ] Identify which emplids have null SF IDs                  SELECT emplid, salesforce_account_id, salesforce_opportunity
+[ OK ] V18.1 ù Hash drift (activity_log side for SF IDs)        -- Run query 2 above without the salesforce_* columns; add t
+[ OK ] V18.1 ù Nullability check (activity_log)                 SELECT
+[ OK ] 7. One-shot health check (run all 5 in sequence)         WITH
+[ OK ] 11.1 Direct CDW vs target row-count parity               WITH src AS (
+[ OK ] 11.2 Direct hash-CDC drift (same as º2 but skip `_stream`)  WITH src AS (
+[ OK ] 11.3 Run-recency check (when did the manual sync last touch the table?)  SELECT
+[ OK ] 11.4 Manual-sync one-shot health check                   WITH parity AS (
+
+=== validation_queries_sf_prod_qa.md ù 11 SQL block(s) ===
+
+    self._scan()
+  File "C:\Users\neosu\AppData\Local\Programs\Python\Python310\lib\site-package
+s\sqlglot\tokenizer_core.py", line 702, in _scan
+    self._scan_identifier(identifiers[self._char])
+  File "C:\Users\neosu\AppData\Local\Programs\Python\Python310\lib\site-package
+s\sqlglot\tokenizer_core.py", line 1097, in _scan_identifier
+    text = self._extract_string(
+  File "C:\Users\neosu\AppData\Local\Programs\Python\Python310\lib\site-package
+s\sqlglot\tokenizer_core.py", line 1201, in _extract_string
+    raise TokenError(f"Missing {delimiter} from {self._line}:{self._start}")
+sqlglot.errors.TokenError: Missing ` from 16:650
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\covista\main\Flow\_lint_validation_queries.py", line 64, in main
+    sqlglot.parse(sql, read="bigquery")
+  File "C:\Users\neosu\AppData\Local\Programs\Python\Python310\lib\site-package
+s\sqlglot\__init__.py", line 110, in parse
+    return Dialect.get_or_raise(read or dialect).parse(sql, **opts)
+  File "C:\Users\neosu\AppData\Local\Programs\Python\Python310\lib\site-package
+s\sqlglot\dialects\dialect.py", line 1119, in parse
+    return self.parser(**opts).parse(self.tokenize(sql), sql)
+  File "C:\Users\neosu\AppData\Local\Programs\Python\Python310\lib\site-package
+s\sqlglot\dialects\dialect.py", line 1138, in tokenize
+    return self.tokenizer(dialect=dialect).tokenize(sql)
+  File "C:\Users\neosu\AppData\Local\Programs\Python\Python310\lib\site-package
+s\sqlglot\tokens.py", line 596, in tokenize
+    return self._core.tokenize(sql)  # type: ignore
+  File "C:\Users\neosu\AppData\Local\Programs\Python\Python310\lib\site-package
+s\sqlglot\tokenizer_core.py", line 673, in tokenize
+    raise TokenError(f"Error tokenizing '{context}'") from e
+sqlglot.errors.TokenError: Error tokenizing '-count parity: SF Opportunity 
+\u2192 prod activity log'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\covista\main\Flow\_lint_validation_queries.py", line 80, in <module>
+    sys.exit(main())
+  File "C:\covista\main\Flow\_lint_validation_queries.py", line 72, in main
+    print(f"[FAIL] {name:55s}  {head}")
+  File "C:\Users\neosu\AppData\Local\Programs\Python\Python310\lib\encodings\cp
+1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in 
+position 44: character maps to <undefined>
